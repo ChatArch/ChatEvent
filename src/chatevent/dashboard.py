@@ -1,5 +1,61 @@
 """Self-contained local dashboard for the ChatEvent Observatory."""
 
+LOGIN_HTML = r"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChatEvent Login</title>
+  <style>
+    :root { color-scheme: dark; --bg: #080a0d; --card: rgba(18,22,29,.86); --line: rgba(255,255,255,.1); --text: #f6f8fb; --muted: #9aa4b4; --accent: #b9ff66; --danger: #ff7272; font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; color: var(--text); background: radial-gradient(circle at 15% 10%, rgba(185,255,102,.14), transparent 30%), radial-gradient(circle at 90% 20%, rgba(119,184,255,.13), transparent 34%), var(--bg); }
+    .login-card { width: min(440px, 100%); padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: var(--card); box-shadow: 0 40px 100px rgba(0,0,0,.45); }
+    .eyebrow { color: var(--accent); font: 700 12px/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 10px 0 8px; font-size: clamp(30px, 8vw, 46px); letter-spacing: -.05em; }
+    p { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
+    label { display: block; color: var(--muted); font-size: 12px; }
+    input { width: 100%; height: 44px; margin-top: 7px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: #10151d; outline: none; font: 13px ui-monospace, SFMono-Regular, monospace; }
+    input:focus { border-color: rgba(185,255,102,.6); box-shadow: 0 0 0 3px rgba(185,255,102,.1); }
+    button { width: 100%; height: 44px; margin-top: 14px; border: 0; border-radius: 12px; color: #10150b; background: var(--accent); font-weight: 760; cursor: pointer; }
+    .links { display: flex; gap: 10px; margin-top: 16px; }
+    a { color: var(--muted); text-decoration: none; font-size: 12px; }
+    a:hover { color: var(--accent); }
+    .error { min-height: 18px; margin-top: 10px; color: var(--danger); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <div class="eyebrow">ChatEvent / Login</div>
+    <h1>登录 Observatory</h1>
+    <p>登录后才能查看事件流、订阅和用户管理。请输入管理员或成员的 <code>arch_xxx</code> 令牌。</p>
+    <form id="loginForm">
+      <label>登录令牌<input id="tokenInput" name="token" placeholder="arch_xxx" autocomplete="off" spellcheck="false" autofocus /></label>
+      <button type="submit">进入 Observatory</button>
+      <div class="error" id="loginError"></div>
+    </form>
+    <div class="links">
+      <a href="https://github.com/ChatArch/ChatEvent" target="_blank" rel="noreferrer">GitHub</a>
+      <a href="https://arch.gh.wzhecnu.cn/ChatEvent/" target="_blank" rel="noreferrer">Docs</a>
+    </div>
+  </main>
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const token = document.getElementById("tokenInput").value.trim();
+      const error = document.getElementById("loginError");
+      if (!token) { error.textContent = "请输入登录令牌。"; return; }
+      try {
+        const response = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token})});
+        if (!response.ok) throw new Error((await response.json()).detail || "login failed");
+        sessionStorage.setItem("chateventAdminToken", token);
+        window.location.reload();
+      } catch (err) { error.textContent = `登录失败：${err.message}`; }
+    });
+  </script>
+</body>
+</html>"""
+
 DASHBOARD_HTML = r"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -215,7 +271,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1.5A2.5 2.5 0 0 1 5.5 4v10.5A2.5 2.5 0 0 0 3 12H2V1.5h1Zm10 0h1V12h-1a2.5 2.5 0 0 0-2.5 2.5V4A2.5 2.5 0 0 1 13 1.5ZM5.5 2A1.5 1.5 0 0 0 4 3.5v7.3c.6.2 1.1.6 1.5 1.1V2Zm5 0v9.9c.4-.5.9-.9 1.5-1.1V3.5A1.5 1.5 0 0 0 10.5 2Z"/></svg>
           Docs
         </a>
-        <button class="button theme-toggle" id="themeToggle" type="button" aria-pressed="false">黑白</button>
+        <button class="button theme-toggle" id="themeToggle" type="button" aria-pressed="false" aria-label="切换到日间模式">☾ 夜间</button>
         <div class="live" id="liveStatus">本地事件流 · 5 秒刷新</div>
       </div>
     </header>
@@ -390,7 +446,8 @@ DASHBOARD_HTML = r"""<!doctype html>
       document.documentElement.dataset.theme = normalized;
       localStorage.setItem("chateventTheme", normalized);
       $("themeToggle").setAttribute("aria-pressed", String(normalized === "light"));
-      $("themeToggle").textContent = normalized === "light" ? "白底" : "黑底";
+      $("themeToggle").setAttribute("aria-label", normalized === "light" ? "切换到夜间模式" : "切换到日间模式");
+      $("themeToggle").textContent = normalized === "light" ? "☀ 日间" : "☾ 夜间";
     }
     function toggleTheme() {
       applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
@@ -451,6 +508,16 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
     async function validateAdminToken(token) {
       const session = await api("/api/session", {headers: adminAuthHeaders(token)});
+      renderSessionStatus(session);
+      return session;
+    }
+    async function loginWithAdminToken(token) {
+      const session = await api("/api/login", {method: "POST", body: JSON.stringify({token})});
+      renderSessionStatus(session);
+      return session;
+    }
+    async function logoutAdminToken() {
+      const session = await api("/api/logout", {method: "POST"});
       renderSessionStatus(session);
       return session;
     }
@@ -896,7 +963,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         return;
       }
       try {
-        const session = await validateAdminToken(token);
+        const session = token ? await loginWithAdminToken(token) : await logoutAdminToken();
         if (session.admin_required && !session.authenticated) {
           $("adminTokenStatus").textContent = "登录失败：服务端未接受该令牌。";
           return;
@@ -910,9 +977,10 @@ DASHBOARD_HTML = r"""<!doctype html>
     });
     $("clearAdminToken").addEventListener("click", async () => {
       setAdminToken("");
+      await logoutAdminToken();
       $("generatedAdminToken").value = "";
       $("adminTokenStatus").textContent = "当前 session 令牌已清空。";
-      await loadAll();
+      window.location.reload();
     });
     $("closeAdminToken").addEventListener("click", () => $("adminTokenDialog").close());
     $("addSubscription").addEventListener("click", () => openSubscriptionDialog());

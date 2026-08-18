@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import Cookie, FastAPI, Header, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -21,7 +21,7 @@ from .adapters import (
 )
 from .auth import UserRecord, UserRole, generate_arch_token, token_digest
 from .catalog import PlatformSpec, list_platform_specs
-from .dashboard import DASHBOARD_HTML
+from .dashboard import DASHBOARD_HTML, LOGIN_HTML
 from .model import CaptureMode, ChatEvent
 from .state import default_database_path, load_admin_token, state_paths
 from .store import EventStore, StoredEvent
@@ -84,6 +84,15 @@ class UserCreateResult(BaseModel):
     token: str
 
 
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+
+
+SESSION_COOKIE = "chatevent_session"
+
+
 def create_app(*, db_path: str | Path | None = None) -> FastAPI:
     store = EventStore(db_path or default_database_path())
     app = FastAPI(
@@ -105,25 +114,33 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
             role="admin",
         )
 
-    def resolve_identity(header_value: str | None) -> tuple[UserRecord | None, bool]:
-        if header_value:
-            if admin_token and secrets.compare_digest(header_value, admin_token):
+    def resolve_identity(
+        header_value: str | None, cookie_value: str | None = None
+    ) -> tuple[UserRecord | None, bool]:
+        for token in (header_value, cookie_value):
+            if not token:
+                continue
+            if admin_token and secrets.compare_digest(token, admin_token):
                 return bootstrap_admin(True), True
-            user = store.get_user_by_token_hash(token_digest(header_value))
+            user = store.get_user_by_token_hash(token_digest(token))
             if user is not None:
                 return user, False
         if not admin_required():
             return bootstrap_admin(False), False
         return None, False
 
-    def require_authenticated(header_value: str | None) -> UserRecord:
-        identity, _legacy = resolve_identity(header_value)
+    def require_authenticated(
+        header_value: str | None, cookie_value: str | None = None
+    ) -> UserRecord:
+        identity, _legacy = resolve_identity(header_value, cookie_value)
         if identity is None:
             raise HTTPException(status_code=401, detail="login required")
         return identity
 
-    def require_admin_token(header_value: str | None) -> UserRecord:
-        identity = require_authenticated(header_value)
+    def require_admin_token(
+        header_value: str | None, cookie_value: str | None = None
+    ) -> UserRecord:
+        identity = require_authenticated(header_value, cookie_value)
         if identity.role != "admin":
             raise HTTPException(status_code=403, detail="admin role required")
         return identity
@@ -136,8 +153,36 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         return subscription.owner_user_id == identity.id
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-    def dashboard() -> str:
+    def dashboard(
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> str:
+        if admin_required() and resolve_identity(None, chatevent_session)[0] is None:
+            return LOGIN_HTML
         return DASHBOARD_HTML
+
+    @app.post("/api/login", response_model=SessionStatus)
+    def login(payload: LoginRequest, response: Response) -> SessionStatus:
+        identity, legacy = resolve_identity(payload.token)
+        if identity is None:
+            raise HTTPException(status_code=401, detail="invalid login token")
+        response.set_cookie(
+            SESSION_COOKIE,
+            payload.token,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24,
+        )
+        return SessionStatus(
+            admin_required=admin_required(),
+            authenticated=True,
+            user=identity,
+            legacy_admin=legacy,
+        )
+
+    @app.post("/api/logout", response_model=SessionStatus)
+    def logout(response: Response) -> SessionStatus:
+        response.delete_cookie(SESSION_COOKIE)
+        return SessionStatus(admin_required=admin_required(), authenticated=False)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
@@ -154,8 +199,9 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         x_chatevent_admin_token: str | None = Header(
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> SessionStatus:
-        identity, legacy = resolve_identity(x_chatevent_admin_token)
+        identity, legacy = resolve_identity(x_chatevent_admin_token, chatevent_session)
         return SessionStatus(
             admin_required=admin_required(),
             authenticated=identity is not None,
@@ -168,8 +214,9 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         x_chatevent_admin_token: str | None = Header(
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> list[UserRecord]:
-        require_admin_token(x_chatevent_admin_token)
+        require_admin_token(x_chatevent_admin_token, chatevent_session)
         return store.list_users()
 
     @app.post("/api/users", response_model=UserCreateResult, status_code=201)
@@ -178,8 +225,9 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         x_chatevent_admin_token: str | None = Header(
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> UserCreateResult:
-        require_admin_token(x_chatevent_admin_token)
+        require_admin_token(x_chatevent_admin_token, chatevent_session)
         token = generate_arch_token()
         user = store.save_user(
             UserRecord(
@@ -198,23 +246,42 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         x_chatevent_admin_token: str | None = Header(
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> DeleteResult:
-        require_admin_token(x_chatevent_admin_token)
+        require_admin_token(x_chatevent_admin_token, chatevent_session)
         deleted = store.delete_user(user_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="user not found")
         return DeleteResult(deleted=True, id=user_id)
 
     @app.get("/api/schema/event")
-    def event_schema() -> dict[str, Any]:
+    def event_schema(
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> dict[str, Any]:
+        require_authenticated(x_chatevent_admin_token, chatevent_session)
         return ChatEvent.model_json_schema()
 
     @app.get("/api/schema/subscription")
-    def subscription_schema() -> dict[str, Any]:
+    def subscription_schema(
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> dict[str, Any]:
+        require_authenticated(x_chatevent_admin_token, chatevent_session)
         return Subscription.model_json_schema()
 
     @app.get("/api/platforms", response_model=PlatformPage)
-    def list_platforms() -> PlatformPage:
+    def list_platforms(
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> PlatformPage:
+        require_authenticated(x_chatevent_admin_token, chatevent_session)
         items = list(list_platform_specs())
         return PlatformPage(items=items, count=len(items))
 
@@ -224,8 +291,9 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         x_chatevent_admin_token: str | None = Header(
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> Subscription:
-        identity = require_authenticated(x_chatevent_admin_token)
+        identity = require_authenticated(x_chatevent_admin_token, chatevent_session)
         if identity.role != "admin":
             existing = store.get_subscription(subscription.id)
             if existing is not None and existing.owner_user_id != identity.id:
@@ -239,8 +307,9 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         x_chatevent_admin_token: str | None = Header(
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> list[Subscription]:
-        identity, _legacy = resolve_identity(x_chatevent_admin_token)
+        identity = require_authenticated(x_chatevent_admin_token, chatevent_session)
         items = store.list_subscriptions(enabled=enabled)
         return [item for item in items if can_read_subscription(item, identity)]
 
@@ -250,11 +319,11 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         x_chatevent_admin_token: str | None = Header(
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> Subscription:
+        identity = require_authenticated(x_chatevent_admin_token, chatevent_session)
         subscription = store.get_subscription(subscription_id)
-        if subscription is None or not can_read_subscription(
-            subscription, resolve_identity(x_chatevent_admin_token)[0]
-        ):
+        if subscription is None or not can_read_subscription(subscription, identity):
             raise HTTPException(status_code=404, detail="subscription not found")
         return subscription
 
@@ -264,8 +333,9 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         x_chatevent_admin_token: str | None = Header(
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> DeleteResult:
-        identity = require_authenticated(x_chatevent_admin_token)
+        identity = require_authenticated(x_chatevent_admin_token, chatevent_session)
         existing = store.get_subscription(subscription_id)
         if existing is None:
             raise HTTPException(status_code=404, detail="subscription not found")
@@ -366,7 +436,12 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         to: datetime | None = None,
         days: Annotated[float | None, Query(gt=0, le=365)] = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 100,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> EventPage:
+        require_authenticated(x_chatevent_admin_token, chatevent_session)
         if since is not None and (since.tzinfo is None or since.utcoffset() is None):
             raise HTTPException(
                 status_code=422,
@@ -410,14 +485,27 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         )
 
     @app.get("/api/events/{dedupe_key:path}", response_model=StoredEvent)
-    def get_event(dedupe_key: str) -> StoredEvent:
+    def get_event(
+        dedupe_key: str,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> StoredEvent:
+        require_authenticated(x_chatevent_admin_token, chatevent_session)
         event = store.get_event(dedupe_key)
         if event is None:
             raise HTTPException(status_code=404, detail="event not found")
         return event
 
     @app.get("/api/stats")
-    def stats() -> dict[str, Any]:
+    def stats(
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> dict[str, Any]:
+        require_authenticated(x_chatevent_admin_token, chatevent_session)
         return store.stats()
 
     return app

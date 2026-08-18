@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.1.4 - 2026-08-19
+
+- 新增登录页 gate：配置管理员 token 或用户后，未登录访问 `/` 只显示登录页，不能直接进入 Observatory。
+- 新增 `/api/login` / `/api/logout` cookie 登录流程；`/api/stats`、`/api/events`、schema、platforms、subscriptions 等读取 API 在需要登录时会返回 401。
+- 主题切换按钮从“黑底/白底”改为“☾ 夜间 / ☀ 日间”。
+
 ## 0.1.3 - 2026-08-19
 
 - 修复来源联动高级事件类型列表：现在会合并平台 action catalog 与当前已观察到的该来源事件类型。

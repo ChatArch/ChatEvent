@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+- Added a login-page gate: once an admin token or users exist, unauthenticated visits to `/` see only the login page and cannot enter the Observatory.
+- Added `/api/login` / `/api/logout` cookie login; read APIs return 401 when login is required.
+- Replaced the theme button wording with `☾ Night / ☀ Day` semantics instead of black/white labels.
+
 ## 0.1.3
 
 - Advanced action-kind options now merge the platform action catalog with observed event kinds for the selected source.

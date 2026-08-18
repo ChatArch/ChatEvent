@@ -56,7 +56,7 @@ class CliTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(captured.exception.code, 0)
-        self.assertIn("chatevent 0.1.3", stdout.getvalue())
+        self.assertIn("chatevent 0.1.4", stdout.getvalue())
 
     def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
         requests = []
