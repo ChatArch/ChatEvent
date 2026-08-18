@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chatevent"
+version = "0.0.1"
+authors = [
+    {name = "Rex Wang", email = "1073853456@qq.com"},
+]
+description = "Normalized events and async capture interfaces for collaboration platforms"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["agent", "event", "webhook", "zulip", "discourse", "gitea"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Communications",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+chatevent = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
