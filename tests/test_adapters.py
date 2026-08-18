@@ -48,14 +48,14 @@ class AdapterNormalizationTests(unittest.TestCase):
         self.assertIn("zulip", event.tags)
         self.assertEqual(event.occurred_at.tzinfo, timezone.utc)
 
-    def test_discourse_post_normalizes_webhook_payload(self) -> None:
+    def test_discourse_topic_post_normalizes_webhook_payload(self) -> None:
         event = normalize_discourse_post(
             {
                 "event_name": "post_created",
                 "post": {
                     "id": 25,
                     "topic_id": 18,
-                    "post_number": 2,
+                    "post_number": 1,
                     "username": "RexWang",
                     "created_at": "2026-08-05T02:59:00Z",
                     "topic_slug": "chatevent-discourse-practice",
@@ -76,10 +76,34 @@ class AdapterNormalizationTests(unittest.TestCase):
         self.assertEqual(event.subject_id, "post:25")
         self.assertEqual(event.subject_type, "post")
         self.assertEqual(event.cursor, "25")
-        self.assertEqual(event.url, "https://discourse.public.lookeng.cn/t/chatevent-discourse-practice/18/2")
+        self.assertEqual(event.url, "https://discourse.public.lookeng.cn/t/chatevent-discourse-practice/18/1")
         self.assertEqual(event.payload["title"], "ChatEvent Discourse practice")
         self.assertEqual(event.payload["content"], "hello from Discourse")
         self.assertEqual(event.metadata["acquisition"], "discourse-webhook")
+
+    def test_discourse_reply_created_is_distinct_from_topic_post(self) -> None:
+        event = normalize_discourse_post(
+            {
+                "event_name": "post_created",
+                "post": {
+                    "id": 26,
+                    "topic_id": 18,
+                    "post_number": 2,
+                    "username": "RexWang",
+                    "created_at": "2026-08-05T03:00:00Z",
+                    "topic_slug": "chatevent-discourse-practice",
+                    "topic_title": "ChatEvent Discourse practice",
+                    "raw": "reply from Discourse",
+                },
+            },
+            subscription_id="discourse-practice",
+            base_url="https://discourse.public.lookeng.cn",
+        )
+
+        self.assertEqual(event.kind, "reply.created")
+        self.assertEqual(event.subject_id, "post:26")
+        self.assertEqual(event.conversation_id, "topic:18")
+        self.assertEqual(event.url, "https://discourse.public.lookeng.cn/t/chatevent-discourse-practice/18/2")
 
     def test_gitea_issue_normalizes_issue_api_payload(self) -> None:
         event = normalize_gitea_issue(

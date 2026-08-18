@@ -138,7 +138,13 @@ def normalize_zulip_message_event(
     )
 
 
-def _discourse_kind(event_name: str | None) -> str:
+def _discourse_kind(event_name: str | None, post_number: str | None = None) -> str:
+    if event_name == "post_created":
+        try:
+            if post_number is not None and int(post_number) > 1:
+                return "reply.created"
+        except ValueError:
+            pass
     mapping = {
         "post_created": "post.created",
         "post_edited": "post.edited",
@@ -192,7 +198,7 @@ def normalize_discourse_post(
     return ChatEvent(
         id=f"post:{post_id}",
         source="discourse",
-        kind=_discourse_kind(event_name),
+        kind=_discourse_kind(event_name, post_number),
         occurred_at=_parse_datetime(created_at),
         capture_mode=capture_mode,
         subscription_id=subscription_id,

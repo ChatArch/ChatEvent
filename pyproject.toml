@@ -27,6 +27,18 @@ dependencies = ["pydantic>=2.7,<3"]
 [project.optional-dependencies]
 serve = ["fastapi>=0.115", "uvicorn>=0.30"]
 test = ["httpx>=0.27", "pytest>=8"]
+docs = [
+    "mkdocs>=1.6,<2.0",
+    "mkdocs-material>=9.5,<10.0",
+    "mkdocs-static-i18n>=1.2,<2.0",
+    "mike>=2.0,<3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ChatArch/ChatEvent"
+Documentation = "https://arch.gh.wzhecnu.cn/ChatEvent/"
+Source = "https://github.com/ChatArch/ChatEvent"
+Issues = "https://github.com/ChatArch/ChatEvent/issues"
 
 [project.scripts]
 chatevent = "chatevent.cli:main"

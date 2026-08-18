@@ -1,0 +1,63 @@
+site_name: ChatEvent 文档
+site_description: ChatArch collaboration event capture and observatory toolkit
+site_url: https://arch.gh.wzhecnu.cn/ChatEvent/
+repo_url: https://github.com/ChatArch/ChatEvent
+repo_name: ChatArch/ChatEvent
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - content.code.copy
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: zh
+          default: true
+          name: 中文
+          build: true
+          site_name: ChatEvent 文档
+        - locale: en
+          name: English
+          build: true
+          site_name: ChatEvent Documentation
+          nav_translations:
+            首页: Home
+            快速开始: Quick Start
+            注册监控: Register Monitors
+            平台与事件: Platforms and Events
+            接口参考: Reference
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  alternate:
+    - name: 中文
+      link: /ChatEvent/
+      lang: zh
+    - name: English
+      link: /ChatEvent/en/
+      lang: en
+
+nav:
+  - 首页: index.md
+  - 快速开始: quickstart.md
+  - 注册监控: monitoring.md
+  - 平台与事件: platform-actions.md
+  - 接口参考: reference.md

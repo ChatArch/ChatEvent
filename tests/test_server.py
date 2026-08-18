@@ -108,6 +108,20 @@ class ServerTests(unittest.TestCase):
                     },
                 },
             )
+            discourse_header_event = client.post(
+                "/webhooks/discourse",
+                headers={"X-Discourse-Event": "post_created"},
+                json={
+                    "post": {
+                        "id": 26,
+                        "topic_id": 18,
+                        "post_number": 2,
+                        "username": "RexWang",
+                        "created_at": "2026-08-05T03:00:00Z",
+                        "raw": "official header reply from Discourse",
+                    },
+                },
+            )
             gitea = client.post(
                 "/webhooks/gitea",
                 json={
@@ -148,15 +162,19 @@ class ServerTests(unittest.TestCase):
 
             self.assertEqual(zulip.status_code, 202)
             self.assertEqual(discourse.status_code, 202)
+            self.assertEqual(discourse_header_event.status_code, 202)
             self.assertEqual(gitea.status_code, 202)
             self.assertEqual(github.status_code, 202)
             self.assertEqual(ping.status_code, 202)
             self.assertFalse(ping.json()["created"])
+            discourse_events = client.get("/api/events", params={"source": "discourse"}).json()
+            discourse_kinds = {item["event"]["id"]: item["event"]["kind"] for item in discourse_events["items"]}
+            self.assertEqual(discourse_kinds["post:26"], "reply.created")
             stats = client.get("/api/stats").json()
-            self.assertEqual(stats["event_count"], 4)
+            self.assertEqual(stats["event_count"], 5)
             self.assertEqual(
                 stats["sources"],
-                {"discourse": 1, "gitea": 1, "github": 1, "zulip": 1},
+                {"discourse": 2, "gitea": 1, "github": 1, "zulip": 1},
             )
 
     def test_webhook_subscription_id_updates_subscription_cursor(self) -> None:

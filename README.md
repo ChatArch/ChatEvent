@@ -1,51 +1,40 @@
 # ChatEvent
 
-`chatevent` provides a typed event envelope, SQLite event store, platform normalizers, and a Web Observatory for collaboration-event demos.
+`chatevent` 是 ChatArch 的协作事件观察包：提供类型化事件 envelope、SQLite 事件账本、平台 normalizer 和 Web Observatory，用于观察 Discourse、Zulip、Gitea、GitHub 等协作平台的真实动作。
 
-Current `0.1.0.dev0` scope is intentionally narrow and task-oriented: **Discourse, Zulip, Gitea, and GitHub**. Each platform registers an explicit action catalog so subscription/UI choices stay controllable instead of treating arbitrary `tag` values as event semantics.
+当前 `0.1.0.dev0` 范围刻意收窄到 **Discourse、Zulip、Gitea、GitHub**。每个平台都有明确 action catalog，订阅和 UI 不再把任意 `tag` 当成事件语义。
 
 ```text
-platform official webhook/event queue/API cursor -> ChatEvent -> SQLite -> Observatory/API
+平台官方 webhook / event queue / API cursor -> ChatEvent -> SQLite -> Observatory / API
 ```
 
-Gateway routing and agent execution are intentionally outside this package's current phase.
+Gateway 路由和 Agent 执行不在当前包的阶段范围内。
 
-## Event semantics
+英文版见 [README.en.md](README.en.md)。
 
-Use these fields for product meaning:
+## 文档
 
-- `source`: platform id, e.g. `zulip`, `discourse`, `gitea`, `github`.
-- `kind`: platform-specific action kind, e.g. `message.created`, `post.created`, `issue.opened`, `commit.pushed`, `pull_request.merged`.
-- `conversation_id` / `subject_id` / `subject_type`: where it happened and what object changed.
-- `capture_mode`: acquisition mechanism, not product action. New integrations use `webhook`, `event_queue`, `api_cursor`, `poll`, `manual_backfill`, `gateway_forward`, `test_fixture`, or `synthetic`. Legacy `push`/`pull` remain readable for old data only.
-- `tags`: optional labels/routing labels for filtering. They do **not** define the event source or action.
-
-## Supported platforms and common actions
-
-Inspect the canonical registry with:
+- MkDocs 源码：`docs/`
+- 本地构建：
 
 ```bash
-uv run chatevent platforms
-uv run chatevent platforms --json
+uv sync --extra docs
+uv run mkdocs build --strict
+uv run mkdocs serve
 ```
 
-| Platform | Primary acquisition | Common action kinds |
-|---|---|---|
-| Zulip | `event_queue`, `api_cursor` | `message.created`, `message.updated`, `reaction.added`, `reaction.removed`, `mention.created`, `topic.updated` |
-| Discourse | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
-| Gitea | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
-| GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.completed`, `release.published` |
+ChatArch 包文档目标地址：
 
-GitHub's first demo target is `repo:ChatArch/ChatEvent`, so ChatEvent can observe its own commits, pull requests, workflow runs, and releases.
+https://arch.gh.wzhecnu.cn/ChatEvent/
 
-## Install from source
+## 从源码安装
 
 ```bash
-uv sync --extra serve --extra test
+uv sync --extra serve --extra test --extra docs
 uv run --extra serve chatevent --tree
 ```
 
-PyPI `0.0.1` contains the initial event envelope and monitor protocol only. The Observatory and action registry are development-stage `0.1.0.dev0` work.
+PyPI 上的 `0.0.1` 只包含初始事件 envelope 和 monitor protocol。Observatory、平台 action registry 和 webhook/event queue 接入属于开发中的 `0.1.0.dev0`。
 
 ## CLI
 
@@ -60,7 +49,7 @@ chatevent
   capture zulip-once [options]   Official Zulip event-queue capture pass
 ```
 
-## Run the Event Observatory
+## 启动 Event Observatory
 
 ```bash
 uv run --extra serve chatevent serve \
@@ -69,32 +58,83 @@ uv run --extra serve chatevent serve \
   --db ./events.db
 ```
 
-For the current server demo, Nginx exposes the service at:
+打开：
+
+```text
+http://127.0.0.1:8765/
+```
+
+当前服务器 demo 入口：
 
 - https://event.local.wzhecnu.cn/
 - https://event.public.wzhecnu.cn/
 
-## Define a normalized event
+## 刷新机制
 
-```python
-from datetime import datetime, timezone
+Observatory 当前使用前端轮询，不是 WebSocket/SSE：
 
-from chatevent import CaptureMode, ChatEvent
+- 页面打开后立即加载一次；
+- 每 **5 秒** 自动刷新；
+- 点击 **刷新 / Refresh** 会立即手动刷新；
+- 搜索输入约 **260ms debounce** 后刷新；
+- 来源和事件类型筛选变化后立即刷新。
 
-event = ChatEvent(
-    id="issue:owner/repo:42",
-    source="gitea",
-    kind="issue.opened",
-    occurred_at=datetime.now(timezone.utc),
-    capture_mode=CaptureMode.WEBHOOK,
-    conversation_id="repo:owner/repo",
-    payload={"title": "Investigate event routing"},
-)
+每次刷新会请求 `/api/stats`、`/api/subscriptions`、`/api/events` 和 `/api/platforms`。
 
-assert event.dedupe_key == "gitea:issue:owner/repo:42"
+## 事件语义
+
+产品语义使用这些字段表达：
+
+- `source`：平台来源，例如 `zulip`、`discourse`、`gitea`、`github`。
+- `kind`：平台动作，例如 `message.created`、`post.created`、`reply.created`、`issue.opened`、`commit.pushed`、`pull_request.merged`。
+- `conversation_id` / `subject_id` / `subject_type`：动作发生在哪里、对象是什么。
+- `capture_mode`：捕获机制，不是业务动作。新接入使用 `webhook`、`event_queue`、`api_cursor`、`poll`、`manual_backfill`、`gateway_forward`、`test_fixture` 或 `synthetic`；旧数据里的 `push`/`pull` 仅兼容读取。
+- `tags`：筛选或路由标签，不定义平台来源或动作。
+
+## 支持平台与常见动作
+
+查看 canonical registry：
+
+```bash
+uv run chatevent platforms
+uv run chatevent platforms --json
 ```
 
-## API surface
+| 平台 | 首选捕获方式 | 常见 action kinds |
+|---|---|---|
+| Zulip | `event_queue`, `api_cursor` | `message.created`, `message.updated`, `reaction.added`, `reaction.removed`, `mention.created`, `topic.updated` |
+| Discourse | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
+| Gitea | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
+| GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.completed`, `release.published` |
+
+## 注册监控
+
+1. 先在 ChatEvent 保存订阅：
+
+```bash
+curl -k -X POST https://event.public.wzhecnu.cn/api/subscriptions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id": "discourse-practice",
+    "source": "discourse",
+    "target": "category:agent-runs",
+    "event_kinds": ["topic.created", "post.created", "reply.created"],
+    "capture_modes": ["webhook", "api_cursor"]
+  }'
+```
+
+2. 再把平台官方捕获面指向 ChatEvent：
+
+```text
+Discourse: https://event.public.wzhecnu.cn/webhooks/discourse?subscription_id=discourse-practice
+Gitea:     https://event.public.wzhecnu.cn/webhooks/gitea?subscription_id=gitea-practice
+GitHub:    https://event.public.wzhecnu.cn/webhooks/github?subscription_id=github-chatevent
+Zulip:     用 `chatevent capture zulip-once` 做官方 event queue bounded capture pass
+```
+
+详细步骤见 `docs/monitoring.md`。
+
+## API 表面
 
 - `GET /api/health`
 - `GET /api/schema/event`
@@ -107,46 +147,8 @@ assert event.dedupe_key == "gitea:issue:owner/repo:42"
 - `GET /api/events/{source:id}`
 - `GET /api/stats`
 - `POST /webhooks/zulip?subscription_id=...`
-- `POST /webhooks/discourse?subscription_id=...`
+- `POST /webhooks/discourse?subscription_id=...`，读取 `X-Discourse-Event`
 - `POST /webhooks/gitea?subscription_id=...`
-- `POST /webhooks/github?subscription_id=...` with `X-GitHub-Event`
+- `POST /webhooks/github?subscription_id=...`，读取 `X-GitHub-Event`
 
-Webhook endpoints accept official platform-shaped payloads, normalize them to `ChatEvent`, write SQLite with idempotent dedupe, and keep `raw_payload` for Observatory inspection.
-
-## Capture examples
-
-Zulip uses the official event queue. Existing secret files are referenced by path without copying or printing secrets:
-
-```bash
-uv run --extra serve chatevent capture zulip-once \
-  --env-file /path/to/zulip.env \
-  --db /path/to/events.db \
-  --stream "Prompting, skills, and agent tools" \
-  --topic "ChatEvent Observatory demo" \
-  --content "ChatEvent real-loop" \
-  --subscription-id zulip-practice
-```
-
-Discourse, Gitea, and GitHub can push official webhook-shaped payloads to their webhook endpoints. REST/API reads are used only for bounded object readback or cursor reconciliation; do not scan whole sites, all posts, or all repositories.
-
-## Implement a monitor
-
-An adapter exposes an asynchronous stream. It may receive webhooks, consume an official event queue, or read a bounded platform API cursor.
-
-```python
-from collections.abc import AsyncIterator
-
-from chatevent import CaptureMode, ChatEvent, EventMonitor
-
-
-class GiteaMonitor:
-    source = "gitea"
-    mode = CaptureMode.API_CURSOR
-
-    async def events(self, *, cursor: str | None = None) -> AsyncIterator[ChatEvent]:
-        if False:  # Replace with bounded incremental API reads.
-            yield
-
-
-monitor: EventMonitor = GiteaMonitor()
-```
+Webhook endpoint 接收官方平台形状 payload，规范化为 `ChatEvent`，幂等写入 SQLite，并保留清洗后的 `raw_payload` 供 Observatory 调试。

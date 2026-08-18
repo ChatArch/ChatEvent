@@ -126,8 +126,12 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/webhooks/discourse", response_model=EventWriteResult, status_code=202)
     def record_discourse_webhook(
-        payload: dict[str, Any], subscription_id: str | None = None
+        payload: dict[str, Any],
+        subscription_id: str | None = None,
+        x_discourse_event: str | None = Header(default=None, alias="X-Discourse-Event"),
     ) -> EventWriteResult:
+        if x_discourse_event and not (payload.get("event_name") or payload.get("discourse_event")):
+            payload = {**payload, "event_name": x_discourse_event}
         try:
             event = normalize_discourse_post(
                 payload,
