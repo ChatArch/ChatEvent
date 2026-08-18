@@ -56,6 +56,7 @@ chatevent
   api event DEDUPE_KEY           GET /api/events/{dedupe_key}
   api record-json FILE           POST /api/events
   api save-subscription FILE     POST /api/subscriptions
+  api delete-subscription ID     DELETE /api/subscriptions/{id}
   capture zulip-once [options]   Official Zulip event-queue capture pass
 ```
 
@@ -78,6 +79,21 @@ For the current server demo, nginx exposes the service at:
 
 - https://event.local.wzhecnu.cn/
 - https://event.public.wzhecnu.cn/
+
+## Configuration and storage location
+
+ChatEvent writes the runtime event ledger to SQLite. The database path comes from `--db` or `CHATEVENT_DB`; when neither is set, it uses `~/.chatevent/events.db`. The current online demo database is:
+
+```text
+/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db
+```
+
+The SQLite database mainly contains:
+
+- `subscriptions`: subscription configuration and state. `body` stores the full `Subscription` JSON, including updates such as `last_cursor` and `last_event_at`.
+- `events`: normalized `ChatEvent` records. `body` stores the full event JSON, while indexed columns keep source, kind, subscription_id, captured_at, and seen_count.
+
+Platform-side webhook registration, Zulip secret files, nginx upstreams, and runtime ports are deployment/platform configuration, not SQLite records. Credentials are not written into project files.
 
 ## Refresh behavior
 
@@ -152,6 +168,7 @@ See `docs/monitoring.md` for detailed registration steps.
 - `GET /api/platforms`
 - `POST /api/subscriptions`
 - `GET /api/subscriptions`
+- `DELETE /api/subscriptions/{id}`
 - `POST /api/events`
 - `GET /api/events`, with `source`, `kind`, `subscription_id`, `q`, `since`, `days`, `from`, `to`, and `limit` filters
 - `GET /api/events/{dedupe_key}`
@@ -178,6 +195,7 @@ The default base URL is `CHATEVENT_API_URL`, falling back to `http://127.0.0.1:8
 | `chatevent api record-json event.json` | `POST /api/events` | Write one normalized `ChatEvent` JSON document to the Event Hub. |
 | `chatevent api subscriptions` | `GET /api/subscriptions` | List subscriptions. |
 | `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` | Save a subscription through REST. |
+| `chatevent api delete-subscription <id>` | `DELETE /api/subscriptions/{id}` | Delete a subscription without deleting captured events. |
 
 Examples:
 
@@ -192,6 +210,18 @@ uv run chatevent api event \
   --base-url https://event.public.wzhecnu.cn \
   'discourse:post:35'
 ```
+
+## Online editing and safety settings
+
+The Web Observatory `Subscriptions` tab supports creating, editing, enabling/disabling, and deleting subscriptions through the same REST API. If `CHATEVENT_ADMIN_TOKEN` is set, subscription mutation requests must include `X-ChatEvent-Admin-Token`; the web page prompts for the token after the first 401 response and stores it only in browser sessionStorage.
+
+```bash
+CHATEVENT_ADMIN_TOKEN=... uv run --extra serve chatevent serve --db ./events.db
+uv run chatevent api save-subscription subscription.json --admin-token ...
+uv run chatevent api delete-subscription discourse-practice --admin-token ...
+```
+
+Deleting a subscription only removes the `subscriptions` record. Already captured `events` remain in the ledger.
 
 ## Downstream consumption
 

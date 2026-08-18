@@ -26,6 +26,7 @@ TREE = """chatevent
   api event DEDUPE_KEY           GET /api/events/{dedupe_key}
   api record-json FILE           POST /api/events
   api save-subscription FILE     POST /api/subscriptions
+  api delete-subscription ID     DELETE /api/subscriptions/{id}
   capture zulip-once [options]   Official Zulip event-queue capture pass
 """
 
@@ -78,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="ChatEvent API base URL (default: CHATEVENT_API_URL or http://127.0.0.1:8765)",
     )
     api_common.add_argument("--timeout", type=float, default=20.0)
+    api_common.add_argument(
+        "--admin-token",
+        default=os.environ.get("CHATEVENT_ADMIN_TOKEN"),
+        help="admin token for subscription mutations; can also use CHATEVENT_ADMIN_TOKEN",
+    )
 
     api_subparsers.add_parser("health", parents=[api_common], help="GET /api/health")
     api_subparsers.add_parser("stats", parents=[api_common], help="GET /api/stats")
@@ -131,6 +137,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     api_save_subscription.add_argument("file", type=Path)
 
+    api_delete_subscription = api_subparsers.add_parser(
+        "delete-subscription", parents=[api_common], help="DELETE /api/subscriptions/{id}"
+    )
+    api_delete_subscription.add_argument("id")
+
     capture = subparsers.add_parser("capture", help="run one bounded official capture pass")
     capture_subparsers = capture.add_subparsers(dest="capture_command", required=True)
     zulip = capture_subparsers.add_parser(
@@ -174,7 +185,11 @@ def _optional_bool(value: str | None) -> bool | None:
 def _handle_api_command(args: argparse.Namespace) -> None:
     from .client import ChatEventApiClient, ChatEventApiError
 
-    client = ChatEventApiClient(base_url=args.base_url, timeout=args.timeout)
+    client = ChatEventApiClient(
+        base_url=args.base_url,
+        timeout=args.timeout,
+        admin_token=args.admin_token,
+    )
     try:
         if args.api_command == "health":
             result = client.health()
@@ -206,6 +221,8 @@ def _handle_api_command(args: argparse.Namespace) -> None:
             result = client.record_json(args.file)
         elif args.api_command == "save-subscription":
             result = client.save_subscription(args.file)
+        elif args.api_command == "delete-subscription":
+            result = client.delete_subscription(args.id)
         else:  # pragma: no cover - argparse prevents this branch
             raise SystemExit(f"unsupported api command: {args.api_command}")
     except ChatEventApiError as error:

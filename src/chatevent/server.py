@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any
@@ -48,6 +49,13 @@ class PlatformPage(BaseModel):
     count: int
 
 
+class DeleteResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    deleted: bool
+    id: str
+
+
 def default_database_path() -> Path:
     configured = os.environ.get("CHATEVENT_DB")
     if configured:
@@ -63,6 +71,13 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         description="Capture, normalize, inspect, and debug collaboration events.",
     )
     app.state.store = store
+    admin_token = os.environ.get("CHATEVENT_ADMIN_TOKEN")
+
+    def require_admin_token(header_value: str | None) -> None:
+        if not admin_token:
+            return
+        if header_value is None or not secrets.compare_digest(header_value, admin_token):
+            raise HTTPException(status_code=401, detail="admin token required")
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def dashboard() -> str:
@@ -86,7 +101,13 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         return PlatformPage(items=items, count=len(items))
 
     @app.post("/api/subscriptions", response_model=Subscription, status_code=201)
-    def save_subscription(subscription: Subscription) -> Subscription:
+    def save_subscription(
+        subscription: Subscription,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+    ) -> Subscription:
+        require_admin_token(x_chatevent_admin_token)
         return store.save_subscription(subscription)
 
     @app.get("/api/subscriptions", response_model=list[Subscription])
@@ -99,6 +120,19 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         if subscription is None:
             raise HTTPException(status_code=404, detail="subscription not found")
         return subscription
+
+    @app.delete("/api/subscriptions/{subscription_id}", response_model=DeleteResult)
+    def delete_subscription(
+        subscription_id: str,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+    ) -> DeleteResult:
+        require_admin_token(x_chatevent_admin_token)
+        deleted = store.delete_subscription(subscription_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="subscription not found")
+        return DeleteResult(deleted=True, id=subscription_id)
 
     @app.post("/api/events", response_model=EventWriteResult, status_code=202)
     def record_event(event: ChatEvent) -> EventWriteResult:

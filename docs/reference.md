@@ -20,6 +20,7 @@ chatevent
   api event DEDUPE_KEY           GET /api/events/{dedupe_key}
   api record-json FILE           POST /api/events
   api save-subscription FILE     POST /api/subscriptions
+  api delete-subscription ID     DELETE /api/subscriptions/{id}
   capture zulip-once [options]   Official Zulip event-queue capture pass
 ```
 
@@ -33,6 +34,7 @@ chatevent
 | `GET` | `/api/platforms` | 返回平台 action catalog。 |
 | `POST` | `/api/subscriptions` | 创建或更新订阅。 |
 | `GET` | `/api/subscriptions` | 列出订阅。 |
+| `DELETE` | `/api/subscriptions/{id}` | 删除订阅配置，不删除历史事件。 |
 | `POST` | `/api/events` | 写入一条已规范化 `ChatEvent`。 |
 | `GET` | `/api/events` | 查询事件流，可按 source、kind、subscription、关键词、`since` checkpoint、最近 N 天或日期区间筛选。 |
 | `GET` | `/api/events/{dedupe_key}` | 查询单条事件详情。 |
@@ -58,6 +60,7 @@ chatevent
 | `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` |
 | `chatevent api record-json event.json` | `POST /api/events` |
 | `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` |
+| `chatevent api delete-subscription <id>` | `DELETE /api/subscriptions/{id}` |
 
 
 ## 查询事件
@@ -97,3 +100,9 @@ source:id
 ```
 
 同一个事件重复投递时不会新增事件行，只会增加 `seen_count`，并在 `/api/stats` 的 `duplicate_count` 里体现。
+
+## 存储与线上编辑
+
+订阅配置和事件账本都在 SQLite 中：线上 demo 使用 `/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db`。`subscriptions.body` 保存完整 `Subscription` JSON，事件到达后 `last_cursor` / `last_event_at` 也会更新在订阅记录中；`events.body` 保存完整 `ChatEvent` JSON。
+
+Web Observatory 的 `Subscriptions` 标签页可以新建、编辑、启停和删除订阅。生产或公网环境建议设置 `CHATEVENT_ADMIN_TOKEN`，这样 `POST /api/subscriptions` 和 `DELETE /api/subscriptions/{id}` 需要 `X-ChatEvent-Admin-Token` header。

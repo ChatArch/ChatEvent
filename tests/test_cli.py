@@ -43,6 +43,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("capture zulip-once", tree)
         self.assertIn("api events [filters]", tree)
         self.assertIn("api event DEDUPE_KEY", tree)
+        self.assertIn("api save-subscription FILE", tree)
+        self.assertIn("api delete-subscription ID", tree)
 
     def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
         requests = []
@@ -126,6 +128,34 @@ class CliTests(unittest.TestCase):
             urlparse(request.full_url).path,
             "/api/events/github%3Acommit%3AChatArch%2FChatEvent%3Aabc123",
         )
+
+    def test_api_delete_subscription_cli_sends_admin_token(self) -> None:
+        requests = []
+
+        def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+            requests.append(request)
+            return FakeHttpResponse({"deleted": True, "id": "discourse-practice"})
+
+        stdout = io.StringIO()
+        with patch("urllib.request.urlopen", fake_urlopen), contextlib.redirect_stdout(stdout):
+            main(
+                [
+                    "api",
+                    "delete-subscription",
+                    "discourse-practice",
+                    "--base-url",
+                    "https://event.example.test",
+                    "--admin-token",
+                    "secret-token",
+                ]
+            )
+
+        result = json.loads(stdout.getvalue())
+        self.assertTrue(result["deleted"])
+        request = requests[0]
+        self.assertEqual(request.get_method(), "DELETE")
+        self.assertEqual(request.headers["X-chatevent-admin-token"], "secret-token")
+        self.assertEqual(urlparse(request.full_url).path, "/api/subscriptions/discourse-practice")
 
     def test_platforms_outputs_action_catalog(self) -> None:
         stdout = io.StringIO()

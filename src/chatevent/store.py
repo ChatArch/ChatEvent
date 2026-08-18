@@ -129,6 +129,13 @@ class EventStore:
             return None
         return Subscription.model_validate_json(row["body"])
 
+    def delete_subscription(self, subscription_id: str) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM subscriptions WHERE id = ?", (subscription_id,)
+            )
+        return cursor.rowcount > 0
+
     def record_event(self, event: ChatEvent) -> tuple[StoredEvent, bool]:
         captured_at = event.captured_at.isoformat()
         body = self._json(event)

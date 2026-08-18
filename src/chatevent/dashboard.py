@@ -64,12 +64,16 @@ DASHBOARD_HTML = r"""<!doctype html>
     .button { border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; color: var(--text); background: rgba(255,255,255,.04); }
     .button:hover { border-color: rgba(185,255,102,.45); background: var(--accent-soft); }
     .button.primary { color: #10150b; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+    .button.danger:hover { border-color: rgba(255,114,114,.55); background: rgba(255,114,114,.12); }
+    .button.small { padding: 6px 8px; border-radius: 8px; font-size: 11px; }
     .subscriptions { padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
     .subscription { padding: 14px; border-radius: 14px; border: 1px solid transparent; background: rgba(255,255,255,.025); }
     .subscription:hover { border-color: var(--line); }
     .subscription-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .subscription strong { font-size: 13px; }
     .subscription p { margin: 7px 0; color: #c8cfdb; font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
+    .subscription-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+    .subscription-meta { margin-top: 7px; color: var(--muted); font: 11px/1.45 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
     .chips { display: flex; flex-wrap: wrap; gap: 5px; }
     .chip { padding: 3px 7px; border-radius: 999px; font: 600 10px/1.4 ui-monospace, SFMono-Regular, monospace; color: var(--muted); background: rgba(255,255,255,.05); }
     .chip.webhook, .chip.event_queue, .chip.gateway_forward { color: var(--blue); background: rgba(119,184,255,.1); }
@@ -189,7 +193,10 @@ DASHBOARD_HTML = r"""<!doctype html>
       <section class="panel tab-panel" id="subscriptionsPanel" role="tabpanel" aria-labelledby="subscriptionsTab" hidden>
         <div class="panel-head">
           <div><h2>Subscriptions</h2><span>当前关注对象</span></div>
-          <button class="button" id="addSubscription">＋ 新建</button>
+          <div class="subscription-actions">
+            <button class="button" id="adminToken" type="button">管理令牌</button>
+            <button class="button" id="addSubscription" type="button">＋ 新建</button>
+          </div>
         </div>
         <div class="subscriptions" id="subscriptions"></div>
       </section>
@@ -217,10 +224,12 @@ DASHBOARD_HTML = r"""<!doctype html>
   <dialog id="subscriptionDialog">
     <form id="subscriptionForm">
       <div class="eyebrow">Observe a target</div>
-      <h2>新建订阅</h2>
+      <h2 id="subscriptionDialogTitle">新建订阅</h2>
       <div class="form-grid">
+        <label>订阅 ID<input class="control" name="subscriptionId" placeholder="discourse-practice" /></label>
         <label>显示名称<input class="control" name="label" placeholder="核心仓库 Issues" /></label>
         <label>平台 source<select class="control" name="source" id="subscriptionSource" required><option value="">选择平台</option></select></label>
+        <label>状态<select class="control" name="enabled"><option value="true">启用</option><option value="false">暂停</option></select></label>
         <label class="wide">关注目标<input class="control" name="target" required placeholder="repo:ChatArch/ChatEvent / stream:demo/topic:loop" /></label>
         <label class="wide">事件类型<input class="control" name="eventKinds" value="*" placeholder="issue.opened, pull_request.merged" /></label>
         <div class="wide checks">
@@ -239,16 +248,41 @@ DASHBOARD_HTML = r"""<!doctype html>
   </dialog>
 
   <script>
-    const state = { events: [], stats: {}, platforms: [], detail: null };
+    const state = { events: [], subscriptions: [], stats: {}, platforms: [], detail: null, editingSubscription: null };
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
     const formatTime = (value) => value ? new Intl.DateTimeFormat("zh-CN", {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date(value)) : "—";
     const localDateTimeToIso = (value) => value ? new Date(value).toISOString() : "";
     const api = async (path, options = {}) => {
-      const response = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
-      if (!response.ok) throw new Error((await response.json()).detail || response.statusText);
+      const headers = {"Content-Type": "application/json", ...(options.headers || {})};
+      const response = await fetch(path, {...options, headers});
+      if (!response.ok) {
+        let detail = response.statusText;
+        try { detail = (await response.json()).detail || detail; } catch (_error) {}
+        const error = new Error(detail); error.status = response.status; throw error;
+      }
       return response.json();
     };
+    const getAdminToken = () => sessionStorage.getItem("chateventAdminToken") || "";
+    function setAdminToken(value) {
+      if (value) sessionStorage.setItem("chateventAdminToken", value);
+      else sessionStorage.removeItem("chateventAdminToken");
+    }
+    async function adminApi(path, options = {}, retry = true) {
+      const token = getAdminToken();
+      const headers = {...(options.headers || {})};
+      if (token) headers["X-ChatEvent-Admin-Token"] = token;
+      try { return await api(path, {...options, headers}); }
+      catch (error) {
+        if (error.status === 401 && retry) {
+          const nextToken = window.prompt("需要管理员 token 才能修改订阅。留空可清除当前 token。", token);
+          if (nextToken === null) throw error;
+          setAdminToken(nextToken.trim());
+          return adminApi(path, options, false);
+        }
+        throw error;
+      }
+    }
 
     function summary(event) {
       const payload = event.payload || {};
@@ -271,22 +305,32 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     function renderSubscriptions(items) {
+      state.subscriptions = items;
       $("subscriptionTabCount").textContent = items.length;
       const root = $("subscriptions");
       if (!items.length) {
         root.innerHTML = `<div class="empty"><strong>还没有订阅</strong>先记录要关注的平台与对象。</div>`;
         return;
       }
-      root.innerHTML = items.map(item => `
+      root.innerHTML = items.map((item, index) => `
         <article class="subscription">
           <div class="subscription-top"><strong>${escapeHtml(item.label || item.source)}</strong><span class="dot ${item.enabled ? "" : "off"}"></span></div>
           <p>${escapeHtml(item.target)}</p>
+          <div class="subscription-meta">id: ${escapeHtml(item.id)}${item.last_cursor ? ` · cursor: ${escapeHtml(item.last_cursor)}` : ""}</div>
           <div class="chips">
             <span class="chip">${escapeHtml(item.source)}</span>
             ${item.capture_modes.map(mode => `<span class="chip ${escapeHtml(mode)}">${escapeHtml(mode)}</span>`).join("")}
             <span class="chip">${escapeHtml(item.event_kinds.join(", "))}</span>
           </div>
+          <div class="subscription-actions">
+            <button class="button small" type="button" data-action="edit-subscription" data-index="${index}">编辑</button>
+            <button class="button small" type="button" data-action="toggle-subscription" data-index="${index}">${item.enabled ? "暂停" : "启用"}</button>
+            <button class="button small danger" type="button" data-action="delete-subscription" data-index="${index}">删除</button>
+          </div>
         </article>`).join("");
+      root.querySelectorAll('[data-action="edit-subscription"]').forEach(button => button.addEventListener("click", () => editSubscription(Number(button.dataset.index))));
+      root.querySelectorAll('[data-action="toggle-subscription"]').forEach(button => button.addEventListener("click", () => toggleSubscription(Number(button.dataset.index))));
+      root.querySelectorAll('[data-action="delete-subscription"]').forEach(button => button.addEventListener("click", () => deleteSubscription(Number(button.dataset.index))));
     }
 
     function renderPlatforms(platforms) {
@@ -376,6 +420,58 @@ DASHBOARD_HTML = r"""<!doctype html>
       });
     }
 
+    function openSubscriptionDialog(item = null) {
+      state.editingSubscription = item;
+      const form = $("subscriptionForm");
+      form.reset();
+      $("subscriptionDialogTitle").textContent = item ? "编辑订阅" : "新建订阅";
+      form.elements.subscriptionId.value = item?.id || "";
+      form.elements.subscriptionId.readOnly = Boolean(item);
+      form.elements.label.value = item?.label || "";
+      form.elements.source.value = item?.source || "";
+      form.elements.enabled.value = item?.enabled === false ? "false" : "true";
+      form.elements.target.value = item?.target || "";
+      form.elements.eventKinds.value = (item?.event_kinds || ["*"]).join(", " );
+      form.querySelectorAll('input[name="mode"]').forEach(input => { input.checked = (item?.capture_modes || ["webhook"]).includes(input.value); });
+      $("formError").textContent = "";
+      dialog.showModal();
+    }
+
+    function subscriptionBodyFromForm(formElement) {
+      const form = new FormData(formElement);
+      const captureModes = Array.from(formElement.querySelectorAll('input[name="mode"]:checked')).map(input => input.value);
+      if (!captureModes.length) throw new Error("至少选择一种捕获方式。");
+      const base = state.editingSubscription ? {...state.editingSubscription} : {};
+      const id = String(form.get("subscriptionId") || "").trim();
+      const body = {
+        ...base,
+        label: form.get("label") || null,
+        source: form.get("source"),
+        target: form.get("target"),
+        enabled: form.get("enabled") !== "false",
+        event_kinds: String(form.get("eventKinds") || "*").split(",").map(value => value.trim()).filter(Boolean),
+        capture_modes: captureModes,
+      };
+      if (id) body.id = id; else delete body.id;
+      return body;
+    }
+
+    function editSubscription(index) { openSubscriptionDialog(state.subscriptions[index]); }
+
+    async function toggleSubscription(index) {
+      const item = state.subscriptions[index];
+      if (!item) return;
+      await adminApi("/api/subscriptions", {method: "POST", body: JSON.stringify({...item, enabled: !item.enabled})});
+      await loadAll();
+    }
+
+    async function deleteSubscription(index) {
+      const item = state.subscriptions[index];
+      if (!item || !window.confirm(`删除订阅 ${item.id}？这不会删除已捕获事件。`)) return;
+      await adminApi(`/api/subscriptions/${encodeURIComponent(item.id)}`, {method: "DELETE"});
+      await loadAll();
+    }
+
     async function loadAll() {
       try {
         const params = new URLSearchParams();
@@ -409,24 +505,19 @@ DASHBOARD_HTML = r"""<!doctype html>
     $("copyRaw").addEventListener("click", async () => navigator.clipboard.writeText($("rawJson").textContent));
 
     const dialog = $("subscriptionDialog");
-    $("addSubscription").addEventListener("click", () => dialog.showModal());
+    $("adminToken").addEventListener("click", () => {
+      const token = window.prompt("管理员 token 只保存在当前浏览器 session；留空会清除。", getAdminToken());
+      if (token !== null) setAdminToken(token.trim());
+    });
+    $("addSubscription").addEventListener("click", () => openSubscriptionDialog());
     $("cancelSubscription").addEventListener("click", () => dialog.close());
     $("subscriptionForm").addEventListener("submit", async event => {
       event.preventDefault(); $("formError").textContent = "";
       const formElement = event.currentTarget;
-      const form = new FormData(formElement);
-      const captureModes = Array.from(formElement.querySelectorAll('input[name="mode"]:checked')).map(input => input.value);
-      if (!captureModes.length) { $("formError").textContent = "至少选择一种捕获方式。"; return; }
-      const body = {
-        label: form.get("label") || null,
-        source: form.get("source"),
-        target: form.get("target"),
-        event_kinds: String(form.get("eventKinds") || "*").split(",").map(value => value.trim()).filter(Boolean),
-        capture_modes: captureModes,
-      };
       try {
-        await api("/api/subscriptions", {method: "POST", body: JSON.stringify(body)});
-        formElement.reset(); dialog.close(); await loadAll();
+        const body = subscriptionBodyFromForm(formElement);
+        await adminApi("/api/subscriptions", {method: "POST", body: JSON.stringify(body)});
+        formElement.reset(); state.editingSubscription = null; dialog.close(); await loadAll();
       } catch (error) { $("formError").textContent = error.message; }
     });
 
