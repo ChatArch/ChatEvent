@@ -10,8 +10,13 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict
 
+from .adapters import (
+    normalize_discourse_post,
+    normalize_gitea_issue,
+    normalize_zulip_message_event,
+)
 from .dashboard import DASHBOARD_HTML
-from .model import ChatEvent
+from .model import CaptureMode, ChatEvent
 from .store import EventStore, StoredEvent
 from .subscription import Subscription
 
@@ -80,12 +85,59 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/api/events", response_model=EventWriteResult, status_code=202)
     def record_event(event: ChatEvent) -> EventWriteResult:
+        return _record(event)
+
+    def _record(event: ChatEvent) -> EventWriteResult:
         stored, created = store.record_event(event)
         return EventWriteResult(
             created=created,
             dedupe_key=event.dedupe_key,
             seen_count=stored.seen_count,
         )
+
+    @app.post("/webhooks/zulip", response_model=EventWriteResult, status_code=202)
+    def record_zulip_webhook(
+        payload: dict[str, Any], subscription_id: str | None = None
+    ) -> EventWriteResult:
+        try:
+            event = normalize_zulip_message_event(
+                payload,
+                subscription_id=subscription_id,
+                site_url=os.environ.get("ZULIP_SITE"),
+                capture_mode=CaptureMode.PUSH,
+            )
+        except Exception as error:  # pragma: no cover - exercised through HTTP response
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _record(event)
+
+    @app.post("/webhooks/discourse", response_model=EventWriteResult, status_code=202)
+    def record_discourse_webhook(
+        payload: dict[str, Any], subscription_id: str | None = None
+    ) -> EventWriteResult:
+        try:
+            event = normalize_discourse_post(
+                payload,
+                subscription_id=subscription_id,
+                base_url=os.environ.get("DISCOURSE_BASE_URL"),
+                capture_mode=CaptureMode.PUSH,
+            )
+        except Exception as error:  # pragma: no cover - exercised through HTTP response
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _record(event)
+
+    @app.post("/webhooks/gitea", response_model=EventWriteResult, status_code=202)
+    def record_gitea_webhook(
+        payload: dict[str, Any], subscription_id: str | None = None
+    ) -> EventWriteResult:
+        try:
+            event = normalize_gitea_issue(
+                payload,
+                subscription_id=subscription_id,
+                capture_mode=CaptureMode.PUSH,
+            )
+        except Exception as error:  # pragma: no cover - exercised through HTTP response
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _record(event)
 
     @app.get("/api/events", response_model=EventPage)
     def list_events(

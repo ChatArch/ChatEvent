@@ -67,6 +67,99 @@ class ServerTests(unittest.TestCase):
             event_schema = client.get("/api/schema/event").json()
             self.assertIn("raw_payload", event_schema["properties"])
 
+    def test_webhook_endpoints_normalize_platform_payloads(self) -> None:
+        with TemporaryDirectory() as directory:
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+
+            zulip = client.post(
+                "/webhooks/zulip",
+                json={
+                    "id": 101,
+                    "type": "message",
+                    "message": {
+                        "id": 24,
+                        "timestamp": 1787047000,
+                        "sender_id": 7,
+                        "stream_id": 3,
+                        "display_recipient": "chatevent-practice",
+                        "topic": "zulip-event-queue",
+                        "content": "hello from Zulip",
+                    },
+                },
+            )
+            discourse = client.post(
+                "/webhooks/discourse",
+                json={
+                    "event_name": "post_created",
+                    "post": {
+                        "id": 25,
+                        "topic_id": 18,
+                        "post_number": 2,
+                        "username": "RexWang",
+                        "created_at": "2026-08-05T02:59:00Z",
+                        "raw": "hello from Discourse",
+                    },
+                },
+            )
+            gitea = client.post(
+                "/webhooks/gitea",
+                json={
+                    "action": "opened",
+                    "repository": {"full_name": "ChatEvent/practice"},
+                    "issue": {
+                        "id": 9001,
+                        "number": 42,
+                        "title": "ChatEvent practice issue",
+                        "created_at": "2026-08-18T09:00:00Z",
+                    },
+                },
+            )
+
+            self.assertEqual(zulip.status_code, 202)
+            self.assertEqual(discourse.status_code, 202)
+            self.assertEqual(gitea.status_code, 202)
+            stats = client.get("/api/stats").json()
+            self.assertEqual(stats["event_count"], 3)
+            self.assertEqual(stats["sources"], {"discourse": 1, "gitea": 1, "zulip": 1})
+
+    def test_webhook_subscription_id_updates_subscription_cursor(self) -> None:
+        with TemporaryDirectory() as directory:
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+            client.post(
+                "/api/subscriptions",
+                json={
+                    "id": "zulip-practice",
+                    "source": "zulip",
+                    "target": "stream:chatevent-practice/topic:real-loop",
+                    "capture_modes": ["push"],
+                },
+            )
+
+            response = client.post(
+                "/webhooks/zulip?subscription_id=zulip-practice",
+                json={
+                    "id": 101,
+                    "type": "message",
+                    "message": {
+                        "id": 24,
+                        "timestamp": 1787047000,
+                        "sender_id": 7,
+                        "stream_id": 3,
+                        "display_recipient": "chatevent-practice",
+                        "topic": "real-loop",
+                        "content": "hello from Zulip",
+                    },
+                },
+            )
+            self.assertEqual(response.status_code, 202)
+
+            subscriptions = client.get("/api/subscriptions").json()
+            self.assertEqual(len(subscriptions), 1)
+            item = subscriptions[0]
+            self.assertEqual(item["id"], "zulip-practice")
+            self.assertEqual(item["last_cursor"], "101")
+            self.assertIsNotNone(item["last_event_at"])
+
     def test_api_rejects_naive_time_and_unknown_fields(self) -> None:
         with TemporaryDirectory() as directory:
             client = TestClient(create_app(db_path=Path(directory) / "events.db"))
