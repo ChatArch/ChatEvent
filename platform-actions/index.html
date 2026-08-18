@@ -427,6 +427,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        动作与承载目标链
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -548,6 +559,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        动作与承载目标链
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -569,7 +591,7 @@
 
 
 <h1 id="_1">平台与事件</h1>
-<p>ChatEvent 当前把四个平台作为明确支持范围。<code>push</code> / <code>pull</code> 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 <code>source + kind + target</code> 表达。</p>
+<p>ChatEvent 当前把四个平台作为明确支持范围。<code>push</code> / <code>pull</code> 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 <code>source + action/kind + target</code> 表达；target 是承载链，不只是一个标签。</p>
 <h2 id="_2">支持矩阵</h2>
 <table>
 <thead>
@@ -622,7 +644,15 @@
 </tr>
 <tr>
 <td><code>target</code></td>
-<td>订阅范围，例如 <code>category:agent-runs</code>、<code>stream:chatevent-practice</code>、<code>repo:ChatArch/ChatEvent</code>。</td>
+<td>兼容和展示用订阅范围，例如 <code>category:agent-runs</code>、<code>stream:chatevent-practice/topic:real-loop</code>、<code>repo:ChatArch/ChatEvent</code>。</td>
+</tr>
+<tr>
+<td><code>scope</code></td>
+<td>结构化订阅承载目标，包含 <code>type</code>、<code>key</code>、<code>display</code>、<code>url</code>、<code>parent</code>、<code>metadata</code>，例如 repo、PR、topic。</td>
+</tr>
+<tr>
+<td><code>actions</code></td>
+<td>结构化动作选择器，由 <code>event_kinds</code> 自动派生，可保存 <code>kind</code>、<code>object_type</code>、<code>verb</code> 和扩展 metadata。</td>
 </tr>
 <tr>
 <td><code>kind</code></td>
@@ -645,6 +675,35 @@
 <li><code>post_number &gt; 1</code> → <code>reply.created</code></li>
 </ul>
 <p>官方 webhook 的事件名来自 <code>X-Discourse-Event</code> header；ChatEvent endpoint 会读取该 header 并写入规范化流程。</p>
+<h2 id="_4">动作与承载目标链</h2>
+<p>同一个平台动作可能挂在不同层级上。ChatEvent 不把 target type 或 actor role 写死成枚举，而是让各平台 action catalog 给出建议 target types，并在事件记录里保存实际 target chain 和可选发起人角色。</p>
+<table>
+<thead>
+<tr>
+<th>平台</th>
+<th>订阅 scope 示例</th>
+<th>事件 target chain 示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zulip</td>
+<td><code>stream:team/topic:release</code></td>
+<td><code>zulip_stream:team → zulip_topic:team/release → message:123</code></td>
+</tr>
+<tr>
+<td>Discourse</td>
+<td><code>category:agent-runs</code> 或 <code>topic:22</code></td>
+<td><code>discourse_topic:22 → discourse_post:35</code></td>
+</tr>
+<tr>
+<td>GitHub/Gitea</td>
+<td><code>repo:ChatArch/ChatEvent</code></td>
+<td><code>repo:ChatArch/ChatEvent → pull_request:ChatArch/ChatEvent#4 → issue_comment:1234</code></td>
+</tr>
+</tbody>
+</table>
+<p>Observatory 的 Platform actions 面板会显示 <code>action kind → target types</code>，Event Stream 点开详情会显示真实 <code>Action target</code> 和 <code>Target chain</code>。</p>
 
 
 

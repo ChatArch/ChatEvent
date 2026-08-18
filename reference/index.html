@@ -458,7 +458,7 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        查询事件
+        动作与承载目标字段
       
     </span>
   </a>
@@ -469,7 +469,7 @@
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        去重
+        查询事件
       
     </span>
   </a>
@@ -478,6 +478,17 @@
       
         <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        去重
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         存储与线上编辑
@@ -585,7 +596,7 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        查询事件
+        动作与承载目标字段
       
     </span>
   </a>
@@ -596,7 +607,7 @@
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        去重
+        查询事件
       
     </span>
   </a>
@@ -605,6 +616,17 @@
       
         <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        去重
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         存储与线上编辑
@@ -801,7 +823,18 @@
 </tr>
 </tbody>
 </table>
-<h2 id="_2">查询事件</h2>
+<h2 id="_2">动作与承载目标字段</h2>
+<p><code>ChatEvent</code> 与 <code>Subscription</code> 都支持结构化 action target，且保留旧字段兼容：</p>
+<ul>
+<li><code>Subscription.target</code>：canonical string，适合快速展示和手写配置。</li>
+<li><code>Subscription.scope</code>：结构化承载目标，字段为 <code>type</code>、<code>key</code>、<code>display</code>、<code>url</code>、<code>parent</code>、<code>metadata</code>；<code>type</code> 是开放字符串。</li>
+<li><code>Subscription.actions</code>：结构化 action selectors；如果只传 <code>event_kinds</code>，服务会自动派生。</li>
+<li><code>ChatEvent.action</code>：真实动作，字段为 <code>kind</code>、<code>object_type</code>、<code>verb</code>、<code>metadata</code>。</li>
+<li><code>ChatEvent.actor</code> / <code>actor_role</code>：发起人和平台角色，角色保持开放字符串，例如 maintainer、member、bot、moderator。</li>
+<li><code>ChatEvent.target</code>：本次动作作用对象；<code>parent</code> 串起 repo/PR/comment 或 stream/topic/message 等承载链。</li>
+</ul>
+<p>旧客户端只传 <code>kind</code>、<code>subject_id</code>、<code>subject_type</code> 仍然可写入；新 adapter 会尽量写入完整 <code>action</code> 和 <code>target</code>。</p>
+<h2 id="_3">查询事件</h2>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-k<span class="w"> </span><span class="s1">'https://event.public.wzhecnu.cn/api/events?source=discourse&amp;kind=reply.created&amp;days=7&amp;limit=20'</span>
 </code></pre></div>
 <p>下游系统按 checkpoint 消费：</p>
@@ -855,12 +888,12 @@
 </tbody>
 </table>
 <p>响应包含 <code>items</code>、<code>count</code>、<code>latest_captured_at</code> 和 <code>next_since</code>。consumer 处理成功后保存 <code>next_since</code>，下一轮作为 <code>since</code> 继续拉取。Observatory 的“最近 24 小时 / 最近 3 天 / 最近 7 天 / 最近 30 天”使用 <code>days</code>；自定义起止时间使用 <code>from</code>/<code>to</code>。</p>
-<h2 id="_3">去重</h2>
+<h2 id="_4">去重</h2>
 <p>默认 dedupe key 是：</p>
 <div class="highlight"><pre><span></span><code>source:id
 </code></pre></div>
 <p>同一个事件重复投递时不会新增事件行，只会增加 <code>seen_count</code>，并在 <code>/api/stats</code> 的 <code>duplicate_count</code> 里体现。</p>
-<h2 id="_4">存储与线上编辑</h2>
+<h2 id="_5">存储与线上编辑</h2>
 <p>订阅配置和事件账本都在 SQLite 中。默认数据库位于 ChatArch 内部：</p>
 <div class="highlight"><pre><span></span><code>$CHATARCH_HOME/chatevent/events.db
 # 未设置 CHATARCH_HOME 时：~/.chatarch/chatevent/events.db

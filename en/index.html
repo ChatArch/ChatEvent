@@ -611,8 +611,9 @@
 <h2 id="event-semantics">Event semantics</h2>
 <ul>
 <li><code>source</code>: platform id such as <code>zulip</code>, <code>discourse</code>, <code>gitea</code>, or <code>github</code>.</li>
-<li><code>target</code>: subscription scope such as stream/topic, category/topic, or repo/org.</li>
-<li><code>kind</code>: business action such as <code>message.created</code>, <code>reply.created</code>, or <code>issue.opened</code>.</li>
+<li><code>target</code>: display/compatibility subscription scope such as stream/topic, category/topic, or repo/org.</li>
+<li><code>scope</code>: structured carrier target chain such as repo → pull request or stream → topic.</li>
+<li><code>kind</code> / <code>action</code>: business action such as <code>message.created</code>, <code>reply.created</code>, or <code>issue.opened</code>.</li>
 <li><code>capture_mode</code>: acquisition mechanism such as <code>webhook</code>, <code>event_queue</code>, or <code>api_cursor</code>.</li>
 <li><code>tags</code>: optional filtering/routing labels; they do not define the event action.</li>
 </ul>

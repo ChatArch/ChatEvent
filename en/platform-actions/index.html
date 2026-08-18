@@ -427,6 +427,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#actions-and-carrier-target-chains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions and carrier target chains
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -548,6 +559,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#actions-and-carrier-target-chains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions and carrier target chains
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -569,7 +591,7 @@
 
 
 <h1 id="platforms-and-events">Platforms and Events</h1>
-<p>ChatEvent currently treats four platforms as the explicit support scope. <code>push</code> / <code>pull</code> no longer carry product semantics; they may only appear as legacy coarse acquisition modes. Event meaning is expressed by <code>source + kind + target</code>.</p>
+<p>ChatEvent currently treats four platforms as the explicit support scope. <code>push</code> / <code>pull</code> no longer carry product semantics; they may only appear as legacy coarse acquisition modes. Event meaning is expressed by <code>source + action/kind + target</code>; target is a carrier chain, not just a label.</p>
 <h2 id="support-matrix">Support matrix</h2>
 <table>
 <thead>
@@ -622,7 +644,15 @@
 </tr>
 <tr>
 <td><code>target</code></td>
-<td>Subscription scope such as <code>category:agent-runs</code>, <code>stream:chatevent-practice</code>, or <code>repo:ChatArch/ChatEvent</code>.</td>
+<td>Compatibility/display subscription scope such as <code>category:agent-runs</code>, <code>stream:chatevent-practice/topic:real-loop</code>, or <code>repo:ChatArch/ChatEvent</code>.</td>
+</tr>
+<tr>
+<td><code>scope</code></td>
+<td>Structured subscription carrier target with <code>type</code>, <code>key</code>, <code>display</code>, <code>url</code>, <code>parent</code>, and <code>metadata</code>, e.g. repo, PR, or topic.</td>
+</tr>
+<tr>
+<td><code>actions</code></td>
+<td>Structured action selectors derived from <code>event_kinds</code> by default; can store <code>kind</code>, <code>object_type</code>, <code>verb</code>, and metadata.</td>
 </tr>
 <tr>
 <td><code>kind</code></td>
@@ -645,6 +675,35 @@
 <li><code>post_number &gt; 1</code> → <code>reply.created</code></li>
 </ul>
 <p>The official webhook event name comes from the <code>X-Discourse-Event</code> header; the ChatEvent endpoint reads that header before normalization.</p>
+<h2 id="actions-and-carrier-target-chains">Actions and carrier target chains</h2>
+<p>A platform action can attach to different hierarchy levels. ChatEvent keeps target types and actor roles open-ended: each platform action catalog declares suggested target types, and each stored event records the actual target chain plus an optional initiator role.</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Subscription scope example</th>
+<th>Event target chain example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zulip</td>
+<td><code>stream:team/topic:release</code></td>
+<td><code>zulip_stream:team → zulip_topic:team/release → message:123</code></td>
+</tr>
+<tr>
+<td>Discourse</td>
+<td><code>category:agent-runs</code> or <code>topic:22</code></td>
+<td><code>discourse_topic:22 → discourse_post:35</code></td>
+</tr>
+<tr>
+<td>GitHub/Gitea</td>
+<td><code>repo:ChatArch/ChatEvent</code></td>
+<td><code>repo:ChatArch/ChatEvent → pull_request:ChatArch/ChatEvent#4 → issue_comment:1234</code></td>
+</tr>
+</tbody>
+</table>
+<p>The Observatory Platform actions panel shows <code>action kind → target types</code>; opening an Event Stream detail shows the concrete <code>Action target</code> and <code>Target chain</code>.</p>
 
 
 

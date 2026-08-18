@@ -611,8 +611,9 @@
 <h2 id="_2">事件语义</h2>
 <ul>
 <li><code>source</code>：平台来源，例如 <code>zulip</code>、<code>discourse</code>、<code>gitea</code>、<code>github</code>。</li>
-<li><code>target</code>：订阅范围，例如 stream/topic、category/topic、repo/org。</li>
-<li><code>kind</code>：发生了什么业务动作，例如 <code>message.created</code>、<code>reply.created</code>、<code>issue.opened</code>。</li>
+<li><code>target</code>：兼容展示用订阅范围，例如 stream/topic、category/topic、repo/org。</li>
+<li><code>scope</code>：结构化承载目标链，例如 repo → pull request 或 stream → topic。</li>
+<li><code>kind</code> / <code>action</code>：发生了什么业务动作，例如 <code>message.created</code>、<code>reply.created</code>、<code>issue.opened</code>。</li>
 <li><code>capture_mode</code>：怎么捕获，例如 <code>webhook</code>、<code>event_queue</code>、<code>api_cursor</code>。</li>
 <li><code>tags</code>：筛选/路由标签，不定义事件动作本身。</li>
 </ul>
