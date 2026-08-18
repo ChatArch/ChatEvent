@@ -152,3 +152,25 @@ See `docs/monitoring.md` for detailed registration steps.
 - `POST /webhooks/github?subscription_id=...` with `X-GitHub-Event`
 
 Webhook endpoints accept official platform-shaped payloads, normalize them to `ChatEvent`, write SQLite with idempotent dedupe, and keep cleaned `raw_payload` for Observatory inspection.
+
+## Downstream consumption
+
+The Observatory is only one debugging consumer. Other systems can poll the Event Hub with a checkpoint:
+
+```bash
+curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&subscription_id=discourse-practice&since=2026-08-18T12:47:37Z&limit=50'
+```
+
+The response includes:
+
+- `items`: normalized `ChatEvent` records;
+- `count`: matched records in this page;
+- `next_since`: the latest `captured_at` in the page. Save it after successful processing and send it as `since` on the next poll.
+
+Recommended loop:
+
+1. The consumer stores its own `last_since` checkpoint.
+2. It calls `/api/events?since=<last_since>&source=...&kind=...&subscription_id=...`.
+3. It processes each `event` idempotently by `source/kind/subject_id`.
+4. After all events succeed, it stores response `next_since` as the next checkpoint.
+5. If `count=0`, keep the old checkpoint and poll later.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -227,6 +228,7 @@ class EventStore:
         kind: str | None = None,
         subscription_id: str | None = None,
         query: str | None = None,
+        captured_since: datetime | None = None,
         limit: int = 100,
     ) -> list[StoredEvent]:
         clauses: list[str] = []
@@ -242,6 +244,11 @@ class EventStore:
         if query:
             clauses.append("body LIKE ?")
             parameters.append(f"%{query}%")
+        if captured_since is not None:
+            if captured_since.tzinfo is None or captured_since.utcoffset() is None:
+                raise ValueError("captured_since must include timezone information")
+            clauses.append("captured_at > ?")
+            parameters.append(captured_since.astimezone(timezone.utc).isoformat())
         sql = """
             SELECT body, first_captured_at, last_captured_at, seen_count
             FROM events

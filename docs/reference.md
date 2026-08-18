@@ -24,7 +24,7 @@ chatevent
 | `POST` | `/api/subscriptions` | 创建或更新订阅。 |
 | `GET` | `/api/subscriptions` | 列出订阅。 |
 | `POST` | `/api/events` | 写入一条已规范化 `ChatEvent`。 |
-| `GET` | `/api/events` | 查询事件流，可按 source、kind、subscription、关键词筛选。 |
+| `GET` | `/api/events` | 查询事件流，可按 source、kind、subscription、关键词、`since` checkpoint 筛选。 |
 | `GET` | `/api/events/{dedupe_key}` | 查询单条事件详情。 |
 | `GET` | `/api/stats` | 统计事件数、来源数、重复投递数等。 |
 | `POST` | `/webhooks/zulip` | 接收 Zulip event queue/message payload。 |
@@ -38,6 +38,12 @@ chatevent
 curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&kind=reply.created&limit=20'
 ```
 
+下游系统按 checkpoint 消费：
+
+```bash
+curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&subscription_id=discourse-practice&since=2026-08-18T12:47:37Z&limit=50'
+```
+
 常用参数：
 
 | 参数 | 含义 |
@@ -45,8 +51,11 @@ curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&kind=reply.
 | `source` | 平台来源，例如 `discourse`。 |
 | `kind` | 事件类型，例如 `reply.created`。 |
 | `subscription_id` | 订阅 ID。 |
+| `since` | 只返回 `captured_at > since` 的事件；必须带时区，例如 `2026-08-18T12:47:37Z`。 |
 | `q` | payload、actor、conversation 等关键词搜索。 |
 | `limit` | 返回条数，1 到 500。 |
+
+响应包含 `items`、`count`、`latest_captured_at` 和 `next_since`。consumer 处理成功后保存 `next_since`，下一轮作为 `since` 继续拉取。
 
 ## 去重
 

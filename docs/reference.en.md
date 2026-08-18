@@ -24,7 +24,7 @@ chatevent
 | `POST` | `/api/subscriptions` | Create or update a subscription. |
 | `GET` | `/api/subscriptions` | List subscriptions. |
 | `POST` | `/api/events` | Record one normalized `ChatEvent`. |
-| `GET` | `/api/events` | Query events with source, kind, subscription, and keyword filters. |
+| `GET` | `/api/events` | Query events with source, kind, subscription, keyword, and `since` checkpoint filters. |
 | `GET` | `/api/events/{dedupe_key}` | Read one stored event. |
 | `GET` | `/api/stats` | Return event/source/duplicate statistics. |
 | `POST` | `/webhooks/zulip` | Receive Zulip event-queue/message payloads. |
@@ -38,6 +38,12 @@ chatevent
 curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&kind=reply.created&limit=20'
 ```
 
+Downstream systems consume by checkpoint:
+
+```bash
+curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&subscription_id=discourse-practice&since=2026-08-18T12:47:37Z&limit=50'
+```
+
 Common parameters:
 
 | Parameter | Meaning |
@@ -45,8 +51,11 @@ Common parameters:
 | `source` | Platform source such as `discourse`. |
 | `kind` | Event kind such as `reply.created`. |
 | `subscription_id` | Subscription id. |
+| `since` | Return only events with `captured_at > since`; timezone is required, e.g. `2026-08-18T12:47:37Z`. |
 | `q` | Keyword search across payload, actor, and conversation fields. |
 | `limit` | Number of events to return, from 1 to 500. |
+
+Responses include `items`, `count`, `latest_captured_at`, and `next_since`. Consumers should save `next_since` after successful processing and send it as `since` on the next poll.
 
 ## Deduplication
 

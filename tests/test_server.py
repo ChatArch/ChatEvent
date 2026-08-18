@@ -177,6 +177,49 @@ class ServerTests(unittest.TestCase):
                 {"discourse": 2, "gitea": 1, "github": 1, "zulip": 1},
             )
 
+    def test_api_events_since_returns_captured_after_checkpoint(self) -> None:
+        with TemporaryDirectory() as directory:
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+
+            old_event = {
+                "id": "post-1",
+                "source": "discourse",
+                "kind": "post.created",
+                "occurred_at": "2026-08-18T10:00:00+00:00",
+                "captured_at": "2026-08-18T10:00:01+00:00",
+                "capture_mode": "webhook",
+                "subscription_id": "discourse-practice",
+                "payload": {"title": "old topic"},
+            }
+            new_event = {
+                "id": "post-2",
+                "source": "discourse",
+                "kind": "reply.created",
+                "occurred_at": "2026-08-18T10:00:04+00:00",
+                "captured_at": "2026-08-18T10:00:05+00:00",
+                "capture_mode": "webhook",
+                "subscription_id": "discourse-practice",
+                "payload": {"title": "new reply"},
+            }
+            client.post("/api/events", json=old_event)
+            client.post("/api/events", json=new_event)
+
+            response = client.get(
+                "/api/events",
+                params={
+                    "source": "discourse",
+                    "subscription_id": "discourse-practice",
+                    "since": "2026-08-18T10:00:02+00:00",
+                },
+            )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["count"], 1)
+            self.assertEqual(payload["next_since"], "2026-08-18T10:00:05Z")
+            self.assertEqual(payload["items"][0]["event"]["id"], "post-2")
+            self.assertEqual(payload["items"][0]["event"]["kind"], "reply.created")
+
     def test_webhook_subscription_id_updates_subscription_cursor(self) -> None:
         with TemporaryDirectory() as directory:
             client = TestClient(create_app(db_path=Path(directory) / "events.db"))

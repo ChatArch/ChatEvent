@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -36,6 +37,8 @@ class EventPage(BaseModel):
 
     items: list[StoredEvent]
     count: int
+    latest_captured_at: datetime | None = None
+    next_since: datetime | None = None
 
 
 class PlatformPage(BaseModel):
@@ -182,16 +185,31 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         kind: str | None = None,
         subscription_id: str | None = None,
         q: str | None = None,
+        since: datetime | None = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 100,
     ) -> EventPage:
+        if since is not None and (since.tzinfo is None or since.utcoffset() is None):
+            raise HTTPException(
+                status_code=422,
+                detail="since must include timezone information, for example 2026-08-18T10:00:02Z",
+            )
         items = store.list_events(
             source=source,
             kind=kind,
             subscription_id=subscription_id,
             query=q,
+            captured_since=since,
             limit=limit,
         )
-        return EventPage(items=items, count=len(items))
+        latest_captured_at = max(
+            (item.event.captured_at for item in items), default=None
+        )
+        return EventPage(
+            items=items,
+            count=len(items),
+            latest_captured_at=latest_captured_at,
+            next_since=latest_captured_at,
+        )
 
     @app.get("/api/events/{dedupe_key:path}", response_model=StoredEvent)
     def get_event(dedupe_key: str) -> StoredEvent:

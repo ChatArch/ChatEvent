@@ -152,3 +152,25 @@ Zulip:     用 `chatevent capture zulip-once` 做官方 event queue bounded capt
 - `POST /webhooks/github?subscription_id=...`，读取 `X-GitHub-Event`
 
 Webhook endpoint 接收官方平台形状 payload，规范化为 `ChatEvent`，幂等写入 SQLite，并保留清洗后的 `raw_payload` 供 Observatory 调试。
+
+## 下游消费
+
+Observatory 只是一个调试 consumer。其他系统可以按 checkpoint 轮询 Event Hub：
+
+```bash
+curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&subscription_id=discourse-practice&since=2026-08-18T12:47:37Z&limit=50'
+```
+
+返回体包含：
+
+- `items`：规范化 `ChatEvent` 列表；
+- `count`：本次命中的条数；
+- `next_since`：本批最新 `captured_at`。consumer 处理成功后保存它，下次作为 `since` 继续拉取。
+
+推荐循环：
+
+1. consumer 保存自己的 `last_since`。
+2. 请求 `/api/events?since=<last_since>&source=...&kind=...&subscription_id=...`。
+3. 对每条 `event` 按 `source/kind/subject_id` 做幂等处理。
+4. 全部处理成功后，把响应里的 `next_since` 存回 checkpoint。
+5. 如果 `count=0`，保持原 checkpoint，稍后再拉。
