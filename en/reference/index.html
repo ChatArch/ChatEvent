@@ -16,6 +16,8 @@
         <link rel="prev" href="../platform-actions/">
       
       
+        <link rel="next" href="../changelog/">
+      
       
         
           <link rel="alternate" href="../../reference/" hreflang="zh">
@@ -493,6 +495,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -609,6 +638,8 @@
 <h2 id="cli-tree">CLI Tree</h2>
 <div class="highlight"><pre><span></span><code>chatevent
   --tree                         Print this command tree
+  --version                      Print package version
+  paths [--json]                 Show ChatArch-owned runtime paths
   serve [--host HOST] [--port PORT] [--db DB]
                                  Run the local Event Observatory
   schema event|subscription      Print JSON Schema contracts
@@ -830,8 +861,13 @@
 </code></pre></div>
 <p>Repeated delivery of the same event does not create a new row; it increments <code>seen_count</code> and contributes to <code>/api/stats</code> <code>duplicate_count</code>.</p>
 <h2 id="storage-and-online-editing">Storage and online editing</h2>
-<p>Subscription configuration and the event ledger are stored in SQLite. The online demo uses <code>/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db</code>. <code>subscriptions.body</code> stores the full <code>Subscription</code> JSON, including <code>last_cursor</code> and <code>last_event_at</code> updates after events arrive; <code>events.body</code> stores the full <code>ChatEvent</code> JSON.</p>
-<p>The Web Observatory <code>Subscriptions</code> tab can create, edit, enable/disable, and delete subscriptions. For production or public deployments, set <code>CHATEVENT_ADMIN_TOKEN</code> so <code>POST /api/subscriptions</code> and <code>DELETE /api/subscriptions/{id}</code> require the <code>X-ChatEvent-Admin-Token</code> header.</p>
+<p>Subscription configuration and the event ledger are stored in SQLite. The default database is ChatArch-internal:</p>
+<div class="highlight"><pre><span></span><code>$CHATARCH_HOME/chatevent/events.db
+# when CHATARCH_HOME is unset: ~/.chatarch/chatevent/events.db
+</code></pre></div>
+<p>Path precedence is <code>--db</code>, <code>CHATEVENT_DB</code>, <code>$CHATARCH_HOME/chatevent/events.db</code>, then <code>~/.chatarch/chatevent/events.db</code>. On first default-path use, if legacy <code>~/.chatevent/events.db</code> exists and the new database does not, ChatEvent copies it into the ChatArch-internal path and keeps the legacy file.</p>
+<p><code>subscriptions.body</code> stores the full <code>Subscription</code> JSON, including <code>last_cursor</code> and <code>last_event_at</code> updates after events arrive; <code>events.body</code> stores the full <code>ChatEvent</code> JSON.</p>
+<p>The Web Observatory <code>Subscriptions</code> tab can create, edit, enable/disable, and delete subscriptions. For production or public deployments, configure an admin token: <code>CHATEVENT_ADMIN_TOKEN</code> first, then <code>CHATEVENT_ADMIN_TOKEN_FILE</code>, then the default file <code>$CHATARCH_HOME/chatevent/secrets/admin-token</code> or <code>~/.chatarch/chatevent/secrets/admin-token</code>. Once configured, <code>POST /api/subscriptions</code> and <code>DELETE /api/subscriptions/{id}</code> require the <code>X-ChatEvent-Admin-Token</code> header.</p>
 
 
 

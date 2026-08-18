@@ -366,7 +366,7 @@
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        页面刷新机制
+        确认默认目录
       
     </span>
   </a>
@@ -375,6 +375,17 @@
       
         <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        页面刷新机制
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         写入一条事件
@@ -484,6 +495,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发行说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -536,7 +574,7 @@
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        页面刷新机制
+        确认默认目录
       
     </span>
   </a>
@@ -545,6 +583,17 @@
       
         <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        页面刷新机制
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         写入一条事件
@@ -596,8 +645,7 @@ uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> <
 <h2 id="observatory">启动 Observatory</h2>
 <div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>--extra<span class="w"> </span>serve<span class="w"> </span>chatevent<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--port<span class="w"> </span><span class="m">8765</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--db<span class="w"> </span>./events.db
+<span class="w">  </span>--port<span class="w"> </span><span class="m">8765</span>
 </code></pre></div>
 <p>打开：</p>
 <div class="highlight"><pre><span></span><code>http://127.0.0.1:8765/
@@ -606,7 +654,16 @@ uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> <
 <div class="highlight"><pre><span></span><code>https://event.public.wzhecnu.cn/
 https://event.local.wzhecnu.cn/
 </code></pre></div>
-<h2 id="_3">页面刷新机制</h2>
+<h2 id="_3">确认默认目录</h2>
+<p>默认不需要传 <code>--db</code>。ChatEvent 会把运行态放到 ChatArch home 内部：</p>
+<div class="highlight"><pre><span></span><code>$CHATARCH_HOME/chatevent/events.db
+# 未设置 CHATARCH_HOME 时：~/.chatarch/chatevent/events.db
+</code></pre></div>
+<p>用 <code>paths</code> 回读实际位置：</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>paths<span class="w"> </span>--json
+</code></pre></div>
+<p>如果旧版 <code>~/.chatevent/events.db</code> 存在，且新的 ChatArch 内部数据库还不存在，第一次默认启动会复制旧库到 <code>~/.chatarch/chatevent/events.db</code>，但不会删除旧文件。</p>
+<h2 id="_4">页面刷新机制</h2>
 <p>Observatory 当前是前端轮询，不是 WebSocket/SSE。</p>
 <ul>
 <li>页面加载后立即执行一次 <code>loadAll()</code>。</li>
@@ -626,8 +683,8 @@ GET /api/platforms
 <li>平台把官方事件送到 ChatEvent 的时间：webhook 通常是秒级；Zulip event queue 取决于 capture pass 的轮询或运行方式；API cursor 取决于配置的增量任务频率。</li>
 <li>前端下一次 5 秒轮询的时间；手动点刷新可立即查看。</li>
 </ol>
-<h2 id="_4">写入一条事件</h2>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>record-json<span class="w"> </span>event.json<span class="w"> </span>--db<span class="w"> </span>./events.db
+<h2 id="_5">写入一条事件</h2>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>record-json<span class="w"> </span>event.json
 </code></pre></div>
 <p>事件最小字段：</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>

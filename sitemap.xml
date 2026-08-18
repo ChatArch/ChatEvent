@@ -8,6 +8,13 @@
         <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/"/>
     </url>
     <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/changelog/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/changelog/"/>
+    </url>
+    <url>
         <loc>https://arch.gh.wzhecnu.cn/ChatEvent/monitoring/</loc>
         <lastmod>2026-08-18</lastmod>
         <changefreq>daily</changefreq>
@@ -41,6 +48,13 @@
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/"/>
         <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/en/changelog/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/changelog/"/>
     </url>
     <url>
         <loc>https://arch.gh.wzhecnu.cn/ChatEvent/en/monitoring/</loc>

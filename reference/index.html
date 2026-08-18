@@ -16,6 +16,8 @@
         <link rel="prev" href="../platform-actions/">
       
       
+        <link rel="next" href="../changelog/">
+      
       
         
           <link rel="alternate" href="./" hreflang="zh">
@@ -493,6 +495,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发行说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -609,6 +638,8 @@
 <h2 id="cli">CLI 树</h2>
 <div class="highlight"><pre><span></span><code>chatevent
   --tree                         Print this command tree
+  --version                      Print package version
+  paths [--json]                 Show ChatArch-owned runtime paths
   serve [--host HOST] [--port PORT] [--db DB]
                                  Run the local Event Observatory
   schema event|subscription      Print JSON Schema contracts
@@ -830,8 +861,13 @@
 </code></pre></div>
 <p>同一个事件重复投递时不会新增事件行，只会增加 <code>seen_count</code>，并在 <code>/api/stats</code> 的 <code>duplicate_count</code> 里体现。</p>
 <h2 id="_4">存储与线上编辑</h2>
-<p>订阅配置和事件账本都在 SQLite 中：线上 demo 使用 <code>/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db</code>。<code>subscriptions.body</code> 保存完整 <code>Subscription</code> JSON，事件到达后 <code>last_cursor</code> / <code>last_event_at</code> 也会更新在订阅记录中；<code>events.body</code> 保存完整 <code>ChatEvent</code> JSON。</p>
-<p>Web Observatory 的 <code>Subscriptions</code> 标签页可以新建、编辑、启停和删除订阅。生产或公网环境建议设置 <code>CHATEVENT_ADMIN_TOKEN</code>，这样 <code>POST /api/subscriptions</code> 和 <code>DELETE /api/subscriptions/{id}</code> 需要 <code>X-ChatEvent-Admin-Token</code> header。</p>
+<p>订阅配置和事件账本都在 SQLite 中。默认数据库位于 ChatArch 内部：</p>
+<div class="highlight"><pre><span></span><code>$CHATARCH_HOME/chatevent/events.db
+# 未设置 CHATARCH_HOME 时：~/.chatarch/chatevent/events.db
+</code></pre></div>
+<p>路径优先级是 <code>--db</code>、<code>CHATEVENT_DB</code>、<code>$CHATARCH_HOME/chatevent/events.db</code>、<code>~/.chatarch/chatevent/events.db</code>。第一次使用默认路径时，若旧版 <code>~/.chatevent/events.db</code> 存在且新数据库不存在，会复制旧库到 ChatArch 内部路径并保留旧文件。</p>
+<p><code>subscriptions.body</code> 保存完整 <code>Subscription</code> JSON，事件到达后 <code>last_cursor</code> / <code>last_event_at</code> 也会更新在订阅记录中；<code>events.body</code> 保存完整 <code>ChatEvent</code> JSON。</p>
+<p>Web Observatory 的 <code>Subscriptions</code> 标签页可以新建、编辑、启停和删除订阅。生产或公网环境建议设置管理员 token：优先读取 <code>CHATEVENT_ADMIN_TOKEN</code>，其次读取 <code>CHATEVENT_ADMIN_TOKEN_FILE</code>，再读取默认文件 <code>$CHATARCH_HOME/chatevent/secrets/admin-token</code> 或 <code>~/.chatarch/chatevent/secrets/admin-token</code>。设置后，<code>POST /api/subscriptions</code> 和 <code>DELETE /api/subscriptions/{id}</code> 需要 <code>X-ChatEvent-Admin-Token</code> header。</p>
 
 
 

@@ -363,6 +363,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#confirm-default-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Confirm default paths
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#refresh-behavior" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -484,6 +495,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -526,6 +564,17 @@
     <span class="md-ellipsis">
       
         Run the Observatory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#confirm-default-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Confirm default paths
       
     </span>
   </a>
@@ -596,8 +645,7 @@ uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> <
 <h2 id="run-the-observatory">Run the Observatory</h2>
 <div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>--extra<span class="w"> </span>serve<span class="w"> </span>chatevent<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--port<span class="w"> </span><span class="m">8765</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--db<span class="w"> </span>./events.db
+<span class="w">  </span>--port<span class="w"> </span><span class="m">8765</span>
 </code></pre></div>
 <p>Open:</p>
 <div class="highlight"><pre><span></span><code>http://127.0.0.1:8765/
@@ -606,6 +654,15 @@ uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> <
 <div class="highlight"><pre><span></span><code>https://event.public.wzhecnu.cn/
 https://event.local.wzhecnu.cn/
 </code></pre></div>
+<h2 id="confirm-default-paths">Confirm default paths</h2>
+<p>You do not need to pass <code>--db</code> for normal use. ChatEvent keeps runtime state under ChatArch home:</p>
+<div class="highlight"><pre><span></span><code>$CHATARCH_HOME/chatevent/events.db
+# when CHATARCH_HOME is unset: ~/.chatarch/chatevent/events.db
+</code></pre></div>
+<p>Read the effective paths:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>paths<span class="w"> </span>--json
+</code></pre></div>
+<p>If legacy <code>~/.chatevent/events.db</code> exists and the new ChatArch-internal database does not, the first default startup copies the legacy database to <code>~/.chatarch/chatevent/events.db</code> without deleting the old file.</p>
 <h2 id="refresh-behavior">Refresh behavior</h2>
 <p>The Observatory currently uses frontend polling, not WebSocket/SSE.</p>
 <ul>
@@ -627,7 +684,7 @@ GET /api/platforms
 <li>The next 5-second frontend poll; click Refresh to check immediately.</li>
 </ol>
 <h2 id="record-one-event">Record one event</h2>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>record-json<span class="w"> </span>event.json<span class="w"> </span>--db<span class="w"> </span>./events.db
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>record-json<span class="w"> </span>event.json
 </code></pre></div>
 <p>Minimal event:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>

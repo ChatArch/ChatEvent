@@ -460,6 +460,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发行说明
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -567,12 +594,18 @@
 </ul>
 <p>用 HTTP API 写入、查询事件；用 <code>chatevent api ...</code> 作为 REST API 的命令行对应。</p>
 <p><a href="reference/">查看接口参考</a></p>
+<ul>
+<li><strong>确认默认目录</strong></li>
+</ul>
+<p>默认运行态位于 <code>$CHATARCH_HOME/chatevent/</code> 或 <code>~/.chatarch/chatevent/</code>，可用 <code>chatevent paths --json</code> 回读。</p>
+<p><a href="quickstart/">查看快速开始</a></p>
 </div>
 <h2 id="_1">当前产品边界</h2>
 <ul>
 <li>ChatEvent 只负责 <strong>捕获、规范化、去重、保存、观察</strong>。</li>
 <li>当前不直接执行 Agent、不开任务、不做路由决策。</li>
 <li>平台 REST API 只用于官方事件后的对象补全、明确订阅范围内的 cursor 增量补偿和验收读回；ChatEvent 自身提供标准 REST API 供下游写入、查询和按 checkpoint 消费事件。</li>
+<li>默认安装、运行、SQLite 账本和可选管理员 token 文件都归入 ChatArch 内部目录 <code>$CHATARCH_HOME/chatevent/</code>，未设置 <code>CHATARCH_HOME</code> 时为 <code>~/.chatarch/chatevent/</code>。</li>
 <li>不做全盘扫帖、全站消息遍历、全仓库历史扫描或 HTML 爬虫式 capture。</li>
 </ul>
 <h2 id="_2">事件语义</h2>

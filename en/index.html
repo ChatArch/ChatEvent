@@ -460,6 +460,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -567,12 +594,18 @@
 </ul>
 <p>Write and query events through HTTP; use <code>chatevent api ...</code> as the CLI counterpart to the REST API.</p>
 <p><a href="reference/">Reference</a></p>
+<ul>
+<li><strong>Confirm default paths</strong></li>
+</ul>
+<p>Runtime state defaults to <code>$CHATARCH_HOME/chatevent/</code> or <code>~/.chatarch/chatevent/</code>; verify with <code>chatevent paths --json</code>.</p>
+<p><a href="quickstart/">Quick start</a></p>
 </div>
 <h2 id="current-boundary">Current boundary</h2>
 <ul>
 <li>ChatEvent only <strong>captures, normalizes, deduplicates, stores, and observes</strong> events.</li>
 <li>It does not execute agents, create tasks, or make routing decisions in the current scope.</li>
 <li>Platform REST APIs are used only for object completion after official events, bounded cursor reconciliation, and acceptance readback; ChatEvent itself exposes a standard REST API for downstream event write, query, and checkpoint consumption.</li>
+<li>Default install/runtime state, the SQLite ledger, and the optional admin-token file all live under <code>$CHATARCH_HOME/chatevent/</code>, falling back to <code>~/.chatarch/chatevent/</code>.</li>
 <li>It does not scan whole sites, all messages, complete forum history, or full repository history.</li>
 </ul>
 <h2 id="event-semantics">Event semantics</h2>
