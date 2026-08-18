@@ -498,6 +498,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#login-user-management-and-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Login, User Management, And Isolation
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -630,6 +641,17 @@
     <span class="md-ellipsis">
       
         Storage and online editing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#login-user-management-and-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Login, User Management, And Isolation
       
     </span>
   </a>
@@ -901,6 +923,15 @@
 <p>Path precedence is <code>--db</code>, <code>CHATEVENT_DB</code>, <code>$CHATARCH_HOME/chatevent/events.db</code>, then <code>~/.chatarch/chatevent/events.db</code>. On first default-path use, if legacy <code>~/.chatevent/events.db</code> exists and the new database does not, ChatEvent copies it into the ChatArch-internal path and keeps the legacy file.</p>
 <p><code>subscriptions.body</code> stores the full <code>Subscription</code> JSON, including <code>last_cursor</code> and <code>last_event_at</code> updates after events arrive; <code>events.body</code> stores the full <code>ChatEvent</code> JSON.</p>
 <p>The Web Observatory <code>Subscriptions</code> tab can create, edit, enable/disable, and delete subscriptions. For production or public deployments, configure an admin token: <code>CHATEVENT_ADMIN_TOKEN</code> first, then <code>CHATEVENT_ADMIN_TOKEN_FILE</code>, then the default file <code>$CHATARCH_HOME/chatevent/secrets/admin-token</code> or <code>~/.chatarch/chatevent/secrets/admin-token</code>. Once configured, <code>POST /api/subscriptions</code> and <code>DELETE /api/subscriptions/{id}</code> require the <code>X-ChatEvent-Admin-Token</code> header.</p>
+<h2 id="login-user-management-and-isolation">Login, User Management, And Isolation</h2>
+<p>ChatEvent now includes a lightweight token login skeleton:</p>
+<ul>
+<li><code>GET /api/session</code>: validate the current <code>X-ChatEvent-Admin-Token</code> and return <code>admin_required</code>, <code>authenticated</code>, <code>user</code>, and whether the caller is the bootstrap admin.</li>
+<li><code>GET /api/users</code>: list users as an administrator.</li>
+<li><code>POST /api/users</code>: create a user and return a one-time <code>arch_xxx</code> token; the server stores only the token hash.</li>
+<li><code>DELETE /api/users/{id}</code>: delete a user as an administrator.</li>
+</ul>
+<p><code>CHATEVENT_ADMIN_TOKEN</code> / <code>secrets/admin-token</code> is the bootstrap administrator credential for creating the first users. <code>Subscription.owner_user_id</code> is the current isolation boundary: subscriptions created by member tokens are automatically owned by that user; members can only read, update, and delete their own subscriptions; bootstrap/admin tokens can manage all subscriptions. The event stream remains an Observatory debugging view for now and can be tightened by tenant/user owner later.</p>
 
 
 
