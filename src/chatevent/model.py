@@ -1,11 +1,19 @@
-"""Normalized event model shared by platform adapters."""
+"""Pydantic event specification shared by platform adapters."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Mapping
+from typing import Literal
+
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    field_validator,
+)
 
 
 class CaptureMode(str, Enum):
@@ -15,31 +23,58 @@ class CaptureMode(str, Enum):
     PULL = "pull"
 
 
-@dataclass(frozen=True, slots=True)
-class ChatEvent:
+def utc_now() -> datetime:
+    """Return an aware UTC timestamp."""
+
+    return datetime.now(timezone.utc)
+
+
+class ChatEvent(BaseModel):
     """A platform-neutral event envelope.
 
-    Event IDs only need to be stable within a source. Platform-specific data
-    stays in ``payload`` so the core model can evolve independently of SDKs.
+    Event IDs only need to be stable within a source. Normalized platform data
+    stays in ``payload`` while ``raw_payload`` preserves the source message for
+    debugging and future adapter improvements.
     """
 
-    id: str
-    source: str
-    kind: str
-    occurred_at: datetime
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["1.0"] = "1.0"
+    id: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    kind: str = Field(min_length=1)
+    occurred_at: AwareDatetime
+    captured_at: AwareDatetime = Field(default_factory=utc_now)
     capture_mode: CaptureMode
-    payload: Mapping[str, Any] = field(default_factory=dict)
+    subscription_id: str | None = None
     actor_id: str | None = None
     conversation_id: str | None = None
+    subject_id: str | None = None
+    subject_type: str | None = None
     url: str | None = None
     cursor: str | None = None
+    payload: dict[str, JsonValue] = Field(default_factory=dict)
+    raw_payload: JsonValue | None = None
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
 
-    def __post_init__(self) -> None:
-        for name in ("id", "source", "kind"):
-            if not getattr(self, name).strip():
-                raise ValueError(f"{name} must not be empty")
-        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
-            raise ValueError("occurred_at must be timezone-aware")
+    @field_validator("id", "source", "kind")
+    @classmethod
+    def identity_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be empty")
+        return value
+
+    @field_validator("occurred_at", "captured_at")
+    @classmethod
+    def normalize_timestamp(cls, value: datetime) -> datetime:
+        return value.astimezone(timezone.utc)
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, values: list[str]) -> list[str]:
+        return list(dict.fromkeys(value.strip() for value in values if value.strip()))
 
     @property
     def dedupe_key(self) -> str:
@@ -47,19 +82,7 @@ class ChatEvent:
 
         return f"{self.source}:{self.id}"
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, JsonValue]:
         """Return a JSON-compatible representation of the envelope."""
 
-        return {
-            "id": self.id,
-            "source": self.source,
-            "kind": self.kind,
-            "occurred_at": self.occurred_at.isoformat(),
-            "capture_mode": self.capture_mode.value,
-            "payload": dict(self.payload),
-            "actor_id": self.actor_id,
-            "conversation_id": self.conversation_id,
-            "url": self.url,
-            "cursor": self.cursor,
-        }
-
+        return self.model_dump(mode="json")

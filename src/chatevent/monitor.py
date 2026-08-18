@@ -18,4 +18,3 @@ class EventMonitor(Protocol):
         """Yield new events, optionally continuing from a source cursor."""
 
         ...
-
