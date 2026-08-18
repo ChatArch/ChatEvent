@@ -926,11 +926,15 @@
 <h2 id="_6">登录、用户管理与隔离</h2>
 <p>ChatEvent 现在提供轻量 token 登录骨架：</p>
 <ul>
-<li><code>GET /api/session</code>：校验当前 <code>X-ChatEvent-Admin-Token</code>，返回 <code>admin_required</code>、<code>authenticated</code>、<code>user</code> 与是否为 bootstrap admin。</li>
+<li><code>GET /</code>：配置管理员 token 或用户后，未登录只返回登录页；登录后才返回 Observatory。</li>
+<li><code>POST /api/login</code>：校验 <code>arch_xxx</code> token 并设置浏览器 cookie。</li>
+<li><code>POST /api/logout</code>：清除浏览器 cookie。</li>
+<li><code>GET /api/session</code>：校验当前 <code>X-ChatEvent-Admin-Token</code> 或 cookie，返回 <code>admin_required</code>、<code>authenticated</code>、<code>user</code> 与是否为 bootstrap admin。</li>
 <li><code>GET /api/users</code>：管理员列出用户。</li>
 <li><code>POST /api/users</code>：管理员创建用户并返回一次性 <code>arch_xxx</code> token；服务端只保存 token hash。</li>
 <li><code>DELETE /api/users/{id}</code>：管理员删除用户。</li>
 </ul>
+<p>配置管理员 token 或用户后，<code>/api/stats</code>、<code>/api/events</code>、<code>/api/events/{dedupe_key}</code>、schema、platforms、subscriptions 等读取 API 都需要登录。事件写入接口和 webhook 接口保持可达，用于接收平台事件。</p>
 <p><code>CHATEVENT_ADMIN_TOKEN</code> / <code>secrets/admin-token</code> 是 bootstrap 管理员凭据，用于创建第一批用户。<code>Subscription.owner_user_id</code> 是当前数据隔离边界：member token 创建的订阅自动归属该用户；member 只能读取、修改、删除自己的订阅；bootstrap/admin 可管理全部订阅。事件流仍保留 Observatory 调试视图，后续可进一步按 tenant/user owner 收敛事件读取范围。</p>
 
 

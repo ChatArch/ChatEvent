@@ -926,11 +926,15 @@
 <h2 id="login-user-management-and-isolation">Login, User Management, And Isolation</h2>
 <p>ChatEvent now includes a lightweight token login skeleton:</p>
 <ul>
-<li><code>GET /api/session</code>: validate the current <code>X-ChatEvent-Admin-Token</code> and return <code>admin_required</code>, <code>authenticated</code>, <code>user</code>, and whether the caller is the bootstrap admin.</li>
+<li><code>GET /</code>: when an admin token or users are configured, unauthenticated callers receive only the login page; authenticated callers receive the Observatory.</li>
+<li><code>POST /api/login</code>: validate an <code>arch_xxx</code> token and set a browser cookie.</li>
+<li><code>POST /api/logout</code>: clear the browser cookie.</li>
+<li><code>GET /api/session</code>: validate the current <code>X-ChatEvent-Admin-Token</code> or cookie and return <code>admin_required</code>, <code>authenticated</code>, <code>user</code>, and whether the caller is the bootstrap admin.</li>
 <li><code>GET /api/users</code>: list users as an administrator.</li>
 <li><code>POST /api/users</code>: create a user and return a one-time <code>arch_xxx</code> token; the server stores only the token hash.</li>
 <li><code>DELETE /api/users/{id}</code>: delete a user as an administrator.</li>
 </ul>
+<p>After an admin token or users exist, read APIs such as <code>/api/stats</code>, <code>/api/events</code>, <code>/api/events/{dedupe_key}</code>, schema, platforms, and subscriptions require login. Event-write and webhook endpoints remain reachable so platform events can still arrive.</p>
 <p><code>CHATEVENT_ADMIN_TOKEN</code> / <code>secrets/admin-token</code> is the bootstrap administrator credential for creating the first users. <code>Subscription.owner_user_id</code> is the current isolation boundary: subscriptions created by member tokens are automatically owned by that user; members can only read, update, and delete their own subscriptions; bootstrap/admin tokens can manage all subscriptions. The event stream remains an Observatory debugging view for now and can be tightened by tenant/user owner later.</p>
 
 
