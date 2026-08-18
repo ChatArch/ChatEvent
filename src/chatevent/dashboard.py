@@ -88,13 +88,14 @@ DASHBOARD_HTML = r"""<!doctype html>
     .filters { display: grid; grid-template-columns: minmax(240px, 1.4fr) repeat(5, minmax(132px, 1fr)); gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
     .control { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; padding: 0 11px; color: var(--text); background: #11151c; outline: none; }
     .control:focus { border-color: rgba(185,255,102,.55); box-shadow: 0 0 0 3px rgba(185,255,102,.08); }
-    .event-head, .event-row { display: grid; grid-template-columns: 112px minmax(160px, 1fr) minmax(140px, .8fr) 145px 72px; gap: 14px; align-items: center; }
+    .event-head, .event-row { display: grid; grid-template-columns: 112px minmax(160px, .9fr) minmax(170px, .9fr) minmax(180px, 1.1fr) 145px 72px; gap: 14px; align-items: center; }
     .event-head { padding: 10px 15px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid var(--line); }
     .event-list { max-height: 650px; overflow: auto; }
     .event-row { width: 100%; padding: 14px 15px; color: inherit; text-align: left; border: 0; border-bottom: 1px solid rgba(255,255,255,.055); background: transparent; }
     .event-row:hover { background: rgba(255,255,255,.035); }
     .source { color: var(--accent); font: 700 12px ui-monospace, SFMono-Regular, monospace; }
-    .kind { font: 600 12px ui-monospace, SFMono-Regular, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kind, .target-label { font: 600 12px ui-monospace, SFMono-Regular, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .target-label { color: #d7dfeb; }
     .summary { color: #b5bdca; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     time { color: var(--muted); font-size: 11px; }
     .count { text-align: right; font: 700 11px ui-monospace, SFMono-Regular, monospace; color: var(--muted); }
@@ -129,7 +130,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .event-head { display: none; }
       .event-row { grid-template-columns: 90px 1fr 60px; }
-      .event-row .summary, .event-row time { display: none; }
+      .event-row .target-label, .event-row .summary, .event-row time { display: none; }
     }
     @media (max-width: 580px) {
       .shell { padding: 18px 12px; }
@@ -186,7 +187,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <input class="control" id="fromFilter" type="datetime-local" title="开始时间" />
           <input class="control" id="toFilter" type="datetime-local" title="结束时间" />
         </div>
-        <div class="event-head"><span>Source</span><span>Kind</span><span>Summary</span><span>Captured</span><span>Seen</span></div>
+        <div class="event-head"><span>Source</span><span>Kind</span><span>Target</span><span>Summary</span><span>Captured</span><span>Seen</span></div>
         <div class="event-list" id="events"></div>
       </section>
 
@@ -231,6 +232,10 @@ DASHBOARD_HTML = r"""<!doctype html>
         <label>平台 source<select class="control" name="source" id="subscriptionSource" required><option value="">选择平台</option></select></label>
         <label>状态<select class="control" name="enabled"><option value="true">启用</option><option value="false">暂停</option></select></label>
         <label class="wide">关注目标<input class="control" name="target" required placeholder="repo:ChatArch/ChatEvent / stream:demo/topic:loop" /></label>
+        <label>承载类型<input class="control" name="scopeType" id="subscriptionScopeType" placeholder="repo / pull_request / zulip_topic" /></label>
+        <label>承载 Key<input class="control" name="scopeKey" id="subscriptionScopeKey" placeholder="ChatArch/ChatEvent / ChatArch/ChatEvent#4" /></label>
+        <label>承载名称<input class="control" name="scopeDisplay" id="subscriptionScopeDisplay" placeholder="ChatArch/ChatEvent" /></label>
+        <label>承载 URL<input class="control" name="scopeUrl" id="subscriptionScopeUrl" placeholder="https://..." /></label>
         <label class="wide">事件类型<input class="control" name="eventKinds" value="*" placeholder="issue.opened, pull_request.merged" /></label>
         <div class="wide checks">
           <label><input type="checkbox" name="mode" value="webhook" checked /> webhook</label>
@@ -253,6 +258,21 @@ DASHBOARD_HTML = r"""<!doctype html>
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
     const formatTime = (value) => value ? new Intl.DateTimeFormat("zh-CN", {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date(value)) : "—";
     const localDateTimeToIso = (value) => value ? new Date(value).toISOString() : "";
+    function actionTargetLabel(target) {
+      if (!target) return "—";
+      const base = `${target.type}:${target.key}`;
+      return target.display && target.display !== target.key ? `${base} · ${target.display}` : base;
+    }
+    function targetChain(target) {
+      const chain = [];
+      let current = target;
+      while (current) { chain.push(actionTargetLabel(current)); current = current.parent; }
+      return chain.reverse().join(" → ");
+    }
+    function actionLabel(event) {
+      const action = event.action || {};
+      return [action.kind || event.kind, action.object_type, action.verb].filter(Boolean).join(" · ");
+    }
     const api = async (path, options = {}) => {
       const headers = {"Content-Type": "application/json", ...(options.headers || {})};
       const response = await fetch(path, {...options, headers});
@@ -312,10 +332,15 @@ DASHBOARD_HTML = r"""<!doctype html>
         root.innerHTML = `<div class="empty"><strong>还没有订阅</strong>先记录要关注的平台与对象。</div>`;
         return;
       }
-      root.innerHTML = items.map((item, index) => `
+      root.innerHTML = items.map((item, index) => {
+        const scopeText = targetChain(item.scope) || item.target;
+        const actionText = (item.actions || []).map(action => action.kind).join(", ") || item.event_kinds.join(", ");
+        return `
         <article class="subscription">
           <div class="subscription-top"><strong>${escapeHtml(item.label || item.source)}</strong><span class="dot ${item.enabled ? "" : "off"}"></span></div>
           <p>${escapeHtml(item.target)}</p>
+          <div class="subscription-meta">scope: ${escapeHtml(scopeText)}</div>
+          <div class="subscription-meta">actions: ${escapeHtml(actionText)}</div>
           <div class="subscription-meta">id: ${escapeHtml(item.id)}${item.last_cursor ? ` · cursor: ${escapeHtml(item.last_cursor)}` : ""}</div>
           <div class="chips">
             <span class="chip">${escapeHtml(item.source)}</span>
@@ -327,7 +352,8 @@ DASHBOARD_HTML = r"""<!doctype html>
             <button class="button small" type="button" data-action="toggle-subscription" data-index="${index}">${item.enabled ? "暂停" : "启用"}</button>
             <button class="button small danger" type="button" data-action="delete-subscription" data-index="${index}">删除</button>
           </div>
-        </article>`).join("");
+        </article>`;
+      }).join("");
       root.querySelectorAll('[data-action="edit-subscription"]').forEach(button => button.addEventListener("click", () => editSubscription(Number(button.dataset.index))));
       root.querySelectorAll('[data-action="toggle-subscription"]').forEach(button => button.addEventListener("click", () => toggleSubscription(Number(button.dataset.index))));
       root.querySelectorAll('[data-action="delete-subscription"]').forEach(button => button.addEventListener("click", () => deleteSubscription(Number(button.dataset.index))));
@@ -350,7 +376,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           </div>
           <p>actions:</p>
           <div class="chips">
-            ${platform.actions.slice(0, 12).map(action => `<span class="chip" title="${escapeHtml(action.description)}">${escapeHtml(action.kind)}</span>`).join("")}
+            ${platform.actions.slice(0, 12).map(action => `<span class="chip" title="${escapeHtml(action.description)} · target: ${escapeHtml((action.target_types || []).join(' / '))}">${escapeHtml(action.kind)} → ${escapeHtml((action.target_types || []).slice(0, 2).join('/'))}</span>`).join("")}
           </div>
         </article>`).join("");
       const source = $("subscriptionSource");
@@ -373,6 +399,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         return `<button class="event-row" data-index="${index}">
           <span class="source">${escapeHtml(event.source)}</span>
           <span class="kind">${escapeHtml(event.kind)}</span>
+          <span class="target-label" title="${escapeHtml(targetChain(event.target))}">${escapeHtml(actionTargetLabel(event.target))}</span>
           <span class="summary">${escapeHtml(summary(event))}</span>
           <time>${escapeHtml(formatTime(event.captured_at))}</time>
           <span class="count">×${item.seen_count}</span>
@@ -394,8 +421,12 @@ DASHBOARD_HTML = r"""<!doctype html>
         field("Occurred", formatTime(event.occurred_at)),
         field("Captured", formatTime(event.captured_at)),
         field("Subscription", event.subscription_id),
+        field("Action", actionLabel(event)),
+        field("Action target", actionTargetLabel(event.target)),
+        field("Target chain", targetChain(event.target)),
         field("Conversation", event.conversation_id),
-        field("Actor", event.actor_id),
+        field("Actor", event.actor?.display || event.actor_id),
+        field("Actor role", event.actor?.role || event.actor_role),
         field("Subject", [event.subject_type, event.subject_id].filter(Boolean).join(":")),
         field("Cursor", event.cursor),
         field("URL", event.url),
@@ -431,6 +462,10 @@ DASHBOARD_HTML = r"""<!doctype html>
       form.elements.source.value = item?.source || "";
       form.elements.enabled.value = item?.enabled === false ? "false" : "true";
       form.elements.target.value = item?.target || "";
+      form.elements.scopeType.value = item?.scope?.type || "";
+      form.elements.scopeKey.value = item?.scope?.key || "";
+      form.elements.scopeDisplay.value = item?.scope?.display || "";
+      form.elements.scopeUrl.value = item?.scope?.url || "";
       form.elements.eventKinds.value = (item?.event_kinds || ["*"]).join(", " );
       form.querySelectorAll('input[name="mode"]').forEach(input => { input.checked = (item?.capture_modes || ["webhook"]).includes(input.value); });
       $("formError").textContent = "";
@@ -453,6 +488,20 @@ DASHBOARD_HTML = r"""<!doctype html>
         capture_modes: captureModes,
       };
       if (id) body.id = id; else delete body.id;
+      delete body.actions;
+      const scopeType = String(form.get("scopeType") || "").trim();
+      const scopeKey = String(form.get("scopeKey") || "").trim();
+      if (scopeType && scopeKey) {
+        body.scope = {
+          ...(base.scope || {}),
+          type: scopeType,
+          key: scopeKey,
+          display: String(form.get("scopeDisplay") || "").trim() || null,
+          url: String(form.get("scopeUrl") || "").trim() || null,
+        };
+      } else {
+        delete body.scope;
+      }
       return body;
     }
 

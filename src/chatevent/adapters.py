@@ -12,7 +12,14 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote, urljoin
 
-from .model import CaptureMode, ChatEvent
+from .model import (
+    ActionDescriptor,
+    ActorDescriptor,
+    CaptureMode,
+    CarrierTarget,
+    ChatEvent,
+    action_from_kind,
+)
 
 
 def _parse_datetime(value: Any) -> datetime:
@@ -46,6 +53,89 @@ def _join_url(base_url: str | None, path: str | None) -> str | None:
     if not base_url:
         return None
     return urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+
+
+def _action(kind: str, object_type: str) -> ActionDescriptor:
+    return action_from_kind(kind, object_type=object_type)
+
+
+def _actor(actor_id: str | None, *, display: str | None = None, role: str | None = None) -> ActorDescriptor | None:
+    if not (actor_id or display or role):
+        return None
+    return ActorDescriptor(
+        id=f"user:{actor_id}" if actor_id and not actor_id.startswith("user:") else actor_id,
+        type="user" if actor_id or display else None,
+        display=display,
+        role=role.lower() if role else None,
+    )
+
+
+def _repo_target(repo_name: str, url: str | None = None) -> CarrierTarget:
+    return CarrierTarget(type="repo", key=repo_name, display=repo_name, url=url)
+
+
+def _zulip_message_target(
+    *,
+    message_id: str,
+    stream_id: str | None,
+    stream_name: str | None,
+    topic: str | None,
+    url: str | None,
+) -> CarrierTarget:
+    parent: CarrierTarget | None = None
+    stream_key = stream_name or stream_id
+    if stream_key:
+        parent = CarrierTarget(
+            type="zulip_stream",
+            key=stream_key,
+            display=stream_name or stream_key,
+            metadata={"stream_id": stream_id} if stream_id else {},
+        )
+    if topic:
+        topic_key = f"{stream_key}/{topic}" if stream_key else topic
+        parent = CarrierTarget(type="zulip_topic", key=topic_key, display=topic, parent=parent)
+    return CarrierTarget(type="message", key=message_id, display=f"message:{message_id}", url=url, parent=parent)
+
+
+def _discourse_post_target(
+    *,
+    post_id: str,
+    post_number: str | None,
+    topic_id: str | None,
+    title: str,
+    url: str | None,
+    topic_url: str | None = None,
+) -> CarrierTarget:
+    parent = (
+        CarrierTarget(type="discourse_topic", key=topic_id, display=title, url=topic_url)
+        if topic_id
+        else None
+    )
+    return CarrierTarget(
+        type="discourse_post",
+        key=post_id,
+        display=f"post #{post_number}" if post_number else f"post:{post_id}",
+        url=url,
+        parent=parent,
+    )
+
+
+def _issue_target(
+    *,
+    repo_name: str,
+    number: str,
+    url: str | None,
+    title: str | None = None,
+    target_type: str = "issue",
+) -> CarrierTarget:
+    label = "PR" if target_type == "pull_request" else "Issue"
+    return CarrierTarget(
+        type=target_type,
+        key=f"{repo_name}#{number}",
+        display=title or f"{label} #{number}",
+        url=url,
+        parent=_repo_target(repo_name),
+    )
 
 
 def _zulip_stream_name(message: dict[str, Any]) -> str | None:
@@ -111,6 +201,7 @@ def normalize_zulip_message_event(
     raw_event_id = _string(raw.get("id")) if raw is not message else None
     sender_id = _string(message.get("sender_id") or message.get("sender_email"))
     occurred_at = _parse_datetime(message.get("timestamp") or message.get("date_sent"))
+    url = _zulip_message_url(site_url, message)
 
     return ChatEvent(
         id=f"message:{message_id}",
@@ -119,11 +210,19 @@ def normalize_zulip_message_event(
         occurred_at=occurred_at,
         capture_mode=capture_mode,
         subscription_id=subscription_id,
+        action=_action("message.created", "message"),
+        target=_zulip_message_target(
+            message_id=message_id,
+            stream_id=stream_id,
+            stream_name=stream_name,
+            topic=topic,
+            url=url,
+        ),
         actor_id=f"user:{sender_id}" if sender_id else None,
         conversation_id=conversation_id,
         subject_id=f"message:{message_id}",
         subject_type="message",
-        url=_zulip_message_url(site_url, message),
+        url=url,
         cursor=raw_event_id or message_id,
         payload={
             "title": topic or stream_name or "Zulip message",
@@ -190,6 +289,10 @@ def normalize_discourse_post(
         url = f"{base_url.rstrip('/')}/t/{quote(slug, safe='-._~')}/{topic_id}{suffix}"
 
     event_name = _string(raw.get("event_name") or raw.get("discourse_event"))
+    kind = _discourse_kind(event_name, post_number)
+    topic_url = None
+    if base_url and topic_id and slug:
+        topic_url = f"{base_url.rstrip('/')}/t/{quote(slug, safe='-._~')}/{topic_id}"
     acquisition = (
         "discourse-webhook"
         if capture_mode in {CaptureMode.WEBHOOK, CaptureMode.PUSH}
@@ -198,10 +301,19 @@ def normalize_discourse_post(
     return ChatEvent(
         id=f"post:{post_id}",
         source="discourse",
-        kind=_discourse_kind(event_name, post_number),
+        kind=kind,
         occurred_at=_parse_datetime(created_at),
         capture_mode=capture_mode,
         subscription_id=subscription_id,
+        action=_action(kind, "post"),
+        target=_discourse_post_target(
+            post_id=post_id,
+            post_number=post_number,
+            topic_id=topic_id,
+            title=title,
+            url=url,
+            topic_url=topic_url,
+        ),
         actor_id=f"user:{username}" if username else None,
         conversation_id=f"topic:{topic_id}" if topic_id else None,
         subject_id=f"post:{post_id}",
@@ -257,6 +369,7 @@ def normalize_gitea_issue(
         raise ValueError("Gitea issue payload is missing created_at/updated_at")
     labels = issue.get("labels") if isinstance(issue.get("labels"), list) else []
     label_names = [item.get("name") for item in labels if isinstance(item, dict) and item.get("name")]
+    issue_url = _string(issue.get("html_url") or issue.get("url"))
 
     return ChatEvent(
         id=f"issue:{repo_name}:{number}",
@@ -265,11 +378,18 @@ def normalize_gitea_issue(
         occurred_at=_parse_datetime(occurred_at),
         capture_mode=capture_mode,
         subscription_id=subscription_id,
+        action=_action(kind, "issue"),
+        target=_issue_target(
+            repo_name=repo_name,
+            number=number,
+            url=issue_url,
+            title=_string(issue.get("title")),
+        ),
         actor_id=f"user:{login}" if login else None,
         conversation_id=f"repo:{repo_name}",
         subject_id=f"issue:{number}",
         subject_type="issue",
-        url=_string(issue.get("html_url") or issue.get("url")),
+        url=issue_url,
         cursor=issue_id or number,
         payload={
             "title": issue.get("title") or "",
@@ -294,6 +414,11 @@ def normalize_gitea_issue(
 def _github_repository_name(raw: dict[str, Any]) -> str | None:
     repository = raw.get("repository") if isinstance(raw.get("repository"), dict) else {}
     return _string(repository.get("full_name") or repository.get("name"))
+
+
+def _github_repository_url(raw: dict[str, Any]) -> str | None:
+    repository = raw.get("repository") if isinstance(raw.get("repository"), dict) else {}
+    return _string(repository.get("html_url") or repository.get("url"))
 
 
 def _github_sender_login(raw: dict[str, Any]) -> str | None:
@@ -329,6 +454,7 @@ def normalize_github_event(
     if not repo_name:
         raise ValueError("GitHub payload is missing repository.full_name")
     sender_login = _github_sender_login(raw)
+    repo_target = _repo_target(repo_name, _github_repository_url(raw))
 
     if github_event == "push":
         commit = raw.get("head_commit") if isinstance(raw.get("head_commit"), dict) else {}
@@ -347,6 +473,14 @@ def normalize_github_event(
             occurred_at=_parse_datetime(occurred_at),
             capture_mode=capture_mode,
             subscription_id=subscription_id,
+            action=_action("commit.pushed", "commit"),
+            target=CarrierTarget(
+                type="commit",
+                key=commit_id,
+                display=commit_id[:12],
+                url=_string(commit.get("url")),
+                parent=repo_target,
+            ),
             actor_id=f"user:{actor}" if actor else None,
             conversation_id=f"repo:{repo_name}",
             subject_id=f"commit:{commit_id}",
@@ -388,6 +522,14 @@ def normalize_github_event(
             occurred_at=_parse_datetime(occurred_at),
             capture_mode=capture_mode,
             subscription_id=subscription_id,
+            action=_action(kind, "pull_request"),
+            target=CarrierTarget(
+                type="pull_request",
+                key=f"{repo_name}#{number}",
+                display=pull_request.get("title") or f"PR #{number}",
+                url=_string(pull_request.get("html_url")),
+                parent=repo_target,
+            ),
             actor_id=f"user:{login}" if login else None,
             conversation_id=f"repo:{repo_name}",
             subject_id=f"pull_request:{number}",
@@ -426,6 +568,14 @@ def normalize_github_event(
             occurred_at=_parse_datetime(occurred_at),
             capture_mode=capture_mode,
             subscription_id=subscription_id,
+            action=_action(f"issue.{action_name}", "issue"),
+            target=CarrierTarget(
+                type="issue",
+                key=f"{repo_name}#{number}",
+                display=issue.get("title") or f"Issue #{number}",
+                url=_string(issue.get("html_url")),
+                parent=repo_target,
+            ),
             actor_id=f"user:{login}" if login else None,
             conversation_id=f"repo:{repo_name}",
             subject_id=f"issue:{number}",
@@ -457,14 +607,34 @@ def normalize_github_event(
             raise ValueError("GitHub issue_comment payload is missing timestamp")
         user = comment.get("user") if isinstance(comment.get("user"), dict) else {}
         action_name = _string(raw.get("action")) or "created"
+        kind = "issue.commented" if action_name == "created" else f"issue_comment.{action_name}"
+        parent_target_type = "pull_request" if isinstance(issue.get("pull_request"), dict) else "issue"
+        parent_label = "PR" if parent_target_type == "pull_request" else "Issue"
+        parent_target = CarrierTarget(
+            type=parent_target_type,
+            key=f"{repo_name}#{issue_number}",
+            display=issue.get("title") or f"{parent_label} #{issue_number}",
+            url=_string(issue.get("html_url")),
+            parent=repo_target,
+        )
+        login = _string(user.get("login") or sender_login)
         return ChatEvent(
             id=f"issue_comment:{repo_name}:{comment_id}",
             source="github",
-            kind="issue.commented" if action_name == "created" else f"issue_comment.{action_name}",
+            kind=kind,
             occurred_at=_parse_datetime(occurred_at),
             capture_mode=capture_mode,
             subscription_id=subscription_id,
-            actor_id=f"user:{_string(user.get('login') or sender_login)}" if _string(user.get("login") or sender_login) else None,
+            action=_action(kind, "issue_comment"),
+            target=CarrierTarget(
+                type="issue_comment",
+                key=comment_id,
+                display=f"comment:{comment_id}",
+                url=_string(comment.get("html_url")),
+                parent=parent_target,
+            ),
+            actor=_actor(login, role=_string(comment.get("author_association") or issue.get("author_association"))),
+            actor_id=f"user:{login}" if login else None,
             conversation_id=f"issue:{repo_name}:{issue_number}",
             subject_id=f"comment:{comment_id}",
             subject_type="issue_comment",
@@ -491,13 +661,22 @@ def normalize_github_event(
         if occurred_at is None:
             raise ValueError("GitHub workflow_run payload is missing timestamp")
         action_name = _string(raw.get("action")) or "completed"
+        kind = f"workflow_run.{action_name}"
         return ChatEvent(
             id=f"workflow_run:{repo_name}:{run_id}",
             source="github",
-            kind=f"workflow_run.{action_name}",
+            kind=kind,
             occurred_at=_parse_datetime(occurred_at),
             capture_mode=capture_mode,
             subscription_id=subscription_id,
+            action=_action(kind, "workflow_run"),
+            target=CarrierTarget(
+                type="workflow_run",
+                key=run_id,
+                display=workflow_run.get("name") or f"workflow_run:{run_id}",
+                url=_string(workflow_run.get("html_url")),
+                parent=repo_target,
+            ),
             actor_id=f"user:{sender_login}" if sender_login else None,
             conversation_id=f"repo:{repo_name}",
             subject_id=f"workflow_run:{run_id}",
@@ -525,13 +704,22 @@ def normalize_github_event(
         if occurred_at is None:
             raise ValueError("GitHub release payload is missing timestamp")
         action_name = _string(raw.get("action")) or "published"
+        kind = f"release.{action_name}"
         return ChatEvent(
             id=f"release:{repo_name}:{release_id}",
             source="github",
-            kind=f"release.{action_name}",
+            kind=kind,
             occurred_at=_parse_datetime(occurred_at),
             capture_mode=capture_mode,
             subscription_id=subscription_id,
+            action=_action(kind, "release"),
+            target=CarrierTarget(
+                type="release",
+                key=release_id,
+                display=release.get("name") or release.get("tag_name") or f"release:{release_id}",
+                url=_string(release.get("html_url")),
+                parent=repo_target,
+            ),
             actor_id=f"user:{sender_login}" if sender_login else None,
             conversation_id=f"repo:{repo_name}",
             subject_id=f"release:{release_id}",

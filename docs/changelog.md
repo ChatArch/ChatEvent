@@ -1,5 +1,10 @@
 # 发行说明
 
+## 0.1.1
+
+- 新增开放式 `CarrierTarget` / `ActionDescriptor` / `ActorDescriptor`，记录动作、承载目标链和发起人角色。
+- Observatory 显示 Target 列，事件详情显示 Action、Action target、Target chain 与 Actor role。
+
 ## 0.1.0
 
 第一个完整 Event Hub 版本，重点是把 ChatEvent 从事件模型骨架推进为可运行、可观察、可消费的 ChatArch 系列服务包。

@@ -54,8 +54,9 @@ official platform event / webhook / API cursor
 ## Event semantics
 
 - `source`: platform id such as `zulip`, `discourse`, `gitea`, or `github`.
-- `target`: subscription scope such as stream/topic, category/topic, or repo/org.
-- `kind`: business action such as `message.created`, `reply.created`, or `issue.opened`.
+- `target`: display/compatibility subscription scope such as stream/topic, category/topic, or repo/org.
+- `scope`: structured carrier target chain such as repo → pull request or stream → topic.
+- `kind` / `action`: business action such as `message.created`, `reply.created`, or `issue.opened`.
 - `capture_mode`: acquisition mechanism such as `webhook`, `event_queue`, or `api_cursor`.
 - `tags`: optional filtering/routing labels; they do not define the event action.
 

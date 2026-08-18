@@ -65,6 +65,20 @@ chatevent
 | `chatevent api delete-subscription <id>` | `DELETE /api/subscriptions/{id}` |
 
 
+
+## Action and carrier target fields
+
+Both `ChatEvent` and `Subscription` support structured action targets while keeping old fields compatible:
+
+- `Subscription.target`: canonical string for display and hand-written config.
+- `Subscription.scope`: structured carrier target with `type`, `key`, `display`, `url`, `parent`, and `metadata`; `type` is open-ended.
+- `Subscription.actions`: structured action selectors; if only `event_kinds` is provided, the service derives them automatically.
+- `ChatEvent.action`: concrete action with `kind`, `object_type`, `verb`, and `metadata`.
+- `ChatEvent.actor` / `actor_role`: initiator and platform-specific role; role stays an open string, e.g. maintainer, member, bot, or moderator.
+- `ChatEvent.target`: concrete object acted on; `parent` links repo/PR/comment or stream/topic/message carrier chains.
+
+Old clients that only send `kind`, `subject_id`, and `subject_type` remain valid. New adapters write full `action` and `target` whenever possible.
+
 ## Query events
 
 ```bash

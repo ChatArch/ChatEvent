@@ -12,9 +12,18 @@ from pydantic import (
     Field,
     JsonValue,
     field_validator,
+    model_validator,
 )
 
-from .model import CaptureMode, JsonValue, utc_now
+from .model import (
+    ActionDescriptor,
+    CaptureMode,
+    CarrierTarget,
+    JsonValue,
+    action_from_kind,
+    target_from_string,
+    utc_now,
+)
 
 
 class Subscription(BaseModel):
@@ -25,8 +34,10 @@ class Subscription(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex, min_length=1)
     source: str = Field(min_length=1)
     target: str = Field(min_length=1)
+    scope: CarrierTarget | None = None
     label: str | None = None
     event_kinds: list[str] = Field(default_factory=lambda: ["*"], min_length=1)
+    actions: list[ActionDescriptor] = Field(default_factory=list)
     capture_modes: list[CaptureMode] = Field(
         default_factory=lambda: [CaptureMode.API_CURSOR], min_length=1
     )
@@ -69,3 +80,21 @@ class Subscription(BaseModel):
     @classmethod
     def normalize_capture_modes(cls, values: list[CaptureMode]) -> list[CaptureMode]:
         return list(dict.fromkeys(values))
+
+    @field_validator("actions")
+    @classmethod
+    def normalize_actions(cls, values: list[ActionDescriptor]) -> list[ActionDescriptor]:
+        unique: dict[str, ActionDescriptor] = {}
+        for value in values:
+            unique.setdefault(value.kind, value)
+        return list(unique.values())
+
+    @model_validator(mode="after")
+    def derive_structured_selectors(self) -> "Subscription":
+        if self.scope is None:
+            self.scope = target_from_string(self.source, self.target)
+        if not self.actions and self.event_kinds != ["*"]:
+            self.actions = [action_from_kind(kind) for kind in self.event_kinds]
+        if self.actions and self.event_kinds == ["*"]:
+            self.event_kinds = [action.kind for action in self.actions]
+        return self

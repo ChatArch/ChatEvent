@@ -139,6 +139,41 @@ Use these fields for product meaning:
 - `capture_mode`: acquisition mechanism, not product action. New integrations use `webhook`, `event_queue`, `api_cursor`, `poll`, `manual_backfill`, `gateway_forward`, `test_fixture`, or `synthetic`. Legacy `push`/`pull` remain readable for old data only.
 - `tags`: optional labels/routing labels for filtering. They do **not** define the event source or action.
 
+
+### Action + carrier target
+
+ChatEvent now models both subscriptions and events as “action + carrier target”:
+
+```text
+Subscription = source + actions/event_kinds + scope/target + capture_modes + filters
+ChatEvent    = source + action/kind + actor/role + target + subject + payload
+```
+
+- `Subscription.target`: a compatibility/display canonical string such as `repo:ChatArch/ChatEvent`, `pull_request:ChatArch/ChatEvent#4`, or `stream:demo/topic:loop`.
+- `Subscription.scope`: the structured carrier target, with open `type`, `key`, `display`, `url`, `parent`, and `metadata` fields so platform-specific shapes remain extensible.
+- `Subscription.actions`: structured action selectors derived from `event_kinds` by default, or explicitly stored with `kind`, `object_type`, `verb`, and metadata.
+- `ChatEvent.action`: the concrete action that happened, such as `pull_request.merged` or `reply.created`.
+- `ChatEvent.actor` / `actor_role`: the initiator and platform-specific role, e.g. maintainer, member, bot, or moderator; role is an open string for future refinement.
+- `ChatEvent.target`: the concrete object acted on, chained through `parent`, e.g. `repo -> pull_request -> issue_comment` or `zulip_stream -> zulip_topic -> message`.
+
+Example:
+
+```json
+{
+  "source": "github",
+  "target": "pull_request:ChatArch/ChatEvent#4",
+  "scope": {
+    "type": "pull_request",
+    "key": "ChatArch/ChatEvent#4",
+    "parent": {"type": "repo", "key": "ChatArch/ChatEvent"}
+  },
+  "event_kinds": ["pull_request.opened", "pull_request.merged", "issue.commented"],
+  "capture_modes": ["webhook", "api_cursor"]
+}
+```
+
+The Observatory Event Stream now includes a Target column. Opening an event detail shows `Action`, `Action target`, and `Target chain`. The Platform actions panel also shows the target types each action usually attaches to.
+
 ## Supported platforms and common actions
 
 Inspect the canonical registry with:

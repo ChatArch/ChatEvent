@@ -139,6 +139,41 @@ Observatory 当前使用前端轮询，不是 WebSocket/SSE：
 - `capture_mode`：捕获机制，不是业务动作。新接入使用 `webhook`、`event_queue`、`api_cursor`、`poll`、`manual_backfill`、`gateway_forward`、`test_fixture` 或 `synthetic`；旧数据里的 `push`/`pull` 仅兼容读取。
 - `tags`：筛选或路由标签，不定义平台来源或动作。
 
+
+### 动作 + 承载目标
+
+ChatEvent 现在把订阅和事件都表达成“动作 + 承载目标”：
+
+```text
+Subscription = source + actions/event_kinds + scope/target + capture_modes + filters
+ChatEvent    = source + action/kind + actor/role + target + subject + payload
+```
+
+- `Subscription.target`：兼容和快速展示用的 canonical string，例如 `repo:ChatArch/ChatEvent`、`pull_request:ChatArch/ChatEvent#4`、`stream:demo/topic:loop`。
+- `Subscription.scope`：结构化承载目标，包含开放字符串 `type`、`key`、`display`、`url`、`parent` 和 `metadata`，不把平台类型写死。
+- `Subscription.actions`：结构化动作选择器，由 `event_kinds` 自动派生，也可以显式保存 `kind`、`object_type`、`verb` 和扩展 metadata。
+- `ChatEvent.action`：本次真实发生的动作，例如 `pull_request.merged` / `reply.created`。
+- `ChatEvent.actor` / `actor_role`：发起人及其平台角色，例如 maintainer、member、bot、moderator；角色是开放字符串，可继续细分。
+- `ChatEvent.target`：本次动作作用到的具体对象，并通过 `parent` 串起承载链，例如 `repo -> pull_request -> issue_comment` 或 `zulip_stream -> zulip_topic -> message`。
+
+示例：
+
+```json
+{
+  "source": "github",
+  "target": "pull_request:ChatArch/ChatEvent#4",
+  "scope": {
+    "type": "pull_request",
+    "key": "ChatArch/ChatEvent#4",
+    "parent": {"type": "repo", "key": "ChatArch/ChatEvent"}
+  },
+  "event_kinds": ["pull_request.opened", "pull_request.merged", "issue.commented"],
+  "capture_modes": ["webhook", "api_cursor"]
+}
+```
+
+Observatory 的 Event Stream 增加了 Target 列；点开事件详情后会显示 `Action`、`Action target` 和 `Target chain`。Platform actions 面板也会显示每个 action 通常挂载的 target types。
+
 ## 支持平台与常见动作
 
 查看 canonical registry：

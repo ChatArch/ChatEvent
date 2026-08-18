@@ -65,6 +65,20 @@ chatevent
 | `chatevent api delete-subscription <id>` | `DELETE /api/subscriptions/{id}` |
 
 
+
+## 动作与承载目标字段
+
+`ChatEvent` 与 `Subscription` 都支持结构化 action target，且保留旧字段兼容：
+
+- `Subscription.target`：canonical string，适合快速展示和手写配置。
+- `Subscription.scope`：结构化承载目标，字段为 `type`、`key`、`display`、`url`、`parent`、`metadata`；`type` 是开放字符串。
+- `Subscription.actions`：结构化 action selectors；如果只传 `event_kinds`，服务会自动派生。
+- `ChatEvent.action`：真实动作，字段为 `kind`、`object_type`、`verb`、`metadata`。
+- `ChatEvent.actor` / `actor_role`：发起人和平台角色，角色保持开放字符串，例如 maintainer、member、bot、moderator。
+- `ChatEvent.target`：本次动作作用对象；`parent` 串起 repo/PR/comment 或 stream/topic/message 等承载链。
+
+旧客户端只传 `kind`、`subject_id`、`subject_type` 仍然可写入；新 adapter 会尽量写入完整 `action` 和 `target`。
+
 ## 查询事件
 
 ```bash
