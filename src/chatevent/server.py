@@ -12,6 +12,7 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict
 
+from . import __version__
 from .adapters import (
     normalize_discourse_post,
     normalize_github_event,
@@ -21,6 +22,7 @@ from .adapters import (
 from .catalog import PlatformSpec, list_platform_specs
 from .dashboard import DASHBOARD_HTML
 from .model import CaptureMode, ChatEvent
+from .state import default_database_path, load_admin_token, state_paths
 from .store import EventStore, StoredEvent
 from .subscription import Subscription
 
@@ -56,22 +58,15 @@ class DeleteResult(BaseModel):
     id: str
 
 
-def default_database_path() -> Path:
-    configured = os.environ.get("CHATEVENT_DB")
-    if configured:
-        return Path(configured).expanduser()
-    return Path.home() / ".chatevent" / "events.db"
-
-
 def create_app(*, db_path: str | Path | None = None) -> FastAPI:
     store = EventStore(db_path or default_database_path())
     app = FastAPI(
         title="ChatEvent Observatory",
-        version="0.1.0.dev0",
+        version=__version__,
         description="Capture, normalize, inspect, and debug collaboration events.",
     )
     app.state.store = store
-    admin_token = os.environ.get("CHATEVENT_ADMIN_TOKEN")
+    admin_token = load_admin_token()
 
     def require_admin_token(header_value: str | None) -> None:
         if not admin_token:
@@ -85,7 +80,13 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "database": str(store.path)}
+        paths = state_paths(create=False)
+        return {
+            "status": "ok",
+            "database": str(store.path),
+            "chatarch_home": str(paths.chatarch_home),
+            "state_dir": str(paths.state_dir),
+        }
 
     @app.get("/api/schema/event")
     def event_schema() -> dict[str, Any]:

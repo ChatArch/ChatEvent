@@ -35,6 +35,12 @@ official platform event / webhook / API cursor
 
   [Reference](reference.md)
 
+- **Confirm default paths**
+
+  Runtime state defaults to `$CHATARCH_HOME/chatevent/` or `~/.chatarch/chatevent/`; verify with `chatevent paths --json`.
+
+  [Quick start](quickstart.md)
+
 </div>
 
 ## Current boundary
@@ -42,6 +48,7 @@ official platform event / webhook / API cursor
 - ChatEvent only **captures, normalizes, deduplicates, stores, and observes** events.
 - It does not execute agents, create tasks, or make routing decisions in the current scope.
 - Platform REST APIs are used only for object completion after official events, bounded cursor reconciliation, and acceptance readback; ChatEvent itself exposes a standard REST API for downstream event write, query, and checkpoint consumption.
+- Default install/runtime state, the SQLite ledger, and the optional admin-token file all live under `$CHATARCH_HOME/chatevent/`, falling back to `~/.chatarch/chatevent/`.
 - It does not scan whole sites, all messages, complete forum history, or full repository history.
 
 ## Event semantics

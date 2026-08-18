@@ -5,6 +5,8 @@
 ```text
 chatevent
   --tree                         Print this command tree
+  --version                      Print package version
+  paths [--json]                 Show ChatArch-owned runtime paths
   serve [--host HOST] [--port PORT] [--db DB]
                                  Run the local Event Observatory
   schema event|subscription      Print JSON Schema contracts
@@ -103,6 +105,15 @@ Repeated delivery of the same event does not create a new row; it increments `se
 
 ## Storage and online editing
 
-Subscription configuration and the event ledger are stored in SQLite. The online demo uses `/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db`. `subscriptions.body` stores the full `Subscription` JSON, including `last_cursor` and `last_event_at` updates after events arrive; `events.body` stores the full `ChatEvent` JSON.
+Subscription configuration and the event ledger are stored in SQLite. The default database is ChatArch-internal:
 
-The Web Observatory `Subscriptions` tab can create, edit, enable/disable, and delete subscriptions. For production or public deployments, set `CHATEVENT_ADMIN_TOKEN` so `POST /api/subscriptions` and `DELETE /api/subscriptions/{id}` require the `X-ChatEvent-Admin-Token` header.
+```text
+$CHATARCH_HOME/chatevent/events.db
+# when CHATARCH_HOME is unset: ~/.chatarch/chatevent/events.db
+```
+
+Path precedence is `--db`, `CHATEVENT_DB`, `$CHATARCH_HOME/chatevent/events.db`, then `~/.chatarch/chatevent/events.db`. On first default-path use, if legacy `~/.chatevent/events.db` exists and the new database does not, ChatEvent copies it into the ChatArch-internal path and keeps the legacy file.
+
+`subscriptions.body` stores the full `Subscription` JSON, including `last_cursor` and `last_event_at` updates after events arrive; `events.body` stores the full `ChatEvent` JSON.
+
+The Web Observatory `Subscriptions` tab can create, edit, enable/disable, and delete subscriptions. For production or public deployments, configure an admin token: `CHATEVENT_ADMIN_TOKEN` first, then `CHATEVENT_ADMIN_TOKEN_FILE`, then the default file `$CHATARCH_HOME/chatevent/secrets/admin-token` or `~/.chatarch/chatevent/secrets/admin-token`. Once configured, `POST /api/subscriptions` and `DELETE /api/subscriptions/{id}` require the `X-ChatEvent-Admin-Token` header.

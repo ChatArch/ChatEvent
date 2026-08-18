@@ -2,7 +2,7 @@
 
 `chatevent` 是 ChatArch 的协作事件观察包：提供类型化事件 envelope、SQLite 事件账本、平台 normalizer 和 Web Observatory，用于观察 Discourse、Zulip、Gitea、GitHub 等协作平台的真实动作。
 
-当前 `0.1.0.dev0` 范围刻意收窄到 **Discourse、Zulip、Gitea、GitHub**。每个平台都有明确 action catalog，订阅和 UI 不再把任意 `tag` 当成事件语义。
+当前 `0.1.0` 范围聚焦 **Discourse、Zulip、Gitea、GitHub**。每个平台都有明确 action catalog，订阅和 UI 不再把任意 `tag` 当成事件语义。
 
 ```text
 平台官方 webhook / event queue / API cursor -> ChatEvent -> SQLite -> Observatory / API
@@ -34,13 +34,15 @@ uv sync --extra serve --extra test --extra docs
 uv run --extra serve chatevent --tree
 ```
 
-PyPI 上的 `0.0.1` 只包含初始事件 envelope 和 monitor protocol。Observatory、平台 action registry 和 webhook/event queue 接入属于开发中的 `0.1.0.dev0`。
+`0.1.0` 是第一个完整 Event Hub 版本：包含 Observatory、SQLite 事件账本、平台 action registry、REST API/CLI 对应、订阅编辑和 ChatArch 内部默认路径。
 
 ## CLI
 
 ```text
 chatevent
   --tree                         Print this command tree
+  --version                      Print package version
+  paths [--json]                 Show ChatArch-owned runtime paths
   serve [--host HOST] [--port PORT] [--db DB]
                                  Run the local Event Observatory
   schema event|subscription      Print JSON Schema contracts
@@ -65,8 +67,7 @@ chatevent
 ```bash
 uv run --extra serve chatevent serve \
   --host 127.0.0.1 \
-  --port 8765 \
-  --db ./events.db
+  --port 8765
 ```
 
 打开：
@@ -80,12 +81,33 @@ http://127.0.0.1:8765/
 - https://event.local.wzhecnu.cn/
 - https://event.public.wzhecnu.cn/
 
-## 配置和存储位置
+## ChatArch 内部默认目录
 
-ChatEvent 当前把运行时事件账本写在 SQLite 中，数据库路径由 `--db` 或 `CHATEVENT_DB` 决定；未设置时使用 `~/.chatevent/events.db`。当前线上 demo 的 DB 是：
+ChatEvent 是 ChatArch 系列包，默认运行态必须留在 ChatArch home 内部。ChatArch home 的解析顺序是 `CHATARCH_HOME`，未设置时使用 `~/.chatarch`。
 
 ```text
-/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db
+<chatarch-home>/
+└── chatevent/
+    ├── events.db              # SQLite 事件账本和订阅配置
+    ├── events.db-wal          # SQLite WAL，运行时可能出现
+    ├── events.db-shm          # SQLite shared-memory，运行时可能出现
+    └── secrets/
+        └── admin-token        # 可选 Web/REST 订阅写操作管理员 token
+```
+
+默认数据库解析顺序：
+
+1. CLI 显式 `--db <path>`；
+2. `CHATEVENT_DB=<path>`；
+3. `$CHATARCH_HOME/chatevent/events.db`；
+4. `~/.chatarch/chatevent/events.db`。
+
+首次使用默认路径时，如果发现旧版 `~/.chatevent/events.db` 且新数据库不存在，ChatEvent 会把旧库复制到 ChatArch 内部路径；旧文件保留不删除。显式 `--db` 或 `CHATEVENT_DB` 不触发自动迁移。
+
+可用下面的命令回读当前路径，不会输出 token 值：
+
+```bash
+uv run chatevent paths --json
 ```
 
 SQLite 内部主要有两张表：
@@ -216,7 +238,12 @@ uv run chatevent api event \
 Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若设置 `CHATEVENT_ADMIN_TOKEN`，订阅写操作必须带 `X-ChatEvent-Admin-Token` header；Web 页面会在首次写操作收到 401 时提示输入 token，并只保存在当前浏览器 sessionStorage。
 
 ```bash
-CHATEVENT_ADMIN_TOKEN=... uv run --extra serve chatevent serve --db ./events.db
+mkdir -p ~/.chatarch/chatevent/secrets
+chmod 700 ~/.chatarch/chatevent ~/.chatarch/chatevent/secrets
+printf '<admin-token>\n' > ~/.chatarch/chatevent/secrets/admin-token
+chmod 600 ~/.chatarch/chatevent/secrets/admin-token
+
+uv run --extra serve chatevent serve
 uv run chatevent api save-subscription subscription.json --admin-token ...
 uv run chatevent api delete-subscription discourse-practice --admin-token ...
 ```

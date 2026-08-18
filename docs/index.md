@@ -35,6 +35,12 @@ ChatEvent 是 ChatArch 的协作事件观察层：把 Zulip、Discourse、Gitea�
 
   [查看接口参考](reference.md)
 
+- **确认默认目录**
+
+  默认运行态位于 `$CHATARCH_HOME/chatevent/` 或 `~/.chatarch/chatevent/`，可用 `chatevent paths --json` 回读。
+
+  [查看快速开始](quickstart.md)
+
 </div>
 
 ## 当前产品边界
@@ -42,6 +48,7 @@ ChatEvent 是 ChatArch 的协作事件观察层：把 Zulip、Discourse、Gitea�
 - ChatEvent 只负责 **捕获、规范化、去重、保存、观察**。
 - 当前不直接执行 Agent、不开任务、不做路由决策。
 - 平台 REST API 只用于官方事件后的对象补全、明确订阅范围内的 cursor 增量补偿和验收读回；ChatEvent 自身提供标准 REST API 供下游写入、查询和按 checkpoint 消费事件。
+- 默认安装、运行、SQLite 账本和可选管理员 token 文件都归入 ChatArch 内部目录 `$CHATARCH_HOME/chatevent/`，未设置 `CHATARCH_HOME` 时为 `~/.chatarch/chatevent/`。
 - 不做全盘扫帖、全站消息遍历、全仓库历史扫描或 HTML 爬虫式 capture。
 
 ## 事件语义

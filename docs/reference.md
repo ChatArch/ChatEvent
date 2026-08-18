@@ -5,6 +5,8 @@
 ```text
 chatevent
   --tree                         Print this command tree
+  --version                      Print package version
+  paths [--json]                 Show ChatArch-owned runtime paths
   serve [--host HOST] [--port PORT] [--db DB]
                                  Run the local Event Observatory
   schema event|subscription      Print JSON Schema contracts
@@ -103,6 +105,15 @@ source:id
 
 ## 存储与线上编辑
 
-订阅配置和事件账本都在 SQLite 中：线上 demo 使用 `/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db`。`subscriptions.body` 保存完整 `Subscription` JSON，事件到达后 `last_cursor` / `last_event_at` 也会更新在订阅记录中；`events.body` 保存完整 `ChatEvent` JSON。
+订阅配置和事件账本都在 SQLite 中。默认数据库位于 ChatArch 内部：
 
-Web Observatory 的 `Subscriptions` 标签页可以新建、编辑、启停和删除订阅。生产或公网环境建议设置 `CHATEVENT_ADMIN_TOKEN`，这样 `POST /api/subscriptions` 和 `DELETE /api/subscriptions/{id}` 需要 `X-ChatEvent-Admin-Token` header。
+```text
+$CHATARCH_HOME/chatevent/events.db
+# 未设置 CHATARCH_HOME 时：~/.chatarch/chatevent/events.db
+```
+
+路径优先级是 `--db`、`CHATEVENT_DB`、`$CHATARCH_HOME/chatevent/events.db`、`~/.chatarch/chatevent/events.db`。第一次使用默认路径时，若旧版 `~/.chatevent/events.db` 存在且新数据库不存在，会复制旧库到 ChatArch 内部路径并保留旧文件。
+
+`subscriptions.body` 保存完整 `Subscription` JSON，事件到达后 `last_cursor` / `last_event_at` 也会更新在订阅记录中；`events.body` 保存完整 `ChatEvent` JSON。
+
+Web Observatory 的 `Subscriptions` 标签页可以新建、编辑、启停和删除订阅。生产或公网环境建议设置管理员 token：优先读取 `CHATEVENT_ADMIN_TOKEN`，其次读取 `CHATEVENT_ADMIN_TOKEN_FILE`，再读取默认文件 `$CHATARCH_HOME/chatevent/secrets/admin-token` 或 `~/.chatarch/chatevent/secrets/admin-token`。设置后，`POST /api/subscriptions` 和 `DELETE /api/subscriptions/{id}` 需要 `X-ChatEvent-Admin-Token` header。

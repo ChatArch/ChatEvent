@@ -9,12 +9,14 @@ from .catalog import (
 )
 from .model import CaptureMode, ChatEvent
 from .monitor import EventMonitor
+from .state import ChatEventPaths, default_database_path, load_admin_token, state_paths
 from .store import EventStore, StoredEvent
 from .subscription import Subscription
 
 __all__ = [
     "CaptureMode",
     "ChatEvent",
+    "ChatEventPaths",
     "EventMonitor",
     "EventStore",
     "PlatformAction",
@@ -25,4 +27,4 @@ __all__ = [
     "get_platform_spec",
     "list_platform_specs",
 ]
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0"

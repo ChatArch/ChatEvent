@@ -36,6 +36,8 @@ class CliTests(unittest.TestCase):
 
         tree = stdout.getvalue()
         self.assertIn("chatevent", tree)
+        self.assertIn("--version", tree)
+        self.assertIn("paths [--json]", tree)
         self.assertIn("serve", tree)
         self.assertIn("schema event", tree)
         self.assertIn("record-json", tree)
@@ -45,6 +47,14 @@ class CliTests(unittest.TestCase):
         self.assertIn("api event DEDUPE_KEY", tree)
         self.assertIn("api save-subscription FILE", tree)
         self.assertIn("api delete-subscription ID", tree)
+
+    def test_version_outputs_package_version(self) -> None:
+        stdout = io.StringIO()
+        with self.assertRaises(SystemExit) as captured, contextlib.redirect_stdout(stdout):
+            main(["--version"])
+
+        self.assertEqual(captured.exception.code, 0)
+        self.assertIn("chatevent 0.1.0", stdout.getvalue())
 
     def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
         requests = []

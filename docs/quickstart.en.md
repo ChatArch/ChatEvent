@@ -18,8 +18,7 @@ uv sync --extra serve
 ```bash
 uv run --extra serve chatevent serve \
   --host 127.0.0.1 \
-  --port 8765 \
-  --db ./events.db
+  --port 8765
 ```
 
 Open:
@@ -34,6 +33,24 @@ The current server demo is exposed at:
 https://event.public.wzhecnu.cn/
 https://event.local.wzhecnu.cn/
 ```
+
+
+## Confirm default paths
+
+You do not need to pass `--db` for normal use. ChatEvent keeps runtime state under ChatArch home:
+
+```text
+$CHATARCH_HOME/chatevent/events.db
+# when CHATARCH_HOME is unset: ~/.chatarch/chatevent/events.db
+```
+
+Read the effective paths:
+
+```bash
+uv run chatevent paths --json
+```
+
+If legacy `~/.chatevent/events.db` exists and the new ChatArch-internal database does not, the first default startup copies the legacy database to `~/.chatarch/chatevent/events.db` without deleting the old file.
 
 ## Refresh behavior
 
@@ -62,7 +79,7 @@ The delay from a platform action to the UI is therefore:
 ## Record one event
 
 ```bash
-uv run chatevent record-json event.json --db ./events.db
+uv run chatevent record-json event.json
 ```
 
 Minimal event:

@@ -18,8 +18,7 @@ uv sync --extra serve
 ```bash
 uv run --extra serve chatevent serve \
   --host 127.0.0.1 \
-  --port 8765 \
-  --db ./events.db
+  --port 8765
 ```
 
 打开：
@@ -34,6 +33,24 @@ http://127.0.0.1:8765/
 https://event.public.wzhecnu.cn/
 https://event.local.wzhecnu.cn/
 ```
+
+
+## 确认默认目录
+
+默认不需要传 `--db`。ChatEvent 会把运行态放到 ChatArch home 内部：
+
+```text
+$CHATARCH_HOME/chatevent/events.db
+# 未设置 CHATARCH_HOME 时：~/.chatarch/chatevent/events.db
+```
+
+用 `paths` 回读实际位置：
+
+```bash
+uv run chatevent paths --json
+```
+
+如果旧版 `~/.chatevent/events.db` 存在，且新的 ChatArch 内部数据库还不存在，第一次默认启动会复制旧库到 `~/.chatarch/chatevent/events.db`，但不会删除旧文件。
 
 ## 页面刷新机制
 
@@ -62,7 +79,7 @@ GET /api/platforms
 ## 写入一条事件
 
 ```bash
-uv run chatevent record-json event.json --db ./events.db
+uv run chatevent record-json event.json
 ```
 
 事件最小字段：
