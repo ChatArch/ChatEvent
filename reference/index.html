@@ -474,6 +474,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        存储与线上编辑
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -563,6 +574,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        存储与线上编辑
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -602,6 +624,7 @@
   api event DEDUPE_KEY           GET /api/events/{dedupe_key}
   api record-json FILE           POST /api/events
   api save-subscription FILE     POST /api/subscriptions
+  api delete-subscription ID     DELETE /api/subscriptions/{id}
   capture zulip-once [options]   Official Zulip event-queue capture pass
 </code></pre></div>
 <h2 id="http-api">HTTP API</h2>
@@ -643,6 +666,11 @@
 <td><code>GET</code></td>
 <td><code>/api/subscriptions</code></td>
 <td>列出订阅。</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/subscriptions/{id}</code></td>
+<td>删除订阅配置，不删除历史事件。</td>
 </tr>
 <tr>
 <td><code>POST</code></td>
@@ -736,6 +764,10 @@
 <td><code>chatevent api save-subscription subscription.json</code></td>
 <td><code>POST /api/subscriptions</code></td>
 </tr>
+<tr>
+<td><code>chatevent api delete-subscription &lt;id&gt;</code></td>
+<td><code>DELETE /api/subscriptions/{id}</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="_2">查询事件</h2>
@@ -797,6 +829,9 @@
 <div class="highlight"><pre><span></span><code>source:id
 </code></pre></div>
 <p>同一个事件重复投递时不会新增事件行，只会增加 <code>seen_count</code>，并在 <code>/api/stats</code> 的 <code>duplicate_count</code> 里体现。</p>
+<h2 id="_4">存储与线上编辑</h2>
+<p>订阅配置和事件账本都在 SQLite 中：线上 demo 使用 <code>/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db</code>。<code>subscriptions.body</code> 保存完整 <code>Subscription</code> JSON，事件到达后 <code>last_cursor</code> / <code>last_event_at</code> 也会更新在订阅记录中；<code>events.body</code> 保存完整 <code>ChatEvent</code> JSON。</p>
+<p>Web Observatory 的 <code>Subscriptions</code> 标签页可以新建、编辑、启停和删除订阅。生产或公网环境建议设置 <code>CHATEVENT_ADMIN_TOKEN</code>，这样 <code>POST /api/subscriptions</code> 和 <code>DELETE /api/subscriptions/{id}</code> 需要 <code>X-ChatEvent-Admin-Token</code> header。</p>
 
 
 
