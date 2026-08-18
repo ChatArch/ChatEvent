@@ -159,6 +159,8 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         subscription_id: str | None = None,
         x_github_event: str | None = Header(default=None, alias="X-GitHub-Event"),
     ) -> EventWriteResult:
+        if x_github_event == "ping":
+            return EventWriteResult(dedupe_key="github:ping", created=False, seen_count=0)
         try:
             event = normalize_github_event(
                 x_github_event or "push",

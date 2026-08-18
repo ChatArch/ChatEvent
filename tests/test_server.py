@@ -136,11 +136,22 @@ class ServerTests(unittest.TestCase):
                     "sender": {"login": "RexWang"},
                 },
             )
+            ping = client.post(
+                "/webhooks/github",
+                headers={"X-GitHub-Event": "ping"},
+                json={
+                    "zen": "Responsive is better than fast.",
+                    "hook_id": 123,
+                    "repository": {"full_name": "ChatArch/ChatEvent"},
+                },
+            )
 
             self.assertEqual(zulip.status_code, 202)
             self.assertEqual(discourse.status_code, 202)
             self.assertEqual(gitea.status_code, 202)
             self.assertEqual(github.status_code, 202)
+            self.assertEqual(ping.status_code, 202)
+            self.assertFalse(ping.json()["created"])
             stats = client.get("/api/stats").json()
             self.assertEqual(stats["event_count"], 4)
             self.assertEqual(
