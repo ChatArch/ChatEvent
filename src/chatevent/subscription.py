@@ -36,6 +36,7 @@ class Subscription(BaseModel):
     target: str = Field(min_length=1)
     scope: CarrierTarget | None = None
     label: str | None = None
+    owner_user_id: str | None = None
     event_kinds: list[str] = Field(default_factory=lambda: ["*"], min_length=1)
     actions: list[ActionDescriptor] = Field(default_factory=list)
     capture_modes: list[CaptureMode] = Field(
@@ -58,6 +59,14 @@ class Subscription(BaseModel):
         if not value:
             raise ValueError("must not be empty")
         return value
+
+    @field_validator("owner_user_id")
+    @classmethod
+    def normalize_owner_user_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
     @field_validator("created_at", "updated_at", "last_event_at")
     @classmethod

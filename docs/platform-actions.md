@@ -9,7 +9,7 @@ ChatEvent 当前把四个平台作为明确支持范围。`push` / `pull` 不再
 | Zulip | 官方 REST API、event queue | `event_queue`, `api_cursor` | `message.created`, `message.updated`, `reaction.added`, `reaction.removed`, `mention.created`, `topic.updated` |
 | Discourse | 官方 REST API、webhook | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | 官方 REST API、repository/org webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
-| GitHub | 官方 REST/GraphQL API、webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.completed`, `release.published` |
+| GitHub | 官方 REST/GraphQL API、webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
 
 ## 字段含义
 

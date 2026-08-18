@@ -47,6 +47,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("api event DEDUPE_KEY", tree)
         self.assertIn("api save-subscription FILE", tree)
         self.assertIn("api delete-subscription ID", tree)
+        self.assertIn("api session", tree)
+        self.assertIn("api create-user USERNAME", tree)
 
     def test_version_outputs_package_version(self) -> None:
         stdout = io.StringIO()
@@ -54,7 +56,7 @@ class CliTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(captured.exception.code, 0)
-        self.assertIn("chatevent 0.1.2", stdout.getvalue())
+        self.assertIn("chatevent 0.1.3", stdout.getvalue())
 
     def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
         requests = []
@@ -166,6 +168,43 @@ class CliTests(unittest.TestCase):
         self.assertEqual(request.get_method(), "DELETE")
         self.assertEqual(request.headers["X-chatevent-admin-token"], "secret-token")
         self.assertEqual(urlparse(request.full_url).path, "/api/subscriptions/discourse-practice")
+
+    def test_api_create_user_cli_prints_one_time_token(self) -> None:
+        requests = []
+
+        def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+            requests.append(request)
+            return FakeHttpResponse(
+                {"user": {"id": "u1", "username": "rexwzh@lookeng.cn", "role": "member", "enabled": True}, "token": "arch_generated"}
+            )
+
+        stdout = io.StringIO()
+        with patch("urllib.request.urlopen", fake_urlopen), contextlib.redirect_stdout(stdout):
+            main(
+                [
+                    "api",
+                    "create-user",
+                    "rexwzh@lookeng.cn",
+                    "--display-name",
+                    "Rex",
+                    "--role",
+                    "member",
+                    "--base-url",
+                    "https://event.example.test",
+                    "--admin-token",
+                    "arch_admin",
+                ]
+            )
+
+        result = json.loads(stdout.getvalue())
+        self.assertEqual(result["token"], "arch_generated")
+        request = requests[0]
+        self.assertEqual(request.get_method(), "POST")
+        self.assertEqual(request.headers["X-chatevent-admin-token"], "arch_admin")
+        self.assertEqual(urlparse(request.full_url).path, "/api/users")
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(body["username"], "rexwzh@lookeng.cn")
+        self.assertEqual(body["display_name"], "Rex")
 
     def test_platforms_outputs_action_catalog(self) -> None:
         stdout = io.StringIO()

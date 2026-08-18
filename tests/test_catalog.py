@@ -16,7 +16,7 @@ class PlatformCatalogTests(unittest.TestCase):
             "zulip": {"message.created", "message.updated", "reaction.added", "mention.created"},
             "discourse": {"topic.created", "post.created", "post.edited", "reply.created", "mention.created"},
             "gitea": {"push", "issue.opened", "issue.commented", "pull_request.opened", "pull_request.merged", "release.published"},
-            "github": {"push", "commit.pushed", "issue.opened", "issue.commented", "pull_request.opened", "pull_request.merged", "workflow_run.completed", "release.published"},
+            "github": {"push", "commit.pushed", "issue.opened", "issue.commented", "pull_request.opened", "pull_request.merged", "workflow_run.requested", "workflow_run.in_progress", "workflow_run.completed", "release.published"},
         }
         for platform, kinds in expectations.items():
             spec = get_platform_spec(platform)

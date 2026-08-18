@@ -23,6 +23,10 @@ TREE = """chatevent
   api health                     GET /api/health from a running Event Hub
   api stats                      GET /api/stats
   api platforms                  GET /api/platforms
+  api session                    GET /api/session
+  api users                      GET /api/users
+  api create-user USERNAME       POST /api/users and print one-time arch_ token
+  api delete-user ID             DELETE /api/users/{id}
   api schema event|subscription  GET /api/schema/{kind}
   api subscriptions [--enabled]  GET /api/subscriptions
   api subscription ID            GET /api/subscriptions/{id}
@@ -96,6 +100,20 @@ def build_parser() -> argparse.ArgumentParser:
     api_subparsers.add_parser("health", parents=[api_common], help="GET /api/health")
     api_subparsers.add_parser("stats", parents=[api_common], help="GET /api/stats")
     api_subparsers.add_parser("platforms", parents=[api_common], help="GET /api/platforms")
+    api_subparsers.add_parser("session", parents=[api_common], help="GET /api/session")
+    api_subparsers.add_parser("users", parents=[api_common], help="GET /api/users")
+
+    api_create_user = api_subparsers.add_parser(
+        "create-user", parents=[api_common], help="POST /api/users"
+    )
+    api_create_user.add_argument("username")
+    api_create_user.add_argument("--display-name", default=None)
+    api_create_user.add_argument("--role", choices=("admin", "member"), default="member")
+
+    api_delete_user = api_subparsers.add_parser(
+        "delete-user", parents=[api_common], help="DELETE /api/users/{id}"
+    )
+    api_delete_user.add_argument("id")
 
     api_schema = api_subparsers.add_parser(
         "schema", parents=[api_common], help="GET /api/schema/{kind}"
@@ -205,6 +223,18 @@ def _handle_api_command(args: argparse.Namespace) -> None:
             result = client.stats()
         elif args.api_command == "platforms":
             result = client.platforms()
+        elif args.api_command == "session":
+            result = client.session()
+        elif args.api_command == "users":
+            result = client.list_users()
+        elif args.api_command == "create-user":
+            result = client.create_user(
+                username=args.username,
+                display_name=args.display_name,
+                role=args.role,
+            )
+        elif args.api_command == "delete-user":
+            result = client.delete_user(args.id)
         elif args.api_command == "schema":
             result = client.schema(args.kind)
         elif args.api_command == "subscriptions":

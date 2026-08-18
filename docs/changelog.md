@@ -1,5 +1,12 @@
 # 发行说明
 
+## 0.1.3
+
+- 高级事件类型列表现在会合并平台 action catalog 与当前已观察到的来源事件类型。
+- GitHub action catalog 补充 `workflow_run.requested` 与 `workflow_run.in_progress`。
+- 新增 `arch_xxx` token 登录与用户管理骨架：`/api/session`、`/api/users` 和 CLI `api create-user`。
+- `Subscription.owner_user_id` 为 member 用户订阅隔离打基础，管理员仍可管理全部订阅。
+
 ## 0.1.2
 
 - Observatory 顶层筛选收敛为来源和时间下拉框，其余筛选进入高级选项。

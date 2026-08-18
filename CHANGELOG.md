@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.1.3 - 2026-08-19
+
+- 修复来源联动高级事件类型列表：现在会合并平台 action catalog 与当前已观察到的该来源事件类型。
+- GitHub action catalog 补充 `workflow_run.requested` 与 `workflow_run.in_progress`，避免真实 webhook 事件在高级筛选中缺失。
+- 新增轻量登录与用户管理骨架：`arch_xxx` token 登录、`/api/session`、`/api/users`、CLI `api create-user`，token 只返回一次且服务端只存 hash。
+- Subscription 增加 `owner_user_id`，为后续用户数据隔离打基础；member token 创建/读取订阅时按 owner 隔离，bootstrap/admin token 可管理全部。
+
 ## 0.1.2 - 2026-08-19
 
 - Observatory 顶层筛选收敛为 `source` 与时间下拉框；事件类型、订阅/渠道、关键词和自定义起止时间移入“高级选项”。

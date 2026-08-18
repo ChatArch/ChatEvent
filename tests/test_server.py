@@ -44,6 +44,22 @@ class ServerTests(unittest.TestCase):
             self.assertIn("editSubscription", dashboard.text)
             self.assertIn("deleteSubscription", dashboard.text)
             self.assertIn("adminToken", dashboard.text)
+            self.assertIn('id="sessionStatus"', dashboard.text)
+            self.assertIn("登录 / 管理令牌", dashboard.text)
+            self.assertIn('id="adminTokenDialog"', dashboard.text)
+            self.assertIn('id="generatedAdminToken"', dashboard.text)
+            self.assertIn('id="generateAdminToken"', dashboard.text)
+            self.assertIn('id="copyAdminToken"', dashboard.text)
+            self.assertIn("arch_", dashboard.text)
+            self.assertIn("generateAdminTokenValue", dashboard.text)
+            self.assertIn("crypto.getRandomValues", dashboard.text)
+            self.assertIn("复制令牌", dashboard.text)
+            self.assertIn("ChatArch secret", dashboard.text)
+            self.assertIn('id="userAdminPanel"', dashboard.text)
+            self.assertIn('id="newUserName"', dashboard.text)
+            self.assertIn('id="createUser"', dashboard.text)
+            self.assertIn('id="userList"', dashboard.text)
+            self.assertIn("subscription owner", dashboard.text)
             self.assertIn("subscriptionScopeType", dashboard.text)
             self.assertIn("Action target", dashboard.text)
             self.assertIn("Actor role", dashboard.text)
@@ -418,6 +434,74 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(item["id"], "zulip-practice")
             self.assertEqual(item["last_cursor"], "101")
             self.assertIsNotNone(item["last_event_at"])
+
+    def test_token_login_user_management_and_subscription_isolation(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ", {"CHATEVENT_ADMIN_TOKEN": "arch_bootstrap_test"}
+        ):
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+
+            anonymous = client.get("/api/session").json()
+            self.assertTrue(anonymous["admin_required"])
+            self.assertFalse(anonymous["authenticated"])
+
+            bootstrap = client.get(
+                "/api/session", headers={"X-ChatEvent-Admin-Token": "arch_bootstrap_test"}
+            ).json()
+            self.assertTrue(bootstrap["authenticated"])
+            self.assertEqual(bootstrap["user"]["role"], "admin")
+            self.assertTrue(bootstrap["legacy_admin"])
+
+            created = client.post(
+                "/api/users",
+                headers={"X-ChatEvent-Admin-Token": "arch_bootstrap_test"},
+                json={"username": "rexwzh@lookeng.cn", "display_name": "Rex", "role": "member"},
+            )
+            self.assertEqual(created.status_code, 201)
+            member_token = created.json()["token"]
+            self.assertTrue(member_token.startswith("arch_"))
+            self.assertNotIn("token_hash", created.text)
+            member = created.json()["user"]
+
+            member_session = client.get(
+                "/api/session", headers={"X-ChatEvent-Admin-Token": member_token}
+            ).json()
+            self.assertTrue(member_session["authenticated"])
+            self.assertEqual(member_session["user"]["username"], "rexwzh@lookeng.cn")
+
+            member_subscription = client.post(
+                "/api/subscriptions",
+                headers={"X-ChatEvent-Admin-Token": member_token},
+                json={
+                    "id": "member-discourse",
+                    "source": "discourse",
+                    "target": "topic:23",
+                    "event_kinds": ["reply.created"],
+                    "capture_modes": ["webhook"],
+                },
+            )
+            self.assertEqual(member_subscription.status_code, 201)
+            self.assertEqual(member_subscription.json()["owner_user_id"], member["id"])
+
+            self.assertEqual(client.get("/api/subscriptions").json(), [])
+            self.assertEqual(
+                len(
+                    client.get(
+                        "/api/subscriptions",
+                        headers={"X-ChatEvent-Admin-Token": member_token},
+                    ).json()
+                ),
+                1,
+            )
+            self.assertEqual(
+                len(
+                    client.get(
+                        "/api/subscriptions",
+                        headers={"X-ChatEvent-Admin-Token": "arch_bootstrap_test"},
+                    ).json()
+                ),
+                1,
+            )
 
     def test_api_rejects_naive_time_and_unknown_fields(self) -> None:
         with TemporaryDirectory() as directory:

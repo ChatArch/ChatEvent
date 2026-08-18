@@ -33,6 +33,31 @@ class ChatEventApiClient:
     def platforms(self) -> dict[str, Any]:
         return self._request("GET", "/api/platforms")
 
+    def session(self) -> dict[str, Any]:
+        return self._request("GET", "/api/session")
+
+    def list_users(self) -> list[dict[str, Any]]:
+        return self._request("GET", "/api/users")
+
+    def create_user(
+        self,
+        *,
+        username: str,
+        display_name: str | None = None,
+        role: str = "member",
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/api/users",
+            payload={"username": username, "display_name": display_name, "role": role},
+        )
+
+    def delete_user(self, user_id: str) -> dict[str, Any]:
+        return self._request(
+            "DELETE",
+            "/api/users/" + urllib.parse.quote(user_id, safe=""),
+        )
+
     def schema(self, kind: str) -> dict[str, Any]:
         return self._request("GET", f"/api/schema/{kind}")
 

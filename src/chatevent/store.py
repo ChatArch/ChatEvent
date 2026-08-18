@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from .auth import UserRecord
 from .model import ChatEvent, utc_now
 from .state import set_private_file_mode
 from .subscription import Subscription
@@ -55,6 +56,17 @@ class EventStore:
                     body TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    role TEXT NOT NULL,
+                    enabled INTEGER NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    body TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS events (
                     dedupe_key TEXT PRIMARY KEY,
                     source TEXT NOT NULL,
@@ -75,6 +87,10 @@ class EventStore:
                     ON events(kind, captured_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_events_subscription_captured
                     ON events(subscription_id, captured_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_users_token_hash
+                    ON users(token_hash);
+                CREATE INDEX IF NOT EXISTS idx_users_role_enabled
+                    ON users(role, enabled);
                 """
             )
 
@@ -85,6 +101,58 @@ class EventStore:
             ensure_ascii=False,
             separators=(",", ":"),
         )
+
+    def save_user(self, user: UserRecord, *, token_hash: str) -> UserRecord:
+        now = utc_now()
+        created = user.created_at or now
+        updated = user.model_copy(update={"created_at": created, "updated_at": now})
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO users(id, username, role, enabled, token_hash, created_at, updated_at, body)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    username=excluded.username,
+                    role=excluded.role,
+                    enabled=excluded.enabled,
+                    token_hash=excluded.token_hash,
+                    updated_at=excluded.updated_at,
+                    body=excluded.body
+                """,
+                (
+                    updated.id,
+                    updated.username,
+                    updated.role,
+                    int(updated.enabled),
+                    token_hash,
+                    updated.created_at.isoformat(),
+                    updated.updated_at.isoformat(),
+                    self._json(updated),
+                ),
+            )
+        return updated
+
+    def list_users(self) -> list[UserRecord]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT body FROM users ORDER BY updated_at DESC"
+            ).fetchall()
+        return [UserRecord.model_validate_json(row["body"]) for row in rows]
+
+    def get_user_by_token_hash(self, token_hash: str) -> UserRecord | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT body FROM users WHERE token_hash = ? AND enabled = 1",
+                (token_hash,),
+            ).fetchone()
+        if row is None:
+            return None
+        return UserRecord.model_validate_json(row["body"])
+
+    def delete_user(self, user_id: str) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        return cursor.rowcount > 0
 
     def save_subscription(self, subscription: Subscription) -> Subscription:
         updated = subscription.model_copy(update={"updated_at": utc_now()})
@@ -111,12 +179,20 @@ class EventStore:
             )
         return updated
 
-    def list_subscriptions(self, *, enabled: bool | None = None) -> list[Subscription]:
+    def list_subscriptions(
+        self, *, enabled: bool | None = None, owner_user_id: str | None = None
+    ) -> list[Subscription]:
         sql = "SELECT body FROM subscriptions"
         parameters: list[Any] = []
+        clauses: list[str] = []
         if enabled is not None:
-            sql += " WHERE enabled = ?"
+            clauses.append("enabled = ?")
             parameters.append(int(enabled))
+        if owner_user_id is not None:
+            clauses.append("json_extract(body, '$.owner_user_id') = ?")
+            parameters.append(owner_user_id)
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY updated_at DESC"
         with self._connect() as connection:
             rows = connection.execute(sql, parameters).fetchall()

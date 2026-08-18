@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Advanced action-kind options now merge the platform action catalog with observed event kinds for the selected source.
+- The GitHub action catalog now includes `workflow_run.requested` and `workflow_run.in_progress`.
+- Added an `arch_xxx` token login and user-management skeleton: `/api/session`, `/api/users`, and CLI `api create-user`.
+- `Subscription.owner_user_id` provides the first isolation boundary for member-owned subscriptions while administrators can still manage all subscriptions.
+
 ## 0.1.2
 
 - The Observatory top filter bar now keeps only source and time dropdowns; the rest moved into Advanced options.
