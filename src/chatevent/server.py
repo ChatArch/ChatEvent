@@ -19,6 +19,7 @@ from .adapters import (
     normalize_gitea_issue,
     normalize_zulip_message_event,
 )
+from .auth import UserRecord, UserRole, generate_arch_token, token_digest
 from .catalog import PlatformSpec, list_platform_specs
 from .dashboard import DASHBOARD_HTML
 from .model import CaptureMode, ChatEvent
@@ -58,6 +59,31 @@ class DeleteResult(BaseModel):
     id: str
 
 
+class SessionStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    admin_required: bool
+    authenticated: bool
+    user: UserRecord | None = None
+    legacy_admin: bool = False
+
+
+class UserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: str
+    display_name: str | None = None
+    role: UserRole = "member"
+    enabled: bool = True
+
+
+class UserCreateResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user: UserRecord
+    token: str
+
+
 def create_app(*, db_path: str | Path | None = None) -> FastAPI:
     store = EventStore(db_path or default_database_path())
     app = FastAPI(
@@ -68,11 +94,46 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
     app.state.store = store
     admin_token = load_admin_token()
 
-    def require_admin_token(header_value: str | None) -> None:
-        if not admin_token:
-            return
-        if header_value is None or not secrets.compare_digest(header_value, admin_token):
-            raise HTTPException(status_code=401, detail="admin token required")
+    def admin_required() -> bool:
+        return bool(admin_token or store.list_users())
+
+    def bootstrap_admin(legacy: bool) -> UserRecord:
+        return UserRecord(
+            id="bootstrap-admin" if legacy else "local-admin",
+            username="bootstrap-admin" if legacy else "local-admin",
+            display_name="Bootstrap administrator" if legacy else "Local administrator",
+            role="admin",
+        )
+
+    def resolve_identity(header_value: str | None) -> tuple[UserRecord | None, bool]:
+        if header_value:
+            if admin_token and secrets.compare_digest(header_value, admin_token):
+                return bootstrap_admin(True), True
+            user = store.get_user_by_token_hash(token_digest(header_value))
+            if user is not None:
+                return user, False
+        if not admin_required():
+            return bootstrap_admin(False), False
+        return None, False
+
+    def require_authenticated(header_value: str | None) -> UserRecord:
+        identity, _legacy = resolve_identity(header_value)
+        if identity is None:
+            raise HTTPException(status_code=401, detail="login required")
+        return identity
+
+    def require_admin_token(header_value: str | None) -> UserRecord:
+        identity = require_authenticated(header_value)
+        if identity.role != "admin":
+            raise HTTPException(status_code=403, detail="admin role required")
+        return identity
+
+    def can_read_subscription(subscription: Subscription, identity: UserRecord | None) -> bool:
+        if identity is None:
+            return subscription.owner_user_id is None
+        if identity.role == "admin":
+            return True
+        return subscription.owner_user_id == identity.id
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def dashboard() -> str:
@@ -87,6 +148,62 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
             "chatarch_home": str(paths.chatarch_home),
             "state_dir": str(paths.state_dir),
         }
+
+    @app.get("/api/session", response_model=SessionStatus)
+    def session_status(
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+    ) -> SessionStatus:
+        identity, legacy = resolve_identity(x_chatevent_admin_token)
+        return SessionStatus(
+            admin_required=admin_required(),
+            authenticated=identity is not None,
+            user=identity,
+            legacy_admin=legacy,
+        )
+
+    @app.get("/api/users", response_model=list[UserRecord])
+    def list_users(
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+    ) -> list[UserRecord]:
+        require_admin_token(x_chatevent_admin_token)
+        return store.list_users()
+
+    @app.post("/api/users", response_model=UserCreateResult, status_code=201)
+    def create_user(
+        payload: UserCreate,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+    ) -> UserCreateResult:
+        require_admin_token(x_chatevent_admin_token)
+        token = generate_arch_token()
+        user = store.save_user(
+            UserRecord(
+                username=payload.username,
+                display_name=payload.display_name,
+                role=payload.role,
+                enabled=payload.enabled,
+            ),
+            token_hash=token_digest(token),
+        )
+        return UserCreateResult(user=user, token=token)
+
+    @app.delete("/api/users/{user_id}", response_model=DeleteResult)
+    def delete_user(
+        user_id: str,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+    ) -> DeleteResult:
+        require_admin_token(x_chatevent_admin_token)
+        deleted = store.delete_user(user_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="user not found")
+        return DeleteResult(deleted=True, id=user_id)
 
     @app.get("/api/schema/event")
     def event_schema() -> dict[str, Any]:
@@ -108,17 +225,36 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
     ) -> Subscription:
-        require_admin_token(x_chatevent_admin_token)
+        identity = require_authenticated(x_chatevent_admin_token)
+        if identity.role != "admin":
+            existing = store.get_subscription(subscription.id)
+            if existing is not None and existing.owner_user_id != identity.id:
+                raise HTTPException(status_code=403, detail="subscription belongs to another user")
+            subscription = subscription.model_copy(update={"owner_user_id": identity.id})
         return store.save_subscription(subscription)
 
     @app.get("/api/subscriptions", response_model=list[Subscription])
-    def list_subscriptions(enabled: bool | None = None) -> list[Subscription]:
-        return store.list_subscriptions(enabled=enabled)
+    def list_subscriptions(
+        enabled: bool | None = None,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+    ) -> list[Subscription]:
+        identity, _legacy = resolve_identity(x_chatevent_admin_token)
+        items = store.list_subscriptions(enabled=enabled)
+        return [item for item in items if can_read_subscription(item, identity)]
 
     @app.get("/api/subscriptions/{subscription_id}", response_model=Subscription)
-    def get_subscription(subscription_id: str) -> Subscription:
+    def get_subscription(
+        subscription_id: str,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+    ) -> Subscription:
         subscription = store.get_subscription(subscription_id)
-        if subscription is None:
+        if subscription is None or not can_read_subscription(
+            subscription, resolve_identity(x_chatevent_admin_token)[0]
+        ):
             raise HTTPException(status_code=404, detail="subscription not found")
         return subscription
 
@@ -129,7 +265,12 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
             default=None, alias="X-ChatEvent-Admin-Token"
         ),
     ) -> DeleteResult:
-        require_admin_token(x_chatevent_admin_token)
+        identity = require_authenticated(x_chatevent_admin_token)
+        existing = store.get_subscription(subscription_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="subscription not found")
+        if identity.role != "admin" and existing.owner_user_id != identity.id:
+            raise HTTPException(status_code=403, detail="subscription belongs to another user")
         deleted = store.delete_subscription(subscription_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="subscription not found")

@@ -188,7 +188,7 @@ uv run chatevent platforms --json
 | Zulip | `event_queue`, `api_cursor` | `message.created`, `message.updated`, `reaction.added`, `reaction.removed`, `mention.created`, `topic.updated` |
 | Discourse | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
-| GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.completed`, `release.published` |
+| GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
 
 ## Register monitors
 
@@ -247,6 +247,10 @@ The default base URL is `CHATEVENT_API_URL`, falling back to `http://127.0.0.1:8
 | --- | --- | --- |
 | `chatevent api health` | `GET /api/health` | Read service health and DB path. |
 | `chatevent api stats` | `GET /api/stats` | Read event/source/duplicate statistics. |
+| `chatevent api session` | `GET /api/session` | Validate the current `arch_xxx` token and return user/role. |
+| `chatevent api users` | `GET /api/users` | List users as an administrator. |
+| `chatevent api create-user <username>` | `POST /api/users` | Create a user and print the one-time `arch_xxx` token. |
+| `chatevent api delete-user <id>` | `DELETE /api/users/{id}` | Delete a user as an administrator. |
 | `chatevent api events --source discourse --days 7` | `GET /api/events?...` | Query the event stream with source/kind/subscription/q/since/days/from/to/limit filters. |
 | `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` | Read one concrete event. |
 | `chatevent api record-json event.json` | `POST /api/events` | Write one normalized `ChatEvent` JSON document to the Event Hub. |
@@ -270,7 +274,9 @@ uv run chatevent api event \
 
 ## Online editing and safety settings
 
-The Web Observatory `Subscriptions` tab supports creating, editing, enabling/disabling, and deleting subscriptions through the same REST API. If `CHATEVENT_ADMIN_TOKEN` is set, subscription mutation requests must include `X-ChatEvent-Admin-Token`; the web page prompts for the token after the first 401 response and stores it only in browser sessionStorage.
+The Web Observatory `Subscriptions` tab supports creating, editing, enabling/disabling, and deleting subscriptions through the same REST API. If `CHATEVENT_ADMIN_TOKEN` is set, subscription mutation requests must include `X-ChatEvent-Admin-Token`. The web page's Admin token panel can generate a random `arch_xxx` token, copy it, and store the chosen value only in browser sessionStorage; to make that token valid, write the same value to the server-side secret file or environment variable.
+
+`CHATEVENT_ADMIN_TOKEN` is the bootstrap administrator credential. After logging in, an administrator can create users through `POST /api/users` or `chatevent api create-user <username>`. Each user receives a one-time `arch_xxx` token, while the server stores only its hash. `Subscription.owner_user_id` is the first isolation boundary: member tokens create/read/delete only their own subscriptions; bootstrap/admin tokens manage all subscriptions. Username/password login can be layered on top of this user table later, but passwords must not be written to source, docs, tests, or Git history.
 
 ```bash
 mkdir -p ~/.chatarch/chatevent/secrets

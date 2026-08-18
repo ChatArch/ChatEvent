@@ -188,7 +188,7 @@ uv run chatevent platforms --json
 | Zulip | `event_queue`, `api_cursor` | `message.created`, `message.updated`, `reaction.added`, `reaction.removed`, `mention.created`, `topic.updated` |
 | Discourse | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
-| GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.completed`, `release.published` |
+| GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
 
 ## 注册监控
 
@@ -247,6 +247,10 @@ ChatEvent 可以当作一个轻量 Event Hub：平台官方 webhook / event queu
 | --- | --- | --- |
 | `chatevent api health` | `GET /api/health` | 读服务健康状态和 DB 路径。 |
 | `chatevent api stats` | `GET /api/stats` | 读事件数、来源数、重复投递数。 |
+| `chatevent api session` | `GET /api/session` | 校验当前 `arch_xxx` token 并返回登录用户/角色。 |
+| `chatevent api users` | `GET /api/users` | 管理员列出用户。 |
+| `chatevent api create-user <username>` | `POST /api/users` | 管理员创建用户并返回一次性 `arch_xxx` token。 |
+| `chatevent api delete-user <id>` | `DELETE /api/users/{id}` | 管理员删除用户。 |
 | `chatevent api events --source discourse --days 7` | `GET /api/events?...` | 按 source/kind/subscription/q/since/days/from/to/limit 查询事件流。 |
 | `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` | 直接读取某一条具体 event。 |
 | `chatevent api record-json event.json` | `POST /api/events` | 把已规范化的 `ChatEvent` JSON 写入 Event Hub。 |
@@ -270,7 +274,9 @@ uv run chatevent api event \
 
 ## 线上编辑与安全设定
 
-Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若设置 `CHATEVENT_ADMIN_TOKEN`，订阅写操作必须带 `X-ChatEvent-Admin-Token` header；Web 页面会在首次写操作收到 401 时提示输入 token，并只保存在当前浏览器 sessionStorage。
+Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若设置 `CHATEVENT_ADMIN_TOKEN`，订阅写操作必须带 `X-ChatEvent-Admin-Token` header。Web 页面的“管理令牌”会随机生成 `arch_xxx` 格式令牌、支持复制，并只把选中的值保存在当前浏览器 sessionStorage；要让它真正生效，需要把同一个值写入服务端 secret 文件或环境变量。
+
+`CHATEVENT_ADMIN_TOKEN` 是 bootstrap 管理员凭据：管理员登录后可以通过 `POST /api/users` 或 `chatevent api create-user <username>` 创建用户。每个用户会返回一个只展示一次的 `arch_xxx` token，服务端只保存 hash。`Subscription.owner_user_id` 是数据隔离基础：member 创建/读取/删除订阅时只作用于自己的 owner；bootstrap/admin token 可管理全部订阅。账号密码登录可在这个用户表之上继续扩展，但密码不应写入源码、文档或 Git 历史。
 
 ```bash
 mkdir -p ~/.chatarch/chatevent/secrets

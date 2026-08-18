@@ -115,6 +115,8 @@ PLATFORM_SPECS: tuple[PlatformSpec, ...] = (
             action("pull_request.synchronize", "pull_request", "synchronize", "New commits are pushed to a pull request branch.", (CaptureMode.WEBHOOK,), ("pull_request",)),
             action("pull_request.closed", "pull_request", "closed", "A pull request is closed without merge.", (CaptureMode.WEBHOOK, CaptureMode.API_CURSOR), ("pull_request",)),
             action("pull_request.merged", "pull_request", "merged", "A pull request is merged into the base branch.", (CaptureMode.WEBHOOK, CaptureMode.API_CURSOR), ("pull_request",)),
+            action("workflow_run.requested", "workflow_run", "requested", "A GitHub Actions workflow run is requested for a watched repository.", (CaptureMode.WEBHOOK, CaptureMode.API_CURSOR), ("workflow_run",)),
+            action("workflow_run.in_progress", "workflow_run", "in_progress", "A GitHub Actions workflow run starts executing.", (CaptureMode.WEBHOOK, CaptureMode.API_CURSOR), ("workflow_run",)),
             action("workflow_run.completed", "workflow_run", "completed", "A GitHub Actions workflow run completes.", (CaptureMode.WEBHOOK, CaptureMode.API_CURSOR), ("workflow_run",)),
             action("release.published", "release", "published", "A GitHub release is published.", (CaptureMode.WEBHOOK,), ("release",)),
         ),
