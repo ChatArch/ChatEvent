@@ -16,7 +16,11 @@ class ServerTests(unittest.TestCase):
             dashboard = client.get("/")
             self.assertEqual(dashboard.status_code, 200)
             self.assertIn("ChatEvent Observatory", dashboard.text)
-            self.assertIn("Subscriptions", dashboard.text)
+            self.assertIn('role="tablist"', dashboard.text)
+            self.assertIn('data-tab-target="eventsPanel"', dashboard.text)
+            self.assertIn('data-tab-target="subscriptionsPanel"', dashboard.text)
+            self.assertIn('data-tab-target="platformsPanel"', dashboard.text)
+            self.assertIn('id="timeFilter"', dashboard.text)
 
             subscription = client.post(
                 "/api/subscriptions",
