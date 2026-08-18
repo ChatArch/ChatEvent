@@ -442,6 +442,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cli-and-rest-api-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI and REST API mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#query-events" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -520,6 +531,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cli-and-rest-api-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI and REST API mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#query-events" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -570,6 +592,16 @@
   schema event|subscription      Print JSON Schema contracts
   platforms [--json]             List supported platforms and action kinds
   record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
+  api health                     GET /api/health from a running Event Hub
+  api stats                      GET /api/stats
+  api platforms                  GET /api/platforms
+  api schema event|subscription  GET /api/schema/{kind}
+  api subscriptions [--enabled]  GET /api/subscriptions
+  api subscription ID            GET /api/subscriptions/{id}
+  api events [filters]           GET /api/events
+  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
+  api record-json FILE           POST /api/events
+  api save-subscription FILE     POST /api/subscriptions
   capture zulip-once [options]   Official Zulip event-queue capture pass
 </code></pre></div>
 <h2 id="http-api">HTTP API</h2>
@@ -651,6 +683,58 @@
 <td><code>POST</code></td>
 <td><code>/webhooks/github</code></td>
 <td>Receive GitHub webhook payloads.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cli-and-rest-api-mapping">CLI and REST API mapping</h2>
+<p><code>chatevent api ...</code> is the command-line client for the REST API. It reads <code>CHATEVENT_API_URL</code> by default and falls back to <code>http://127.0.0.1:8765</code>.</p>
+<table>
+<thead>
+<tr>
+<th>CLI</th>
+<th>REST API</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>chatevent api health</code></td>
+<td><code>GET /api/health</code></td>
+</tr>
+<tr>
+<td><code>chatevent api stats</code></td>
+<td><code>GET /api/stats</code></td>
+</tr>
+<tr>
+<td><code>chatevent api platforms</code></td>
+<td><code>GET /api/platforms</code></td>
+</tr>
+<tr>
+<td><code>chatevent api schema event</code></td>
+<td><code>GET /api/schema/event</code></td>
+</tr>
+<tr>
+<td><code>chatevent api subscriptions</code></td>
+<td><code>GET /api/subscriptions</code></td>
+</tr>
+<tr>
+<td><code>chatevent api subscription &lt;id&gt;</code></td>
+<td><code>GET /api/subscriptions/{id}</code></td>
+</tr>
+<tr>
+<td><code>chatevent api events --source discourse --days 7</code></td>
+<td><code>GET /api/events?...</code></td>
+</tr>
+<tr>
+<td><code>chatevent api event &lt;dedupe_key&gt;</code></td>
+<td><code>GET /api/events/{dedupe_key}</code></td>
+</tr>
+<tr>
+<td><code>chatevent api record-json event.json</code></td>
+<td><code>POST /api/events</code></td>
+</tr>
+<tr>
+<td><code>chatevent api save-subscription subscription.json</code></td>
+<td><code>POST /api/subscriptions</code></td>
 </tr>
 </tbody>
 </table>
