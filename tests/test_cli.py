@@ -5,10 +5,27 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 from chatevent.capture import _form_value, load_env_file
 from chatevent.cli import main
 from chatevent.store import EventStore
+
+
+class FakeHttpResponse:
+    def __init__(self, payload: object, status: int = 200) -> None:
+        self.payload = payload
+        self.status = status
+
+    def __enter__(self) -> "FakeHttpResponse":
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode("utf-8")
 
 
 class CliTests(unittest.TestCase):
@@ -24,6 +41,91 @@ class CliTests(unittest.TestCase):
         self.assertIn("record-json", tree)
         self.assertIn("platforms", tree)
         self.assertIn("capture zulip-once", tree)
+        self.assertIn("api events [filters]", tree)
+        self.assertIn("api event DEDUPE_KEY", tree)
+
+    def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
+        requests = []
+
+        def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+            requests.append((request, timeout))
+            return FakeHttpResponse(
+                {"items": [], "count": 0, "latest_captured_at": None, "next_since": None}
+            )
+
+        stdout = io.StringIO()
+        with patch("urllib.request.urlopen", fake_urlopen), contextlib.redirect_stdout(stdout):
+            main(
+                [
+                    "api",
+                    "events",
+                    "--base-url",
+                    "https://event.example.test/root",
+                    "--source",
+                    "discourse",
+                    "--kind",
+                    "reply.created",
+                    "--subscription-id",
+                    "discourse-practice",
+                    "--days",
+                    "7",
+                    "--limit",
+                    "20",
+                ]
+            )
+
+        result = json.loads(stdout.getvalue())
+        self.assertEqual(result["count"], 0)
+        request, timeout = requests[0]
+        self.assertEqual(request.get_method(), "GET")
+        self.assertEqual(timeout, 20.0)
+        parsed = urlparse(request.full_url)
+        self.assertEqual(parsed.scheme, "https")
+        self.assertEqual(parsed.netloc, "event.example.test")
+        self.assertEqual(parsed.path, "/root/api/events")
+        params = parse_qs(parsed.query)
+        self.assertEqual(params["source"], ["discourse"])
+        self.assertEqual(params["kind"], ["reply.created"])
+        self.assertEqual(params["subscription_id"], ["discourse-practice"])
+        self.assertEqual(params["days"], ["7"])
+        self.assertEqual(params["limit"], ["20"])
+
+    def test_api_event_cli_reads_one_rest_event(self) -> None:
+        requests = []
+
+        def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+            requests.append(request)
+            return FakeHttpResponse(
+                {
+                    "event": {
+                        "source": "github",
+                        "id": "commit:ChatArch/ChatEvent:abc123",
+                        "kind": "commit.pushed",
+                    },
+                    "seen_count": 1,
+                }
+            )
+
+        stdout = io.StringIO()
+        with patch("urllib.request.urlopen", fake_urlopen), contextlib.redirect_stdout(stdout):
+            main(
+                [
+                    "api",
+                    "event",
+                    "github:commit:ChatArch/ChatEvent:abc123",
+                    "--base-url",
+                    "https://event.example.test",
+                ]
+            )
+
+        result = json.loads(stdout.getvalue())
+        self.assertEqual(result["event"]["kind"], "commit.pushed")
+        request = requests[0]
+        self.assertEqual(request.get_method(), "GET")
+        self.assertEqual(
+            urlparse(request.full_url).path,
+            "/api/events/github%3Acommit%3AChatArch%2FChatEvent%3Aabc123",
+        )
 
     def test_platforms_outputs_action_catalog(self) -> None:
         stdout = io.StringIO()

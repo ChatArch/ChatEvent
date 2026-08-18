@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -15,6 +16,16 @@ TREE = """chatevent
   schema event|subscription      Print JSON Schema contracts
   platforms [--json]             List supported platforms and action kinds
   record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
+  api health                     GET /api/health from a running Event Hub
+  api stats                      GET /api/stats
+  api platforms                  GET /api/platforms
+  api schema event|subscription  GET /api/schema/{kind}
+  api subscriptions [--enabled]  GET /api/subscriptions
+  api subscription ID            GET /api/subscriptions/{id}
+  api events [filters]           GET /api/events
+  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
+  api record-json FILE           POST /api/events
+  api save-subscription FILE     POST /api/subscriptions
   capture zulip-once [options]   Official Zulip event-queue capture pass
 """
 
@@ -58,6 +69,68 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLite path (default: ~/.chatevent/events.db)",
     )
 
+    api = subparsers.add_parser("api", help="call a running ChatEvent REST API server")
+    api_subparsers = api.add_subparsers(dest="api_command", required=True)
+    api_common = argparse.ArgumentParser(add_help=False)
+    api_common.add_argument(
+        "--base-url",
+        default=os.environ.get("CHATEVENT_API_URL", "http://127.0.0.1:8765"),
+        help="ChatEvent API base URL (default: CHATEVENT_API_URL or http://127.0.0.1:8765)",
+    )
+    api_common.add_argument("--timeout", type=float, default=20.0)
+
+    api_subparsers.add_parser("health", parents=[api_common], help="GET /api/health")
+    api_subparsers.add_parser("stats", parents=[api_common], help="GET /api/stats")
+    api_subparsers.add_parser("platforms", parents=[api_common], help="GET /api/platforms")
+
+    api_schema = api_subparsers.add_parser(
+        "schema", parents=[api_common], help="GET /api/schema/{kind}"
+    )
+    api_schema.add_argument("kind", choices=("event", "subscription"))
+
+    api_subscriptions = api_subparsers.add_parser(
+        "subscriptions", parents=[api_common], help="GET /api/subscriptions"
+    )
+    api_subscriptions.add_argument(
+        "--enabled",
+        choices=("true", "false"),
+        default=None,
+        help="optional enabled filter",
+    )
+
+    api_subscription = api_subparsers.add_parser(
+        "subscription", parents=[api_common], help="GET /api/subscriptions/{id}"
+    )
+    api_subscription.add_argument("id")
+
+    api_events = api_subparsers.add_parser(
+        "events", parents=[api_common], help="GET /api/events"
+    )
+    api_events.add_argument("--source", default=None)
+    api_events.add_argument("--kind", default=None)
+    api_events.add_argument("--subscription-id", default=None)
+    api_events.add_argument("--q", default=None, help="keyword query")
+    api_events.add_argument("--since", default=None, help="consumer checkpoint timestamp")
+    api_events.add_argument("--days", default=None, help="recent-day window")
+    api_events.add_argument("--from", dest="from_", default=None, help="captured-at range start")
+    api_events.add_argument("--to", default=None, help="captured-at range end")
+    api_events.add_argument("--limit", type=int, default=100)
+
+    api_event = api_subparsers.add_parser(
+        "event", parents=[api_common], help="GET /api/events/{dedupe_key}"
+    )
+    api_event.add_argument("dedupe_key")
+
+    api_record = api_subparsers.add_parser(
+        "record-json", parents=[api_common], help="POST /api/events"
+    )
+    api_record.add_argument("file", type=Path)
+
+    api_save_subscription = api_subparsers.add_parser(
+        "save-subscription", parents=[api_common], help="POST /api/subscriptions"
+    )
+    api_save_subscription.add_argument("file", type=Path)
+
     capture = subparsers.add_parser("capture", help="run one bounded official capture pass")
     capture_subparsers = capture.add_subparsers(dest="capture_command", required=True)
     zulip = capture_subparsers.add_parser(
@@ -90,6 +163,54 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _print_json(value: object) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _optional_bool(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    return value == "true"
+
+
+def _handle_api_command(args: argparse.Namespace) -> None:
+    from .client import ChatEventApiClient, ChatEventApiError
+
+    client = ChatEventApiClient(base_url=args.base_url, timeout=args.timeout)
+    try:
+        if args.api_command == "health":
+            result = client.health()
+        elif args.api_command == "stats":
+            result = client.stats()
+        elif args.api_command == "platforms":
+            result = client.platforms()
+        elif args.api_command == "schema":
+            result = client.schema(args.kind)
+        elif args.api_command == "subscriptions":
+            result = client.list_subscriptions(enabled=_optional_bool(args.enabled))
+        elif args.api_command == "subscription":
+            result = client.get_subscription(args.id)
+        elif args.api_command == "events":
+            result = client.list_events(
+                source=args.source,
+                kind=args.kind,
+                subscription_id=args.subscription_id,
+                q=args.q,
+                since=args.since,
+                days=args.days,
+                from_=args.from_,
+                to=args.to,
+                limit=args.limit,
+            )
+        elif args.api_command == "event":
+            result = client.get_event(args.dedupe_key)
+        elif args.api_command == "record-json":
+            result = client.record_json(args.file)
+        elif args.api_command == "save-subscription":
+            result = client.save_subscription(args.file)
+        else:  # pragma: no cover - argparse prevents this branch
+            raise SystemExit(f"unsupported api command: {args.api_command}")
+    except ChatEventApiError as error:
+        raise SystemExit(str(error)) from error
+    _print_json(result)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -156,6 +277,9 @@ def main(argv: Sequence[str] | None = None) -> None:
                 seen_count=stored.seen_count,
             ).model_dump(mode="json")
         )
+        return
+    if args.command == "api":
+        _handle_api_command(args)
         return
     if args.command == "capture" and args.capture_command == "zulip-once":
         from .capture import capture_zulip_once

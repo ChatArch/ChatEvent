@@ -46,6 +46,16 @@ chatevent
   schema event|subscription      Print JSON Schema contracts
   platforms [--json]             List supported platforms and action kinds
   record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
+  api health                     GET /api/health from a running Event Hub
+  api stats                      GET /api/stats
+  api platforms                  GET /api/platforms
+  api schema event|subscription  GET /api/schema/{kind}
+  api subscriptions [--enabled]  GET /api/subscriptions
+  api subscription ID            GET /api/subscriptions/{id}
+  api events [filters]           GET /api/events
+  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
+  api record-json FILE           POST /api/events
+  api save-subscription FILE     POST /api/subscriptions
   capture zulip-once [options]   Official Zulip event-queue capture pass
 ```
 
@@ -144,7 +154,7 @@ Zulip:     用 `chatevent capture zulip-once` 做官方 event queue bounded capt
 - `GET /api/subscriptions`
 - `POST /api/events`
 - `GET /api/events`，支持 `source`、`kind`、`subscription_id`、`q`、`since`、`days`、`from`、`to` 和 `limit`
-- `GET /api/events/{source:id}`
+- `GET /api/events/{dedupe_key}`
 - `GET /api/stats`
 - `POST /webhooks/zulip?subscription_id=...`
 - `POST /webhooks/discourse?subscription_id=...`，读取 `X-Discourse-Event`
@@ -152,6 +162,36 @@ Zulip:     用 `chatevent capture zulip-once` 做官方 event queue bounded capt
 - `POST /webhooks/github?subscription_id=...`，读取 `X-GitHub-Event`
 
 Webhook endpoint 接收官方平台形状 payload，规范化为 `ChatEvent`，幂等写入 SQLite，并保留清洗后的 `raw_payload` 供 Observatory 调试。
+
+## CLI 与 REST API 对应
+
+ChatEvent 可以当作一个轻量 Event Hub：平台官方 webhook / event queue / API cursor 负责把原始动作送进来，ChatEvent 负责规范化、去重、保存；下游系统通过 REST API 读取事件，CLI 的 `api` 命令组就是这些 REST endpoint 的命令行对应。
+
+默认 base URL 是 `CHATEVENT_API_URL`，未设置时使用 `http://127.0.0.1:8765`；也可以对每个命令传 `--base-url`。
+
+| CLI | REST API | 用途 |
+| --- | --- | --- |
+| `chatevent api health` | `GET /api/health` | 读服务健康状态和 DB 路径。 |
+| `chatevent api stats` | `GET /api/stats` | 读事件数、来源数、重复投递数。 |
+| `chatevent api events --source discourse --days 7` | `GET /api/events?...` | 按 source/kind/subscription/q/since/days/from/to/limit 查询事件流。 |
+| `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` | 直接读取某一条具体 event。 |
+| `chatevent api record-json event.json` | `POST /api/events` | 把已规范化的 `ChatEvent` JSON 写入 Event Hub。 |
+| `chatevent api subscriptions` | `GET /api/subscriptions` | 列出订阅。 |
+| `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` | 通过 REST 保存订阅。 |
+
+示例：
+
+```bash
+uv run chatevent api events \
+  --base-url https://event.public.wzhecnu.cn \
+  --source discourse \
+  --days 7 \
+  --limit 20
+
+uv run chatevent api event \
+  --base-url https://event.public.wzhecnu.cn \
+  'discourse:post:35'
+```
 
 ## 下游消费
 

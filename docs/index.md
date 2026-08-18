@@ -31,7 +31,7 @@ ChatEvent 是 ChatArch 的协作事件观察层：把 Zulip、Discourse、Gitea�
 
 - **对接 API / CLI**
 
-  用 HTTP API 写入、查询事件；用 CLI 查看 schema、平台目录、Zulip bounded capture。
+  用 HTTP API 写入、查询事件；用 `chatevent api ...` 作为 REST API 的命令行对应。
 
   [查看接口参考](reference.md)
 
@@ -41,7 +41,7 @@ ChatEvent 是 ChatArch 的协作事件观察层：把 Zulip、Discourse、Gitea�
 
 - ChatEvent 只负责 **捕获、规范化、去重、保存、观察**。
 - 当前不直接执行 Agent、不开任务、不做路由决策。
-- REST API 只用于官方事件后的对象补全、明确订阅范围内的 cursor 增量补偿和验收读回。
+- 平台 REST API 只用于官方事件后的对象补全、明确订阅范围内的 cursor 增量补偿和验收读回；ChatEvent 自身提供标准 REST API 供下游写入、查询和按 checkpoint 消费事件。
 - 不做全盘扫帖、全站消息遍历、全仓库历史扫描或 HTML 爬虫式 capture。
 
 ## 事件语义

@@ -10,6 +10,16 @@ chatevent
   schema event|subscription      Print JSON Schema contracts
   platforms [--json]             List supported platforms and action kinds
   record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
+  api health                     GET /api/health from a running Event Hub
+  api stats                      GET /api/stats
+  api platforms                  GET /api/platforms
+  api schema event|subscription  GET /api/schema/{kind}
+  api subscriptions [--enabled]  GET /api/subscriptions
+  api subscription ID            GET /api/subscriptions/{id}
+  api events [filters]           GET /api/events
+  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
+  api record-json FILE           POST /api/events
+  api save-subscription FILE     POST /api/subscriptions
   capture zulip-once [options]   Official Zulip event-queue capture pass
 ```
 
@@ -31,6 +41,24 @@ chatevent
 | `POST` | `/webhooks/discourse` | 接收 Discourse webhook payload。 |
 | `POST` | `/webhooks/gitea` | 接收 Gitea webhook payload。 |
 | `POST` | `/webhooks/github` | 接收 GitHub webhook payload。 |
+
+## CLI 与 REST API 对应
+
+`chatevent api ...` 是 REST API 的命令行客户端，默认读取 `CHATEVENT_API_URL`，未设置时连接 `http://127.0.0.1:8765`。
+
+| CLI | REST API |
+| --- | --- |
+| `chatevent api health` | `GET /api/health` |
+| `chatevent api stats` | `GET /api/stats` |
+| `chatevent api platforms` | `GET /api/platforms` |
+| `chatevent api schema event` | `GET /api/schema/event` |
+| `chatevent api subscriptions` | `GET /api/subscriptions` |
+| `chatevent api subscription <id>` | `GET /api/subscriptions/{id}` |
+| `chatevent api events --source discourse --days 7` | `GET /api/events?...` |
+| `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` |
+| `chatevent api record-json event.json` | `POST /api/events` |
+| `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` |
+
 
 ## 查询事件
 
