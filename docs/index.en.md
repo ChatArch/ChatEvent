@@ -31,7 +31,7 @@ official platform event / webhook / API cursor
 
 - **Use API / CLI**
 
-  Write and query events through HTTP; inspect schemas, platform catalog, and bounded Zulip capture through the CLI.
+  Write and query events through HTTP; use `chatevent api ...` as the CLI counterpart to the REST API.
 
   [Reference](reference.md)
 
@@ -41,7 +41,7 @@ official platform event / webhook / API cursor
 
 - ChatEvent only **captures, normalizes, deduplicates, stores, and observes** events.
 - It does not execute agents, create tasks, or make routing decisions in the current scope.
-- REST APIs are used only for object completion after official events, bounded cursor reconciliation, and acceptance readback.
+- Platform REST APIs are used only for object completion after official events, bounded cursor reconciliation, and acceptance readback; ChatEvent itself exposes a standard REST API for downstream event write, query, and checkpoint consumption.
 - It does not scan whole sites, all messages, complete forum history, or full repository history.
 
 ## Event semantics

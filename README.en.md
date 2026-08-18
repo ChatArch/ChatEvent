@@ -46,6 +46,16 @@ chatevent
   schema event|subscription      Print JSON Schema contracts
   platforms [--json]             List supported platforms and action kinds
   record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
+  api health                     GET /api/health from a running Event Hub
+  api stats                      GET /api/stats
+  api platforms                  GET /api/platforms
+  api schema event|subscription  GET /api/schema/{kind}
+  api subscriptions [--enabled]  GET /api/subscriptions
+  api subscription ID            GET /api/subscriptions/{id}
+  api events [filters]           GET /api/events
+  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
+  api record-json FILE           POST /api/events
+  api save-subscription FILE     POST /api/subscriptions
   capture zulip-once [options]   Official Zulip event-queue capture pass
 ```
 
@@ -144,7 +154,7 @@ See `docs/monitoring.md` for detailed registration steps.
 - `GET /api/subscriptions`
 - `POST /api/events`
 - `GET /api/events`, with `source`, `kind`, `subscription_id`, `q`, `since`, `days`, `from`, `to`, and `limit` filters
-- `GET /api/events/{source:id}`
+- `GET /api/events/{dedupe_key}`
 - `GET /api/stats`
 - `POST /webhooks/zulip?subscription_id=...`
 - `POST /webhooks/discourse?subscription_id=...` with `X-Discourse-Event`
@@ -152,6 +162,36 @@ See `docs/monitoring.md` for detailed registration steps.
 - `POST /webhooks/github?subscription_id=...` with `X-GitHub-Event`
 
 Webhook endpoints accept official platform-shaped payloads, normalize them to `ChatEvent`, write SQLite with idempotent dedupe, and keep cleaned `raw_payload` for Observatory inspection.
+
+## CLI and REST API mapping
+
+ChatEvent acts as a lightweight Event Hub: platform official webhooks / event queues / API cursors bring raw actions in, ChatEvent normalizes, deduplicates, and stores them, and downstream systems read events through the REST API. The CLI `api` command group is the command-line counterpart to those REST endpoints.
+
+The default base URL is `CHATEVENT_API_URL`, falling back to `http://127.0.0.1:8765`; every API command also accepts `--base-url`.
+
+| CLI | REST API | Purpose |
+| --- | --- | --- |
+| `chatevent api health` | `GET /api/health` | Read service health and DB path. |
+| `chatevent api stats` | `GET /api/stats` | Read event/source/duplicate statistics. |
+| `chatevent api events --source discourse --days 7` | `GET /api/events?...` | Query the event stream with source/kind/subscription/q/since/days/from/to/limit filters. |
+| `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` | Read one concrete event. |
+| `chatevent api record-json event.json` | `POST /api/events` | Write one normalized `ChatEvent` JSON document to the Event Hub. |
+| `chatevent api subscriptions` | `GET /api/subscriptions` | List subscriptions. |
+| `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` | Save a subscription through REST. |
+
+Examples:
+
+```bash
+uv run chatevent api events \
+  --base-url https://event.public.wzhecnu.cn \
+  --source discourse \
+  --days 7 \
+  --limit 20
+
+uv run chatevent api event \
+  --base-url https://event.public.wzhecnu.cn \
+  'discourse:post:35'
+```
 
 ## Downstream consumption
 
