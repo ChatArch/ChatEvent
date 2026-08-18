@@ -48,7 +48,15 @@ DASHBOARD_HTML = r"""<!doctype html>
     .card small { color: var(--muted); display: block; margin-bottom: 9px; }
     .metric { font-size: 29px; font-weight: 720; letter-spacing: -.04em; }
     .metric-note { color: var(--muted); font-size: 12px; margin-left: 7px; }
-    .workspace { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .tabs { display: inline-flex; flex-wrap: wrap; gap: 6px; max-width: 100%; margin: 0 0 14px; padding: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.025); }
+    .tab { display: inline-flex; align-items: center; gap: 8px; border: 1px solid transparent; border-radius: 999px; padding: 10px 14px; color: var(--muted); background: transparent; }
+    .tab:hover { color: var(--text); border-color: rgba(255,255,255,.08); background: rgba(255,255,255,.04); }
+    .tab.active { color: #10150b; background: var(--accent); border-color: var(--accent); font-weight: 760; }
+    .tab-count { min-width: 22px; padding: 2px 7px; border-radius: 999px; color: var(--text); background: rgba(255,255,255,.08); font: 700 11px/1.5 ui-monospace, SFMono-Regular, monospace; text-align: center; }
+    .tab.active .tab-count { color: #10150b; background: rgba(16,21,11,.14); }
+    .tab-panels { display: block; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
     .panel { overflow: hidden; }
     .panel-head { min-height: 64px; padding: 16px 17px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
     .panel-head h2 { margin: 0; font-size: 15px; }
@@ -56,8 +64,8 @@ DASHBOARD_HTML = r"""<!doctype html>
     .button { border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; color: var(--text); background: rgba(255,255,255,.04); }
     .button:hover { border-color: rgba(185,255,102,.45); background: var(--accent-soft); }
     .button.primary { color: #10150b; background: var(--accent); border-color: var(--accent); font-weight: 700; }
-    .subscriptions { padding: 9px; display: grid; gap: 7px; }
-    .subscription { padding: 12px; border-radius: 12px; border: 1px solid transparent; background: rgba(255,255,255,.025); }
+    .subscriptions { padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+    .subscription { padding: 14px; border-radius: 14px; border: 1px solid transparent; background: rgba(255,255,255,.025); }
     .subscription:hover { border-color: var(--line); }
     .subscription-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .subscription strong { font-size: 13px; }
@@ -68,12 +76,12 @@ DASHBOARD_HTML = r"""<!doctype html>
     .chip.api_cursor, .chip.poll, .chip.manual_backfill { color: var(--orange); background: rgba(255,184,107,.1); }
     .chip.push { color: var(--blue); background: rgba(119,184,255,.1); }
     .chip.pull { color: var(--orange); background: rgba(255,184,107,.1); }
-    .platforms { padding: 9px; display: grid; gap: 9px; border-top: 1px solid var(--line); }
-    .platform { padding: 12px; border-radius: 12px; background: rgba(255,255,255,.025); }
+    .platforms { padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+    .platform { padding: 14px; border-radius: 14px; background: rgba(255,255,255,.025); }
     .platform p { margin: 7px 0 9px; color: #c8cfdb; font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
     .dot.off { background: #555d6b; }
-    .filters { display: grid; grid-template-columns: minmax(170px, 1fr) 150px 190px; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .filters { display: grid; grid-template-columns: minmax(240px, 1.4fr) repeat(5, minmax(132px, 1fr)); gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
     .control { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; padding: 0 11px; color: var(--text); background: #11151c; outline: none; }
     .control:focus { border-color: rgba(185,255,102,.55); box-shadow: 0 0 0 3px rgba(185,255,102,.08); }
     .event-head, .event-row { display: grid; grid-template-columns: 112px minmax(160px, 1fr) minmax(140px, .8fr) 145px 72px; gap: 14px; align-items: center; }
@@ -112,11 +120,12 @@ DASHBOARD_HTML = r"""<!doctype html>
     .error { color: var(--danger); font-size: 12px; min-height: 18px; margin-top: 8px; }
     @media (max-width: 900px) {
       .stats { grid-template-columns: repeat(2, 1fr); }
-      .workspace { grid-template-columns: 1fr; }
+      .tabs { display: flex; border-radius: 18px; }
+      .tab { flex: 1 1 170px; justify-content: center; }
+      .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .event-head { display: none; }
       .event-row { grid-template-columns: 90px 1fr 60px; }
       .event-row .summary, .event-row time { display: none; }
-      .subscriptions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 580px) {
       .shell { padding: 18px 12px; }
@@ -147,20 +156,14 @@ DASHBOARD_HTML = r"""<!doctype html>
       <article class="card"><small>重复投递</small><span class="metric" id="duplicateCount">0</span><span class="metric-note">已去重</span></article>
     </section>
 
-    <section class="workspace">
-      <aside class="panel">
-        <div class="panel-head">
-          <div><h2>Subscriptions</h2><span>当前关注对象</span></div>
-          <button class="button" id="addSubscription">＋ 新建</button>
-        </div>
-        <div class="subscriptions" id="subscriptions"></div>
-        <div class="panel-head">
-          <div><h2>Platform actions</h2><span>v0.1 可控事件目录</span></div>
-        </div>
-        <div class="platforms" id="platforms"></div>
-      </aside>
+    <nav class="tabs" role="tablist" aria-label="Observatory sections">
+      <button class="tab active" id="eventsTab" type="button" role="tab" aria-selected="true" aria-controls="eventsPanel" data-tab-target="eventsPanel">Event Stream <span class="tab-count" id="eventTabCount">0</span></button>
+      <button class="tab" id="subscriptionsTab" type="button" role="tab" aria-selected="false" aria-controls="subscriptionsPanel" data-tab-target="subscriptionsPanel">Subscriptions <span class="tab-count" id="subscriptionTabCount">0</span></button>
+      <button class="tab" id="platformsTab" type="button" role="tab" aria-selected="false" aria-controls="platformsPanel" data-tab-target="platformsPanel">Platform actions <span class="tab-count" id="platformTabCount">0</span></button>
+    </nav>
 
-      <section class="panel">
+    <section class="tab-panels">
+      <section class="panel tab-panel active" id="eventsPanel" role="tabpanel" aria-labelledby="eventsTab">
         <div class="panel-head">
           <div><h2>Event stream</h2><span id="resultCount">0 条记录</span></div>
           <button class="button" id="refresh">刷新</button>
@@ -181,6 +184,21 @@ DASHBOARD_HTML = r"""<!doctype html>
         </div>
         <div class="event-head"><span>Source</span><span>Kind</span><span>Summary</span><span>Captured</span><span>Seen</span></div>
         <div class="event-list" id="events"></div>
+      </section>
+
+      <section class="panel tab-panel" id="subscriptionsPanel" role="tabpanel" aria-labelledby="subscriptionsTab" hidden>
+        <div class="panel-head">
+          <div><h2>Subscriptions</h2><span>当前关注对象</span></div>
+          <button class="button" id="addSubscription">＋ 新建</button>
+        </div>
+        <div class="subscriptions" id="subscriptions"></div>
+      </section>
+
+      <section class="panel tab-panel" id="platformsPanel" role="tabpanel" aria-labelledby="platformsTab" hidden>
+        <div class="panel-head">
+          <div><h2>Platform actions</h2><span>v0.1 可控事件目录</span></div>
+        </div>
+        <div class="platforms" id="platforms"></div>
       </section>
     </section>
   </main>
@@ -253,6 +271,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     function renderSubscriptions(items) {
+      $("subscriptionTabCount").textContent = items.length;
       const root = $("subscriptions");
       if (!items.length) {
         root.innerHTML = `<div class="empty"><strong>还没有订阅</strong>先记录要关注的平台与对象。</div>`;
@@ -272,6 +291,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     function renderPlatforms(platforms) {
       state.platforms = platforms;
+      $("platformTabCount").textContent = platforms.length;
       const root = $("platforms");
       if (!platforms.length) {
         root.innerHTML = `<div class="empty"><strong>还没有平台目录</strong>/api/platforms 暂无返回。</div>`;
@@ -297,6 +317,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     function renderEvents(items) {
       state.events = items;
+      $("eventTabCount").textContent = items.length;
       $("resultCount").textContent = `${items.length} 条记录`;
       const root = $("events");
       if (!items.length) {
@@ -342,6 +363,19 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     function closeDetail() { $("detail").classList.remove("open"); $("detail").setAttribute("aria-hidden", "true"); }
 
+    function activateTab(targetId) {
+      document.querySelectorAll(".tab").forEach(tab => {
+        const active = tab.dataset.tabTarget === targetId;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", String(active));
+      });
+      document.querySelectorAll(".tab-panel").forEach(panel => {
+        const active = panel.id === targetId;
+        panel.classList.toggle("active", active);
+        panel.hidden = !active;
+      });
+    }
+
     async function loadAll() {
       try {
         const params = new URLSearchParams();
@@ -362,6 +396,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     let debounce;
+    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => activateTab(tab.dataset.tabTarget)));
     $("search").addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(loadAll, 260); });
     $("sourceFilter").addEventListener("change", loadAll);
     $("kindFilter").addEventListener("change", loadAll);
