@@ -56,6 +56,7 @@ chatevent
   api event DEDUPE_KEY           GET /api/events/{dedupe_key}
   api record-json FILE           POST /api/events
   api save-subscription FILE     POST /api/subscriptions
+  api delete-subscription ID     DELETE /api/subscriptions/{id}
   capture zulip-once [options]   Official Zulip event-queue capture pass
 ```
 
@@ -78,6 +79,21 @@ http://127.0.0.1:8765/
 
 - https://event.local.wzhecnu.cn/
 - https://event.public.wzhecnu.cn/
+
+## 配置和存储位置
+
+ChatEvent 当前把运行时事件账本写在 SQLite 中，数据库路径由 `--db` 或 `CHATEVENT_DB` 决定；未设置时使用 `~/.chatevent/events.db`。当前线上 demo 的 DB 是：
+
+```text
+/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db
+```
+
+SQLite 内部主要有两张表：
+
+- `subscriptions`：订阅配置和状态，`body` 保存完整 `Subscription` JSON；`last_cursor`、`last_event_at` 等更新也在这里。
+- `events`：规范化后的 `ChatEvent`，`body` 保存完整事件 JSON，索引列保存 source、kind、subscription_id、captured_at 和 seen_count。
+
+平台侧 webhook 注册、Zulip secret 文件、Nginx upstream、运行端口等不写入 SQLite；它们属于外部平台或运行时部署配置，凭据不写入项目文件。
 
 ## 刷新机制
 
@@ -152,6 +168,7 @@ Zulip:     用 `chatevent capture zulip-once` 做官方 event queue bounded capt
 - `GET /api/platforms`
 - `POST /api/subscriptions`
 - `GET /api/subscriptions`
+- `DELETE /api/subscriptions/{id}`
 - `POST /api/events`
 - `GET /api/events`，支持 `source`、`kind`、`subscription_id`、`q`、`since`、`days`、`from`、`to` 和 `limit`
 - `GET /api/events/{dedupe_key}`
@@ -178,6 +195,7 @@ ChatEvent 可以当作一个轻量 Event Hub：平台官方 webhook / event queu
 | `chatevent api record-json event.json` | `POST /api/events` | 把已规范化的 `ChatEvent` JSON 写入 Event Hub。 |
 | `chatevent api subscriptions` | `GET /api/subscriptions` | 列出订阅。 |
 | `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` | 通过 REST 保存订阅。 |
+| `chatevent api delete-subscription <id>` | `DELETE /api/subscriptions/{id}` | 删除订阅，不删除已捕获事件。 |
 
 示例：
 
@@ -192,6 +210,18 @@ uv run chatevent api event \
   --base-url https://event.public.wzhecnu.cn \
   'discourse:post:35'
 ```
+
+## 线上编辑与安全设定
+
+Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若设置 `CHATEVENT_ADMIN_TOKEN`，订阅写操作必须带 `X-ChatEvent-Admin-Token` header；Web 页面会在首次写操作收到 401 时提示输入 token，并只保存在当前浏览器 sessionStorage。
+
+```bash
+CHATEVENT_ADMIN_TOKEN=... uv run --extra serve chatevent serve --db ./events.db
+uv run chatevent api save-subscription subscription.json --admin-token ...
+uv run chatevent api delete-subscription discourse-practice --admin-token ...
+```
+
+删除订阅只删除 `subscriptions` 里的配置，不会删除 `events` 表中已经捕获的历史事件。
 
 ## 下游消费
 

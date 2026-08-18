@@ -2,6 +2,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -21,6 +22,9 @@ class ServerTests(unittest.TestCase):
             self.assertIn('data-tab-target="subscriptionsPanel"', dashboard.text)
             self.assertIn('data-tab-target="platformsPanel"', dashboard.text)
             self.assertIn('id="timeFilter"', dashboard.text)
+            self.assertIn("editSubscription", dashboard.text)
+            self.assertIn("deleteSubscription", dashboard.text)
+            self.assertIn("adminToken", dashboard.text)
 
             subscription = client.post(
                 "/api/subscriptions",
@@ -77,6 +81,44 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(platforms.status_code, 200)
             platform_ids = [item["id"] for item in platforms.json()["items"]]
             self.assertEqual(platform_ids, ["discourse", "gitea", "github", "zulip"])
+
+    def test_subscription_mutations_can_require_admin_token(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ", {"CHATEVENT_ADMIN_TOKEN": "secret-token"}
+        ):
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+            body = {
+                "id": "discourse-practice",
+                "source": "discourse",
+                "target": "category:agent-runs",
+                "event_kinds": ["post.created", "reply.created"],
+                "capture_modes": ["webhook", "api_cursor"],
+            }
+
+            no_token = client.post("/api/subscriptions", json=body)
+            wrong_token = client.post(
+                "/api/subscriptions",
+                headers={"X-ChatEvent-Admin-Token": "wrong"},
+                json=body,
+            )
+            ok = client.post(
+                "/api/subscriptions",
+                headers={"X-ChatEvent-Admin-Token": "secret-token"},
+                json=body,
+            )
+            delete_without_token = client.delete("/api/subscriptions/discourse-practice")
+            delete_ok = client.delete(
+                "/api/subscriptions/discourse-practice",
+                headers={"X-ChatEvent-Admin-Token": "secret-token"},
+            )
+
+            self.assertEqual(no_token.status_code, 401)
+            self.assertEqual(wrong_token.status_code, 401)
+            self.assertEqual(ok.status_code, 201)
+            self.assertEqual(delete_without_token.status_code, 401)
+            self.assertEqual(delete_ok.status_code, 200)
+            self.assertTrue(delete_ok.json()["deleted"])
+            self.assertEqual(client.get("/api/subscriptions/discourse-practice").status_code, 404)
 
     def test_webhook_endpoints_normalize_platform_payloads(self) -> None:
         with TemporaryDirectory() as directory:

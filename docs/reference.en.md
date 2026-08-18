@@ -20,6 +20,7 @@ chatevent
   api event DEDUPE_KEY           GET /api/events/{dedupe_key}
   api record-json FILE           POST /api/events
   api save-subscription FILE     POST /api/subscriptions
+  api delete-subscription ID     DELETE /api/subscriptions/{id}
   capture zulip-once [options]   Official Zulip event-queue capture pass
 ```
 
@@ -33,6 +34,7 @@ chatevent
 | `GET` | `/api/platforms` | Return the platform action catalog. |
 | `POST` | `/api/subscriptions` | Create or update a subscription. |
 | `GET` | `/api/subscriptions` | List subscriptions. |
+| `DELETE` | `/api/subscriptions/{id}` | Delete a subscription without deleting captured events. |
 | `POST` | `/api/events` | Record one normalized `ChatEvent`. |
 | `GET` | `/api/events` | Query events with source, kind, subscription, keyword, `since` checkpoint, recent-day, and captured-at range filters. |
 | `GET` | `/api/events/{dedupe_key}` | Read one stored event. |
@@ -58,6 +60,7 @@ chatevent
 | `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` |
 | `chatevent api record-json event.json` | `POST /api/events` |
 | `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` |
+| `chatevent api delete-subscription <id>` | `DELETE /api/subscriptions/{id}` |
 
 
 ## Query events
@@ -97,3 +100,9 @@ source:id
 ```
 
 Repeated delivery of the same event does not create a new row; it increments `seen_count` and contributes to `/api/stats` `duplicate_count`.
+
+## Storage and online editing
+
+Subscription configuration and the event ledger are stored in SQLite. The online demo uses `/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db`. `subscriptions.body` stores the full `Subscription` JSON, including `last_cursor` and `last_event_at` updates after events arrive; `events.body` stores the full `ChatEvent` JSON.
+
+The Web Observatory `Subscriptions` tab can create, edit, enable/disable, and delete subscriptions. For production or public deployments, set `CHATEVENT_ADMIN_TOKEN` so `POST /api/subscriptions` and `DELETE /api/subscriptions/{id}` require the `X-ChatEvent-Admin-Token` header.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -21,6 +22,7 @@ class ChatEventApiClient:
 
     base_url: str = "http://127.0.0.1:8765"
     timeout: float = 20.0
+    admin_token: str | None = None
 
     def health(self) -> dict[str, Any]:
         return self._request("GET", "/api/health")
@@ -46,6 +48,12 @@ class ChatEventApiClient:
     def save_subscription(self, path: Path) -> dict[str, Any]:
         payload = json.loads(path.read_text(encoding="utf-8"))
         return self._request("POST", "/api/subscriptions", payload=payload)
+
+    def delete_subscription(self, subscription_id: str) -> dict[str, Any]:
+        return self._request(
+            "DELETE",
+            "/api/subscriptions/" + urllib.parse.quote(subscription_id, safe=""),
+        )
 
     def list_events(
         self,
@@ -97,6 +105,9 @@ class ChatEventApiClient:
         url = _build_url(self.base_url, path, query=query)
         body = None
         headers = {"Accept": "application/json"}
+        admin_token = self.admin_token or os.environ.get("CHATEVENT_ADMIN_TOKEN")
+        if admin_token:
+            headers["X-ChatEvent-Admin-Token"] = admin_token
         if payload is not None:
             body = json.dumps(payload).encode("utf-8")
             headers["Content-Type"] = "application/json"
