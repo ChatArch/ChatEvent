@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/monitoring/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/monitoring/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/monitoring/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/platform-actions/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/platform-actions/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/platform-actions/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/quickstart/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/reference/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/reference/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/reference/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/en/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/en/monitoring/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/monitoring/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/monitoring/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/en/platform-actions/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/platform-actions/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/platform-actions/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/en/quickstart/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://arch.gh.wzhecnu.cn/ChatEvent/en/reference/</loc>
+        <lastmod>2026-08-18</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://arch.gh.wzhecnu.cn/ChatEvent/en/reference/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://arch.gh.wzhecnu.cn/ChatEvent/reference/"/>
+    </url>
+</urlset>
