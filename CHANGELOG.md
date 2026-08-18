@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.1.2 - 2026-08-19
+
+- Observatory 顶层筛选收敛为 `source` 与时间下拉框；事件类型、订阅/渠道、关键词和自定义起止时间移入“高级选项”。
+- 高级事件类型改为随来源联动的多选 checkbox，订阅/渠道也按来源联动，可组合过滤更复杂场景。
+- Platform actions 中的 action chip 可点击打开详情，展示 action kind、target types、捕获方式、webhook events 与 API 大致含义。
+- 页面头部新增 GitHub 与 Docs 图标链接，并增加黑底/白底主题切换，主题偏好保存在浏览器本地。
+
 ## 0.1.1 - 2026-08-19
 
 - 新增开放式 `CarrierTarget`、`ActionDescriptor` 与 `ActorDescriptor`，把订阅和事件明确建模为“动作 + 发起人/角色 + 承载目标”。

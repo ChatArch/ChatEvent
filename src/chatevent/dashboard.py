@@ -21,7 +21,39 @@ DASHBOARD_HTML = r"""<!doctype html>
       --orange: #ffb86b;
       --danger: #ff7272;
       --radius: 16px;
+      --control-bg: #11151c;
+      --detail-bg: #101319;
+      --dialog-bg: #151921;
+      --code-bg: #090b0f;
+      --soft-text: #c8cfdb;
+      --target-text: #d7dfeb;
+      --active-ink: #10150b;
+      --glass: rgba(255,255,255,.03);
+      --row-hover: rgba(255,255,255,.035);
       font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #f6f4ef;
+      --panel: rgba(255, 255, 255, .86);
+      --panel-strong: #ffffff;
+      --line: rgba(13, 17, 23, .14);
+      --muted: #606875;
+      --text: #121417;
+      --accent: #111111;
+      --accent-soft: rgba(0, 0, 0, .07);
+      --blue: #095fc6;
+      --orange: #a65300;
+      --danger: #c62828;
+      --control-bg: #ffffff;
+      --detail-bg: #ffffff;
+      --dialog-bg: #ffffff;
+      --code-bg: #f0eee8;
+      --soft-text: #38404c;
+      --target-text: #111111;
+      --active-ink: #ffffff;
+      --glass: rgba(0,0,0,.035);
+      --row-hover: rgba(0,0,0,.045);
     }
     * { box-sizing: border-box; }
     body {
@@ -37,10 +69,15 @@ DASHBOARD_HTML = r"""<!doctype html>
     button { cursor: pointer; }
     .shell { max-width: 1480px; margin: 0 auto; padding: 28px; }
     header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 26px; }
+    .header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 440px; }
+    .icon-link { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); background: var(--glass); text-decoration: none; }
+    .icon-link:hover { border-color: rgba(185,255,102,.45); background: var(--accent-soft); }
+    .icon-link svg { width: 16px; height: 16px; fill: currentColor; }
+    .theme-toggle { min-height: 38px; border-radius: 999px; }
     .eyebrow { color: var(--accent); font: 700 12px/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .14em; text-transform: uppercase; }
     h1 { margin: 8px 0 5px; font-size: clamp(28px, 4vw, 48px); letter-spacing: -.045em; }
     header p { margin: 0; color: var(--muted); max-width: 660px; }
-    .live { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 999px; color: #cbd2df; background: rgba(255,255,255,.03); white-space: nowrap; }
+    .live { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 999px; color: var(--soft-text); background: var(--glass); white-space: nowrap; }
     .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 16px var(--accent); }
     .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
     .card, .panel { border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(18px); border-radius: var(--radius); }
@@ -51,9 +88,9 @@ DASHBOARD_HTML = r"""<!doctype html>
     .tabs { display: inline-flex; flex-wrap: wrap; gap: 6px; max-width: 100%; margin: 0 0 14px; padding: 6px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.025); }
     .tab { display: inline-flex; align-items: center; gap: 8px; border: 1px solid transparent; border-radius: 999px; padding: 10px 14px; color: var(--muted); background: transparent; }
     .tab:hover { color: var(--text); border-color: rgba(255,255,255,.08); background: rgba(255,255,255,.04); }
-    .tab.active { color: #10150b; background: var(--accent); border-color: var(--accent); font-weight: 760; }
+    .tab.active { color: var(--active-ink); background: var(--accent); border-color: var(--accent); font-weight: 760; }
     .tab-count { min-width: 22px; padding: 2px 7px; border-radius: 999px; color: var(--text); background: rgba(255,255,255,.08); font: 700 11px/1.5 ui-monospace, SFMono-Regular, monospace; text-align: center; }
-    .tab.active .tab-count { color: #10150b; background: rgba(16,21,11,.14); }
+    .tab.active .tab-count { color: var(--active-ink); background: rgba(255,255,255,.18); }
     .tab-panels { display: block; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
@@ -63,7 +100,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     .panel-head span { color: var(--muted); font-size: 12px; }
     .button { border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; color: var(--text); background: rgba(255,255,255,.04); }
     .button:hover { border-color: rgba(185,255,102,.45); background: var(--accent-soft); }
-    .button.primary { color: #10150b; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+    .button.primary { color: var(--active-ink); background: var(--accent); border-color: var(--accent); font-weight: 700; }
     .button.danger:hover { border-color: rgba(255,114,114,.55); background: rgba(255,114,114,.12); }
     .button.small { padding: 6px 8px; border-radius: 8px; font-size: 11px; }
     .subscriptions { padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
@@ -71,7 +108,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     .subscription:hover { border-color: var(--line); }
     .subscription-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .subscription strong { font-size: 13px; }
-    .subscription p { margin: 7px 0; color: #c8cfdb; font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
+    .subscription p { margin: 7px 0; color: var(--soft-text); font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
     .subscription-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
     .subscription-meta { margin-top: 7px; color: var(--muted); font: 11px/1.45 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
     .chips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -82,28 +119,37 @@ DASHBOARD_HTML = r"""<!doctype html>
     .chip.pull { color: var(--orange); background: rgba(255,184,107,.1); }
     .platforms { padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
     .platform { padding: 14px; border-radius: 14px; background: rgba(255,255,255,.025); }
-    .platform p { margin: 7px 0 9px; color: #c8cfdb; font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
+    .platform p { margin: 7px 0 9px; color: var(--soft-text); font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
+    .action-chip { border: 0; text-align: left; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
     .dot.off { background: #555d6b; }
-    .filters { display: grid; grid-template-columns: minmax(240px, 1.4fr) repeat(5, minmax(132px, 1fr)); gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
-    .control { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; padding: 0 11px; color: var(--text); background: #11151c; outline: none; }
+    .filters { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(170px, .7fr) auto; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .advanced-filters { display: grid; grid-template-columns: minmax(260px, 1.1fr) minmax(260px, 1fr) minmax(260px, 1fr) minmax(160px, .7fr) minmax(160px, .7fr); gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); background: var(--glass); }
+    .advanced-filters[hidden] { display: none; }
+    .filter-group { min-width: 0; }
+    .filter-title { margin-bottom: 7px; color: var(--muted); font-size: 12px; }
+    .checkbox-grid { display: flex; flex-wrap: wrap; gap: 6px; max-height: 126px; overflow: auto; padding: 2px; }
+    .check-chip { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--soft-text); background: var(--glass); font: 600 10px/1.3 ui-monospace, SFMono-Regular, monospace; }
+    .check-chip input { margin: 0; accent-color: var(--accent); }
+    .advanced-note { color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, monospace; }
+    .control { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; padding: 0 11px; color: var(--text); background: var(--control-bg); outline: none; }
     .control:focus { border-color: rgba(185,255,102,.55); box-shadow: 0 0 0 3px rgba(185,255,102,.08); }
     .event-head, .event-row { display: grid; grid-template-columns: 112px minmax(160px, .9fr) minmax(170px, .9fr) minmax(180px, 1.1fr) 145px 72px; gap: 14px; align-items: center; }
     .event-head { padding: 10px 15px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid var(--line); }
     .event-list { max-height: 650px; overflow: auto; }
     .event-row { width: 100%; padding: 14px 15px; color: inherit; text-align: left; border: 0; border-bottom: 1px solid rgba(255,255,255,.055); background: transparent; }
-    .event-row:hover { background: rgba(255,255,255,.035); }
+    .event-row:hover { background: var(--row-hover); }
     .source { color: var(--accent); font: 700 12px ui-monospace, SFMono-Regular, monospace; }
     .kind, .target-label { font: 600 12px ui-monospace, SFMono-Regular, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .target-label { color: #d7dfeb; }
-    .summary { color: #b5bdca; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .target-label { color: var(--target-text); }
+    .summary { color: var(--soft-text); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     time { color: var(--muted); font-size: 11px; }
     .count { text-align: right; font: 700 11px ui-monospace, SFMono-Regular, monospace; color: var(--muted); }
     .empty { padding: 54px 22px; text-align: center; color: var(--muted); }
     .empty strong { color: var(--text); display: block; margin-bottom: 7px; }
     .detail { position: fixed; inset: 0; z-index: 20; display: none; background: rgba(2,4,7,.66); backdrop-filter: blur(6px); }
     .detail.open { display: block; }
-    .detail-panel { width: min(720px, 92vw); height: 100%; margin-left: auto; padding: 24px; overflow: auto; border-left: 1px solid var(--line); background: #101319; box-shadow: -30px 0 80px rgba(0,0,0,.35); }
+    .detail-panel { width: min(720px, 92vw); height: 100%; margin-left: auto; padding: 24px; overflow: auto; border-left: 1px solid var(--line); background: var(--detail-bg); box-shadow: -30px 0 80px rgba(0,0,0,.35); }
     .detail-top { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
     .detail h2 { margin: 18px 0 6px; letter-spacing: -.03em; overflow-wrap: anywhere; }
     .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 18px 0; }
@@ -111,8 +157,8 @@ DASHBOARD_HTML = r"""<!doctype html>
     .field small { color: var(--muted); display: block; margin-bottom: 6px; }
     .field div { font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
     .json-title { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 8px; }
-    pre { margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; color: #d5dbea; background: #090b0f; overflow: auto; font: 11px/1.65 ui-monospace, SFMono-Regular, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-    dialog { width: min(540px, calc(100vw - 28px)); color: var(--text); border: 1px solid var(--line); border-radius: 18px; background: #151921; box-shadow: 0 40px 100px rgba(0,0,0,.55); }
+    pre { margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--soft-text); background: var(--code-bg); overflow: auto; font: 11px/1.65 ui-monospace, SFMono-Regular, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    dialog { width: min(540px, calc(100vw - 28px)); color: var(--text); border: 1px solid var(--line); border-radius: 18px; background: var(--dialog-bg); box-shadow: 0 40px 100px rgba(0,0,0,.55); }
     dialog::backdrop { background: rgba(0,0,0,.62); backdrop-filter: blur(5px); }
     dialog h2 { margin: 4px 0 18px; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -128,6 +174,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       .tabs { display: flex; border-radius: 18px; }
       .tab { flex: 1 1 170px; justify-content: center; }
       .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .advanced-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .event-head { display: none; }
       .event-row { grid-template-columns: 90px 1fr 60px; }
       .event-row .target-label, .event-row .summary, .event-row time { display: none; }
@@ -135,8 +182,10 @@ DASHBOARD_HTML = r"""<!doctype html>
     @media (max-width: 580px) {
       .shell { padding: 18px 12px; }
       header { display: block; }
-      .live { display: inline-flex; margin-top: 14px; }
+      .header-actions { justify-content: flex-start; margin-top: 14px; }
+      .live { display: inline-flex; }
       .filters { grid-template-columns: 1fr; }
+      .advanced-filters { grid-template-columns: 1fr; }
       .subscriptions { grid-template-columns: 1fr; }
       .detail-grid, .form-grid { grid-template-columns: 1fr; }
       .wide { grid-column: auto; }
@@ -151,7 +200,18 @@ DASHBOARD_HTML = r"""<!doctype html>
         <h1>ChatEvent Observatory</h1>
         <p>看清订阅了什么、捕获到了什么，以及原始事件如何被规范化。</p>
       </div>
-      <div class="live" id="liveStatus">本地事件流 · 5 秒刷新</div>
+      <div class="header-actions">
+        <a class="icon-link" id="githubLink" href="https://github.com/ChatArch/ChatEvent" target="_blank" rel="noreferrer" aria-label="Open GitHub repository">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-.9-2.7-.9-.4-.9-.9-1.1-.9-1.1-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.2-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8A7.7 7.7 0 0 1 8 3.8c.7 0 1.4.1 2 .3 1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.2 0 3-1.8 3.7-3.6 3.9.3.3.6.8.6 1.6v2.3c0 .2.1.5.6.4A8 8 0 0 0 8 .2Z"/></svg>
+          GitHub
+        </a>
+        <a class="icon-link" id="docsLink" href="https://arch.gh.wzhecnu.cn/ChatEvent/" target="_blank" rel="noreferrer" aria-label="Open ChatEvent docs">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1.5A2.5 2.5 0 0 1 5.5 4v10.5A2.5 2.5 0 0 0 3 12H2V1.5h1Zm10 0h1V12h-1a2.5 2.5 0 0 0-2.5 2.5V4A2.5 2.5 0 0 1 13 1.5ZM5.5 2A1.5 1.5 0 0 0 4 3.5v7.3c.6.2 1.1.6 1.5 1.1V2Zm5 0v9.9c.4-.5.9-.9 1.5-1.1V3.5A1.5 1.5 0 0 0 10.5 2Z"/></svg>
+          Docs
+        </a>
+        <button class="button theme-toggle" id="themeToggle" type="button" aria-pressed="false">黑白</button>
+        <div class="live" id="liveStatus">本地事件流 · 5 秒刷新</div>
+      </div>
     </header>
 
     <section class="stats">
@@ -174,9 +234,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <button class="button" id="refresh">刷新</button>
         </div>
         <div class="filters">
-          <input class="control" id="search" placeholder="搜索 payload、actor 或 conversation…" />
           <select class="control" id="sourceFilter"><option value="">全部来源</option></select>
-          <select class="control" id="kindFilter"><option value="">全部事件类型</option></select>
           <select class="control" id="timeFilter">
             <option value="">全部时间</option>
             <option value="1">最近 24 小时</option>
@@ -184,8 +242,21 @@ DASHBOARD_HTML = r"""<!doctype html>
             <option value="7">最近 7 天</option>
             <option value="30">最近 30 天</option>
           </select>
-          <input class="control" id="fromFilter" type="datetime-local" title="开始时间" />
-          <input class="control" id="toFilter" type="datetime-local" title="结束时间" />
+          <button class="button" id="advancedFiltersToggle" type="button" aria-expanded="false" aria-controls="advancedFilters">高级选项 <span id="advancedFilterCount" class="tab-count">0</span></button>
+        </div>
+        <div class="advanced-filters" id="advancedFilters" hidden>
+          <label>关键词搜索<input class="control" id="search" placeholder="payload、actor、conversation…" /></label>
+          <div class="filter-group">
+            <div class="filter-title">事件类型（随来源联动，可多选）</div>
+            <div class="checkbox-grid" id="kindCheckboxes"></div>
+            <div class="advanced-note" id="kindFilterHint">先选来源会收窄到该平台 action catalog。</div>
+          </div>
+          <div class="filter-group">
+            <div class="filter-title">订阅 / 渠道（随来源联动，可多选）</div>
+            <div class="checkbox-grid" id="subscriptionCheckboxes"></div>
+          </div>
+          <label>开始时间<input class="control" id="fromFilter" type="datetime-local" title="开始时间" /></label>
+          <label>结束时间<input class="control" id="toFilter" type="datetime-local" title="结束时间" /></label>
         </div>
         <div class="event-head"><span>Source</span><span>Kind</span><span>Target</span><span>Summary</span><span>Captured</span><span>Seen</span></div>
         <div class="event-list" id="events"></div>
@@ -252,8 +323,16 @@ DASHBOARD_HTML = r"""<!doctype html>
     </form>
   </dialog>
 
+  <dialog id="platformActionDialog">
+    <div class="eyebrow">Platform action API</div>
+    <h2 id="platformActionTitle">API 大致含义</h2>
+    <div class="detail-grid" id="platformActionFields"></div>
+    <div class="json-title"><strong>Action catalog JSON</strong></div><pre id="platformActionJson"></pre>
+    <div class="dialog-actions"><button type="button" class="button" id="closePlatformAction">关闭</button></div>
+  </dialog>
+
   <script>
-    const state = { events: [], subscriptions: [], stats: {}, platforms: [], detail: null, editingSubscription: null };
+    const state = { events: [], subscriptions: [], stats: {}, platforms: [], detail: null, editingSubscription: null, selectedKinds: new Set(), selectedSubscriptions: new Set() };
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
     const formatTime = (value) => value ? new Intl.DateTimeFormat("zh-CN", {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date(value)) : "—";
@@ -272,6 +351,16 @@ DASHBOARD_HTML = r"""<!doctype html>
     function actionLabel(event) {
       const action = event.action || {};
       return [action.kind || event.kind, action.object_type, action.verb].filter(Boolean).join(" · ");
+    }
+    function applyTheme(theme) {
+      const normalized = theme === "light" ? "light" : "dark";
+      document.documentElement.dataset.theme = normalized;
+      localStorage.setItem("chateventTheme", normalized);
+      $("themeToggle").setAttribute("aria-pressed", String(normalized === "light"));
+      $("themeToggle").textContent = normalized === "light" ? "白底" : "黑底";
+    }
+    function toggleTheme() {
+      applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
     }
     const api = async (path, options = {}) => {
       const headers = {"Content-Type": "application/json", ...(options.headers || {})};
@@ -315,13 +404,69 @@ DASHBOARD_HTML = r"""<!doctype html>
       $("sourceCount").textContent = stats.source_count || 0;
       $("duplicateCount").textContent = stats.duplicate_count || 0;
       updateOptions("sourceFilter", "全部来源", Object.keys(stats.sources || {}));
-      updateOptions("kindFilter", "全部事件类型", Object.keys(stats.kinds || {}));
     }
 
     function updateOptions(id, label, values) {
       const select = $(id); const current = select.value;
       select.innerHTML = `<option value="">${escapeHtml(label)}</option>` + values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
       select.value = values.includes(current) ? current : "";
+    }
+
+    function selectedSource() { return $("sourceFilter").value; }
+
+    function actionKindsForSource() {
+      const source = selectedSource();
+      const platforms = source ? state.platforms.filter(platform => platform.id === source) : state.platforms;
+      const kinds = platforms.flatMap(platform => (platform.actions || []).map(action => action.kind));
+      return Array.from(new Set(kinds.length ? kinds : Object.keys(state.stats.kinds || {}))).sort();
+    }
+
+    function subscriptionsForSource() {
+      const source = selectedSource();
+      return state.subscriptions.filter(item => !source || item.source === source);
+    }
+
+    function pruneSelection(selection, allowed) {
+      const allowedSet = new Set(allowed);
+      Array.from(selection).forEach(value => { if (!allowedSet.has(value)) selection.delete(value); });
+    }
+
+    function renderCheckboxes(rootId, values, selected, name, emptyText) {
+      const root = $(rootId);
+      if (!values.length) {
+        root.innerHTML = `<span class="advanced-note">${escapeHtml(emptyText)}</span>`;
+        return;
+      }
+      root.innerHTML = values.map(value => `
+        <label class="check-chip"><input type="checkbox" name="${escapeHtml(name)}" value="${escapeHtml(value)}" ${selected.has(value) ? "checked" : ""} />${escapeHtml(value)}</label>
+      `).join("");
+    }
+
+    function updateAdvancedCount() {
+      const count = state.selectedKinds.size + state.selectedSubscriptions.size + ($("search").value.trim() ? 1 : 0) + ($("fromFilter").value ? 1 : 0) + ($("toFilter").value ? 1 : 0);
+      $("advancedFilterCount").textContent = String(count);
+    }
+
+    function renderAdvancedFilters() {
+      const kinds = actionKindsForSource();
+      const subscriptions = subscriptionsForSource();
+      const subscriptionIds = subscriptions.map(item => item.id).sort();
+      pruneSelection(state.selectedKinds, kinds);
+      pruneSelection(state.selectedSubscriptions, subscriptionIds);
+      renderCheckboxes("kindCheckboxes", kinds, state.selectedKinds, "kindOption", "当前来源还没有可选 action。/api/platforms 会补全目录。 ");
+      renderCheckboxes("subscriptionCheckboxes", subscriptionIds, state.selectedSubscriptions, "subscriptionOption", "当前来源还没有订阅。 ");
+      const sourceText = selectedSource() || "全部来源";
+      $("kindFilterHint").textContent = `事件类型来自 ${sourceText} 的 platform action catalog；多选时在前端二次过滤。`;
+      updateAdvancedCount();
+    }
+
+    function applyAdvancedEventFilters(items) {
+      return items.filter(item => {
+        const event = item.event;
+        if (state.selectedKinds.size && !state.selectedKinds.has(event.kind)) return false;
+        if (state.selectedSubscriptions.size && !state.selectedSubscriptions.has(event.subscription_id || "")) return false;
+        return true;
+      });
     }
 
     function renderSubscriptions(items) {
@@ -376,13 +521,36 @@ DASHBOARD_HTML = r"""<!doctype html>
           </div>
           <p>actions:</p>
           <div class="chips">
-            ${platform.actions.slice(0, 12).map(action => `<span class="chip" title="${escapeHtml(action.description)} · target: ${escapeHtml((action.target_types || []).join(' / '))}">${escapeHtml(action.kind)} → ${escapeHtml((action.target_types || []).slice(0, 2).join('/'))}</span>`).join("")}
+            ${platform.actions.slice(0, 12).map(action => `<button class="chip action-chip" type="button" data-platform="${escapeHtml(platform.id)}" data-action-kind="${escapeHtml(action.kind)}" title="${escapeHtml(action.description)} · target: ${escapeHtml((action.target_types || []).join(' / '))}">${escapeHtml(action.kind)} → ${escapeHtml((action.target_types || []).slice(0, 2).join('/'))}</button>`).join("")}
           </div>
         </article>`).join("");
+      root.querySelectorAll(".action-chip").forEach(button => button.addEventListener("click", () => openPlatformAction(button.dataset.platform, button.dataset.actionKind)));
       const source = $("subscriptionSource");
       const current = source.value;
       source.innerHTML = `<option value="">选择平台</option>` + platforms.map(platform => `<option value="${escapeHtml(platform.id)}">${escapeHtml(platform.display_name)} · ${escapeHtml(platform.id)}</option>`).join("");
       source.value = platforms.some(platform => platform.id === current) ? current : "";
+    }
+
+    function openPlatformAction(platformId, actionKind) {
+      const platform = state.platforms.find(item => item.id === platformId);
+      const action = platform?.actions?.find(item => item.kind === actionKind);
+      if (!platform || !action) return;
+      $("platformActionTitle").textContent = `${platform.display_name} · ${action.kind}`;
+      const modes = action.acquisition_modes || [];
+      const webhookEvents = action.webhook_events?.length ? action.webhook_events.join(", ") : "—";
+      const apiMeaning = `${action.description} 捕获后会规范化为 kind=${action.kind}，target 通常挂在 ${(action.target_types || []).join(" / ") || action.object_type} 上；api_cursor 模式只用于官方 API 增量补偿或对象补全。`;
+      $("platformActionFields").innerHTML = [
+        field("平台", `${platform.display_name} (${platform.id})`),
+        field("Action kind", action.kind),
+        field("对象 / 动词", `${action.object_type} · ${action.action}`),
+        field("Target types", (action.target_types || []).join(" → ")),
+        field("捕获方式", modes.join(", ")),
+        field("Webhook events", webhookEvents),
+        field("API 大致含义", apiMeaning),
+        field("Scope examples", (platform.scope_examples || []).join(" / ")),
+      ].join("");
+      $("platformActionJson").textContent = JSON.stringify(action, null, 2);
+      $("platformActionDialog").showModal();
     }
 
     function renderEvents(items) {
@@ -525,7 +693,8 @@ DASHBOARD_HTML = r"""<!doctype html>
       try {
         const params = new URLSearchParams();
         if ($("sourceFilter").value) params.set("source", $("sourceFilter").value);
-        if ($("kindFilter").value) params.set("kind", $("kindFilter").value);
+        if (state.selectedKinds.size === 1) params.set("kind", Array.from(state.selectedKinds)[0]);
+        if (state.selectedSubscriptions.size === 1) params.set("subscription_id", Array.from(state.selectedSubscriptions)[0]);
         if ($("timeFilter").value) params.set("days", $("timeFilter").value);
         if ($("fromFilter").value) params.set("from", localDateTimeToIso($("fromFilter").value));
         if ($("toFilter").value) params.set("to", localDateTimeToIso($("toFilter").value));
@@ -533,7 +702,8 @@ DASHBOARD_HTML = r"""<!doctype html>
         const [stats, subscriptions, events, platforms] = await Promise.all([
           api("/api/stats"), api("/api/subscriptions"), api(`/api/events?${params}`), api("/api/platforms")
         ]);
-        renderStats(stats); renderSubscriptions(subscriptions); renderPlatforms(platforms.items); renderEvents(events.items);
+        state.stats = stats;
+        renderStats(stats); renderSubscriptions(subscriptions); renderPlatforms(platforms.items); renderAdvancedFilters(); renderEvents(applyAdvancedEventFilters(events.items));
         $("liveStatus").textContent = `本地事件流 · ${formatTime(stats.latest_captured_at)}`;
       } catch (error) {
         $("liveStatus").textContent = `连接失败 · ${error.message}`;
@@ -541,17 +711,37 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     let debounce;
+    const debouncedLoad = () => { clearTimeout(debounce); debounce = setTimeout(loadAll, 260); };
     document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => activateTab(tab.dataset.tabTarget)));
-    $("search").addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(loadAll, 260); });
-    $("sourceFilter").addEventListener("change", loadAll);
-    $("kindFilter").addEventListener("change", loadAll);
+    $("search").addEventListener("input", () => { updateAdvancedCount(); debouncedLoad(); });
+    $("sourceFilter").addEventListener("change", () => { state.selectedKinds.clear(); state.selectedSubscriptions.clear(); loadAll(); });
     $("timeFilter").addEventListener("change", loadAll);
-    $("fromFilter").addEventListener("change", loadAll);
-    $("toFilter").addEventListener("change", loadAll);
+    $("fromFilter").addEventListener("change", () => { updateAdvancedCount(); loadAll(); });
+    $("toFilter").addEventListener("change", () => { updateAdvancedCount(); loadAll(); });
+    $("advancedFiltersToggle").addEventListener("click", () => {
+      const panel = $("advancedFilters");
+      const next = panel.hidden;
+      panel.hidden = !next;
+      $("advancedFiltersToggle").setAttribute("aria-expanded", String(next));
+    });
+    $("kindCheckboxes").addEventListener("change", event => {
+      const input = event.target;
+      if (!input || input.name !== "kindOption") return;
+      input.checked ? state.selectedKinds.add(input.value) : state.selectedKinds.delete(input.value);
+      updateAdvancedCount(); loadAll();
+    });
+    $("subscriptionCheckboxes").addEventListener("change", event => {
+      const input = event.target;
+      if (!input || input.name !== "subscriptionOption") return;
+      input.checked ? state.selectedSubscriptions.add(input.value) : state.selectedSubscriptions.delete(input.value);
+      updateAdvancedCount(); loadAll();
+    });
+    $("themeToggle").addEventListener("click", toggleTheme);
     $("refresh").addEventListener("click", loadAll);
     $("closeDetail").addEventListener("click", closeDetail);
     $("detail").addEventListener("click", event => { if (event.target === $("detail")) closeDetail(); });
     $("copyRaw").addEventListener("click", async () => navigator.clipboard.writeText($("rawJson").textContent));
+    $("closePlatformAction").addEventListener("click", () => $("platformActionDialog").close());
 
     const dialog = $("subscriptionDialog");
     $("adminToken").addEventListener("click", () => {
@@ -570,6 +760,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       } catch (error) { $("formError").textContent = error.message; }
     });
 
+    applyTheme(localStorage.getItem("chateventTheme") || "dark");
     loadAll(); setInterval(loadAll, 5000);
   </script>
 </body>

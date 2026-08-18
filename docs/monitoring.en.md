@@ -99,4 +99,4 @@ curl -k https://event.public.wzhecnu.cn/api/stats
 curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&days=7&limit=20'
 ```
 
-Or open the Observatory, wait up to 5 seconds for automatic refresh, or click **Refresh** manually. The event stream supports last 24 hours / 3 days / 7 days / 30 days presets plus custom captured-at ranges.
+Or open the Observatory, wait up to 5 seconds for automatic refresh, or click **Refresh** manually. The top Event Stream filter keeps only source and time dropdowns; action kinds, subscriptions/channels, keyword search, and custom captured-at ranges live under **Advanced options**, with action-kind multi-select bound to the selected source.
