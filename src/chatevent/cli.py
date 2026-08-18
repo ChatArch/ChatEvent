@@ -8,9 +8,13 @@ import os
 from collections.abc import Sequence
 from pathlib import Path
 
+from . import __version__
+
 
 TREE = """chatevent
   --tree                         Print this command tree
+  --version                      Print package version
+  paths [--json]                 Show ChatArch-owned runtime paths
   serve [--host HOST] [--port PORT] [--db DB]
                                  Run the local Event Observatory
   schema event|subscription      Print JSON Schema contracts
@@ -37,7 +41,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Capture and inspect normalized collaboration events.",
     )
     parser.add_argument("--tree", action="store_true", help="print the CLI command tree and exit")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
+
+    paths = subparsers.add_parser("paths", help="show ChatArch-owned runtime paths")
+    paths.add_argument("--json", action="store_true", help="print paths as JSON")
 
     serve = subparsers.add_parser("serve", help="run the local Event Observatory")
     serve.add_argument("--host", default="127.0.0.1")
@@ -46,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="SQLite path (default: ~/.chatevent/events.db)",
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
     )
 
     schema = subparsers.add_parser("schema", help="print JSON Schema contracts")
@@ -67,7 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="SQLite path (default: ~/.chatevent/events.db)",
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
     )
 
     api = subparsers.add_parser("api", help="call a running ChatEvent REST API server")
@@ -152,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--db",
         type=Path,
         default=None,
-        help="SQLite path (default: ~/.chatevent/events.db)",
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
     )
     zulip.add_argument(
         "--env-file",
@@ -238,6 +246,16 @@ def main(argv: Sequence[str] | None = None) -> None:
     if args.command is None:
         build_parser().print_help()
         return
+    if args.command == "paths":
+        from .state import state_paths
+
+        payload = state_paths(create=True).as_dict()
+        if args.json:
+            _print_json(payload)
+        else:
+            for key, value in payload.items():
+                print(f"{key}: {value}")
+        return
     if args.command == "serve":
         try:
             import uvicorn
@@ -246,7 +264,8 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "Web dependencies are missing. Install with: pip install 'chatevent[serve]'"
             ) from error
 
-        from .server import create_app, default_database_path
+        from .server import create_app
+        from .state import default_database_path
 
         db_path = args.db or default_database_path()
         print(f"ChatEvent Observatory: http://{args.host}:{args.port}")
@@ -281,7 +300,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         return
     if args.command == "record-json":
         from .model import ChatEvent
-        from .server import EventWriteResult, default_database_path
+        from .server import EventWriteResult
+        from .state import default_database_path
         from .store import EventStore
 
         event = ChatEvent.model_validate_json(args.file.read_text(encoding="utf-8"))
@@ -300,7 +320,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         return
     if args.command == "capture" and args.capture_command == "zulip-once":
         from .capture import capture_zulip_once
-        from .server import default_database_path
+        from .state import default_database_path
 
         summary = capture_zulip_once(
             db_path=args.db or default_database_path(),

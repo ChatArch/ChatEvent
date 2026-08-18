@@ -55,7 +55,6 @@ Zulip should use the official event queue first:
 ```bash
 uv run --extra serve chatevent capture zulip-once \
   --env-file /path/to/zulip.env \
-  --db ./events.db \
   --stream "chatevent-practice" \
   --topic "real-loop" \
   --subscription-id zulip-practice

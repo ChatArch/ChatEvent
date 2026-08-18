@@ -55,7 +55,6 @@ Zulip 优先用官方 event queue：
 ```bash
 uv run --extra serve chatevent capture zulip-once \
   --env-file /path/to/zulip.env \
-  --db ./events.db \
   --stream "chatevent-practice" \
   --topic "real-loop" \
   --subscription-id zulip-practice

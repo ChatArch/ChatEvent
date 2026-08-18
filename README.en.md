@@ -2,7 +2,7 @@
 
 `chatevent` provides a typed event envelope, SQLite event store, platform normalizers, and a Web Observatory for collaboration-event demos.
 
-Current `0.1.0.dev0` scope is intentionally narrow and task-oriented: **Discourse, Zulip, Gitea, and GitHub**. Each platform registers an explicit action catalog so subscription/UI choices stay controllable instead of treating arbitrary `tag` values as event semantics.
+Current `0.1.0` scope is focused on **Discourse, Zulip, Gitea, and GitHub**. Each platform registers an explicit action catalog so subscription/UI choices stay controllable instead of treating arbitrary `tag` values as event semantics.
 
 ```text
 platform official webhook/event queue/API cursor -> ChatEvent -> SQLite -> Observatory/API
@@ -34,13 +34,15 @@ uv sync --extra serve --extra test --extra docs
 uv run --extra serve chatevent --tree
 ```
 
-PyPI `0.0.1` contains the initial event envelope and monitor protocol only. The Observatory and action registry are development-stage `0.1.0.dev0` work.
+`0.1.0` is the first complete Event Hub release: Observatory, SQLite ledger, platform action registry, REST API/CLI mapping, editable subscriptions, and ChatArch-internal default paths.
 
 ## CLI
 
 ```text
 chatevent
   --tree                         Print this command tree
+  --version                      Print package version
+  paths [--json]                 Show ChatArch-owned runtime paths
   serve [--host HOST] [--port PORT] [--db DB]
                                  Run the local Event Observatory
   schema event|subscription      Print JSON Schema contracts
@@ -65,8 +67,7 @@ chatevent
 ```bash
 uv run --extra serve chatevent serve \
   --host 127.0.0.1 \
-  --port 8765 \
-  --db ./events.db
+  --port 8765
 ```
 
 Open:
@@ -80,12 +81,33 @@ For the current server demo, nginx exposes the service at:
 - https://event.local.wzhecnu.cn/
 - https://event.public.wzhecnu.cn/
 
-## Configuration and storage location
+## ChatArch-internal default paths
 
-ChatEvent writes the runtime event ledger to SQLite. The database path comes from `--db` or `CHATEVENT_DB`; when neither is set, it uses `~/.chatevent/events.db`. The current online demo database is:
+ChatEvent is a ChatArch-series package, so its default runtime state stays under ChatArch home. ChatArch home is resolved from `CHATARCH_HOME`, falling back to `~/.chatarch`.
 
 ```text
-/home/zhihong/Playground/projects/08-18-chatevent/playground/real-loop/events.db
+<chatarch-home>/
+└── chatevent/
+    ├── events.db              # SQLite event ledger and subscription config
+    ├── events.db-wal          # SQLite WAL, may exist while running
+    ├── events.db-shm          # SQLite shared-memory file, may exist while running
+    └── secrets/
+        └── admin-token        # optional admin token for subscription mutations
+```
+
+Database path precedence:
+
+1. Explicit CLI `--db <path>`;
+2. `CHATEVENT_DB=<path>`;
+3. `$CHATARCH_HOME/chatevent/events.db`;
+4. `~/.chatarch/chatevent/events.db`.
+
+On first use of the default path, if legacy `~/.chatevent/events.db` exists and the new database does not, ChatEvent copies it into the ChatArch-internal path and keeps the legacy file in place. Explicit `--db` or `CHATEVENT_DB` does not trigger automatic migration.
+
+Read the effective paths without printing token values:
+
+```bash
+uv run chatevent paths --json
 ```
 
 The SQLite database mainly contains:
@@ -216,7 +238,12 @@ uv run chatevent api event \
 The Web Observatory `Subscriptions` tab supports creating, editing, enabling/disabling, and deleting subscriptions through the same REST API. If `CHATEVENT_ADMIN_TOKEN` is set, subscription mutation requests must include `X-ChatEvent-Admin-Token`; the web page prompts for the token after the first 401 response and stores it only in browser sessionStorage.
 
 ```bash
-CHATEVENT_ADMIN_TOKEN=... uv run --extra serve chatevent serve --db ./events.db
+mkdir -p ~/.chatarch/chatevent/secrets
+chmod 700 ~/.chatarch/chatevent ~/.chatarch/chatevent/secrets
+printf '<admin-token>\n' > ~/.chatarch/chatevent/secrets/admin-token
+chmod 600 ~/.chatarch/chatevent/secrets/admin-token
+
+uv run --extra serve chatevent serve
 uv run chatevent api save-subscription subscription.json --admin-token ...
 uv run chatevent api delete-subscription discourse-practice --admin-token ...
 ```

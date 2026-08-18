@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from .model import ChatEvent, utc_now
+from .state import set_private_file_mode
 from .subscription import Subscription
 
 
@@ -32,6 +33,7 @@ class EventStore:
         self.path = Path(path).expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
+        set_private_file_mode(self.path)
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=10)

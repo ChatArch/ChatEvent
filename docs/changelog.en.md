@@ -1,0 +1,18 @@
+# Changelog
+
+## 0.1.0
+
+The first complete Event Hub release. It moves ChatEvent from an event-model skeleton into a runnable, observable, consumable ChatArch-series service package.
+
+- Default runtime state is ChatArch-internal: `$CHATARCH_HOME/chatevent/` or `~/.chatarch/chatevent/`.
+- `events.db` stores the event ledger and subscription config; `secrets/admin-token` can provide the admin token file.
+- `chatevent paths --json` reports effective runtime paths and configuration state without printing token values.
+- Legacy `~/.chatevent/events.db` is copied into the new default location on first default startup, while the legacy file is kept in place.
+- The Web Observatory provides Event Stream / Subscriptions / Platform actions tabs.
+- Subscriptions can be created, edited, enabled/disabled, and deleted; mutation routes can require an admin token.
+- REST API endpoints align with the `chatevent api ...` CLI client for event writes, event queries, single-event reads, and subscription management.
+- Official event capture and normalizers cover Discourse, Zulip, Gitea, and GitHub.
+
+## 0.0.1
+
+Initial event envelope and monitor protocol placeholder release.
