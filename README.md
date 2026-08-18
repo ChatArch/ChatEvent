@@ -274,7 +274,7 @@ uv run chatevent api event \
 
 ## 线上编辑与安全设定
 
-Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若设置 `CHATEVENT_ADMIN_TOKEN`，订阅写操作必须带 `X-ChatEvent-Admin-Token` header。Web 页面的“管理令牌”会随机生成 `arch_xxx` 格式令牌、支持复制，并只把选中的值保存在当前浏览器 sessionStorage；要让它真正生效，需要把同一个值写入服务端 secret 文件或环境变量。
+Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若设置 `CHATEVENT_ADMIN_TOKEN`，访问 `/` 会先进入登录页，登录后才显示 Observatory；事件流、统计、平台目录、schema、订阅等读取 API 也需要登录。写操作必须带 `X-ChatEvent-Admin-Token` header，或先通过 `/api/login` 设置当前浏览器 cookie。Web 页面的“管理令牌”会随机生成 `arch_xxx` 格式令牌、支持复制，并只把选中的值保存在当前浏览器 sessionStorage；要让它真正生效，需要把同一个值写入服务端 secret 文件或环境变量。
 
 `CHATEVENT_ADMIN_TOKEN` 是 bootstrap 管理员凭据：管理员登录后可以通过 `POST /api/users` 或 `chatevent api create-user <username>` 创建用户。每个用户会返回一个只展示一次的 `arch_xxx` token，服务端只保存 hash。`Subscription.owner_user_id` 是数据隔离基础：member 创建/读取/删除订阅时只作用于自己的 owner；bootstrap/admin token 可管理全部订阅。账号密码登录可在这个用户表之上继续扩展，但密码不应写入源码、文档或 Git 历史。
 

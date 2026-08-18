@@ -136,9 +136,14 @@ Web Observatory 的 `Subscriptions` 标签页可以新建、编辑、启停和�
 
 ChatEvent 现在提供轻量 token 登录骨架：
 
-- `GET /api/session`：校验当前 `X-ChatEvent-Admin-Token`，返回 `admin_required`、`authenticated`、`user` 与是否为 bootstrap admin。
+- `GET /`：配置管理员 token 或用户后，未登录只返回登录页；登录后才返回 Observatory。
+- `POST /api/login`：校验 `arch_xxx` token 并设置浏览器 cookie。
+- `POST /api/logout`：清除浏览器 cookie。
+- `GET /api/session`：校验当前 `X-ChatEvent-Admin-Token` 或 cookie，返回 `admin_required`、`authenticated`、`user` 与是否为 bootstrap admin。
 - `GET /api/users`：管理员列出用户。
 - `POST /api/users`：管理员创建用户并返回一次性 `arch_xxx` token；服务端只保存 token hash。
 - `DELETE /api/users/{id}`：管理员删除用户。
+
+配置管理员 token 或用户后，`/api/stats`、`/api/events`、`/api/events/{dedupe_key}`、schema、platforms、subscriptions 等读取 API 都需要登录。事件写入接口和 webhook 接口保持可达，用于接收平台事件。
 
 `CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` 是 bootstrap 管理员凭据，用于创建第一批用户。`Subscription.owner_user_id` 是当前数据隔离边界：member token 创建的订阅自动归属该用户；member 只能读取、修改、删除自己的订阅；bootstrap/admin 可管理全部订阅。事件流仍保留 Observatory 调试视图，后续可进一步按 tenant/user owner 收敛事件读取范围。

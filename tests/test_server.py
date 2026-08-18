@@ -70,6 +70,10 @@ class ServerTests(unittest.TestCase):
             self.assertIn('id="docsLink"', dashboard.text)
             self.assertIn('href="https://arch.gh.wzhecnu.cn/ChatEvent/"', dashboard.text)
             self.assertIn('id="themeToggle"', dashboard.text)
+            self.assertIn("☾ 夜间", dashboard.text)
+            self.assertIn("☀ 日间", dashboard.text)
+            self.assertNotIn("黑底", dashboard.text)
+            self.assertNotIn("白底", dashboard.text)
             self.assertIn("data-theme", dashboard.text)
             self.assertIn("platformActionDialog", dashboard.text)
             self.assertIn("openPlatformAction", dashboard.text)
@@ -178,7 +182,43 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(delete_without_token.status_code, 401)
             self.assertEqual(delete_ok.status_code, 200)
             self.assertTrue(delete_ok.json()["deleted"])
-            self.assertEqual(client.get("/api/subscriptions/discourse-practice").status_code, 404)
+            self.assertEqual(
+                client.get("/api/subscriptions/discourse-practice").status_code, 401
+            )
+
+    def test_login_page_gates_observatory_and_read_apis(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ", {"CHATEVENT_ADMIN_TOKEN": "arch_login_test"}
+        ):
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+
+            login_page = client.get("/")
+            self.assertEqual(login_page.status_code, 200)
+            self.assertIn("登录 Observatory", login_page.text)
+            self.assertIn('id="loginForm"', login_page.text)
+            self.assertNotIn('role="tablist"', login_page.text)
+            self.assertEqual(client.get("/api/stats").status_code, 401)
+            self.assertEqual(client.get("/api/events").status_code, 401)
+
+            bad_login = client.post("/api/login", json={"token": "arch_wrong"})
+            self.assertEqual(bad_login.status_code, 401)
+
+            good_login = client.post("/api/login", json={"token": "arch_login_test"})
+            self.assertEqual(good_login.status_code, 200)
+            self.assertTrue(good_login.json()["authenticated"])
+            self.assertIn("chatevent_session", good_login.headers["set-cookie"])
+
+            dashboard = client.get("/")
+            self.assertEqual(dashboard.status_code, 200)
+            self.assertIn('role="tablist"', dashboard.text)
+            self.assertIn("ChatEvent Observatory", dashboard.text)
+            self.assertEqual(client.get("/api/stats").status_code, 200)
+            self.assertEqual(client.get("/api/platforms").status_code, 200)
+
+            logout = client.post("/api/logout")
+            self.assertEqual(logout.status_code, 200)
+            self.assertFalse(logout.json()["authenticated"])
+            self.assertIn("登录 Observatory", client.get("/").text)
 
     def test_webhook_endpoints_normalize_platform_payloads(self) -> None:
         with TemporaryDirectory() as directory:
@@ -483,7 +523,8 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(member_subscription.status_code, 201)
             self.assertEqual(member_subscription.json()["owner_user_id"], member["id"])
 
-            self.assertEqual(client.get("/api/subscriptions").json(), [])
+            anonymous_subscriptions = client.get("/api/subscriptions")
+            self.assertEqual(anonymous_subscriptions.status_code, 401)
             self.assertEqual(
                 len(
                     client.get(

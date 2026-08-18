@@ -136,9 +136,14 @@ The Web Observatory `Subscriptions` tab can create, edit, enable/disable, and de
 
 ChatEvent now includes a lightweight token login skeleton:
 
-- `GET /api/session`: validate the current `X-ChatEvent-Admin-Token` and return `admin_required`, `authenticated`, `user`, and whether the caller is the bootstrap admin.
+- `GET /`: when an admin token or users are configured, unauthenticated callers receive only the login page; authenticated callers receive the Observatory.
+- `POST /api/login`: validate an `arch_xxx` token and set a browser cookie.
+- `POST /api/logout`: clear the browser cookie.
+- `GET /api/session`: validate the current `X-ChatEvent-Admin-Token` or cookie and return `admin_required`, `authenticated`, `user`, and whether the caller is the bootstrap admin.
 - `GET /api/users`: list users as an administrator.
 - `POST /api/users`: create a user and return a one-time `arch_xxx` token; the server stores only the token hash.
 - `DELETE /api/users/{id}`: delete a user as an administrator.
+
+After an admin token or users exist, read APIs such as `/api/stats`, `/api/events`, `/api/events/{dedupe_key}`, schema, platforms, and subscriptions require login. Event-write and webhook endpoints remain reachable so platform events can still arrive.
 
 `CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` is the bootstrap administrator credential for creating the first users. `Subscription.owner_user_id` is the current isolation boundary: subscriptions created by member tokens are automatically owned by that user; members can only read, update, and delete their own subscriptions; bootstrap/admin tokens can manage all subscriptions. The event stream remains an Observatory debugging view for now and can be tightened by tenant/user owner later.
