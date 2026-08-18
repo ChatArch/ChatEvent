@@ -54,8 +54,9 @@ ChatEvent 是 ChatArch 的协作事件观察层：把 Zulip、Discourse、Gitea�
 ## 事件语义
 
 - `source`：平台来源，例如 `zulip`、`discourse`、`gitea`、`github`。
-- `target`：订阅范围，例如 stream/topic、category/topic、repo/org。
-- `kind`：发生了什么业务动作，例如 `message.created`、`reply.created`、`issue.opened`。
+- `target`：兼容展示用订阅范围，例如 stream/topic、category/topic、repo/org。
+- `scope`：结构化承载目标链，例如 repo → pull request 或 stream → topic。
+- `kind` / `action`：发生了什么业务动作，例如 `message.created`、`reply.created`、`issue.opened`。
 - `capture_mode`：怎么捕获，例如 `webhook`、`event_queue`、`api_cursor`。
 - `tags`：筛选/路由标签，不定义事件动作本身。
 

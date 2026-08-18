@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Add open-ended `CarrierTarget` / `ActionDescriptor` / `ActorDescriptor` to record action, carrier target chain, and initiator role.
+- The Observatory shows a Target column and event details now include Action, Action target, Target chain, and Actor role.
+
 ## 0.1.0
 
 The first complete Event Hub release. It moves ChatEvent from an event-model skeleton into a runnable, observable, consumable ChatArch-series service package.

@@ -21,6 +21,22 @@ class PlatformCatalogTests(unittest.TestCase):
         for platform, kinds in expectations.items():
             spec = get_platform_spec(platform)
             self.assertTrue(kinds.issubset({action.kind for action in spec.actions}))
+            for action in spec.actions:
+                self.assertTrue(action.target_types, f"{platform}:{action.kind} should declare target types")
+
+    def test_action_catalog_declares_known_carrier_target_types(self) -> None:
+        github = get_platform_spec("github")
+        by_kind = {action.kind: action for action in github.actions}
+
+        self.assertIn("repo", by_kind["commit.pushed"].target_types)
+        self.assertIn("pull_request", by_kind["pull_request.opened"].target_types)
+        self.assertIn("issue", by_kind["issue.commented"].target_types)
+        self.assertIn("workflow_run", by_kind["workflow_run.completed"].target_types)
+
+        zulip = get_platform_spec("zulip")
+        message = {action.kind: action for action in zulip.actions}["message.created"]
+        self.assertIn("zulip_stream", message.target_types)
+        self.assertIn("zulip_topic", message.target_types)
 
     def test_acquisition_modes_are_not_only_push_pull(self) -> None:
         self.assertEqual(CaptureMode.WEBHOOK.value, "webhook")

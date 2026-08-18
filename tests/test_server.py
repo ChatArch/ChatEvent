@@ -10,6 +10,16 @@ from chatevent.server import create_app
 
 
 class ServerTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._admin_env = patch.dict(
+            "os.environ",
+            {"CHATEVENT_ADMIN_TOKEN_FILE": "/tmp/chatevent-test-admin-token-missing"},
+        )
+        self._admin_env.start()
+
+    def tearDown(self) -> None:
+        self._admin_env.stop()
+
     def test_observatory_flow(self) -> None:
         with TemporaryDirectory() as directory:
             client = TestClient(create_app(db_path=Path(directory) / "events.db"))
@@ -25,6 +35,11 @@ class ServerTests(unittest.TestCase):
             self.assertIn("editSubscription", dashboard.text)
             self.assertIn("deleteSubscription", dashboard.text)
             self.assertIn("adminToken", dashboard.text)
+            self.assertIn("subscriptionScopeType", dashboard.text)
+            self.assertIn("Action target", dashboard.text)
+            self.assertIn("Actor role", dashboard.text)
+            self.assertIn("targetChain", dashboard.text)
+            self.assertIn("actionTargetLabel", dashboard.text)
 
             subscription = client.post(
                 "/api/subscriptions",
@@ -40,6 +55,9 @@ class ServerTests(unittest.TestCase):
                 },
             )
             self.assertEqual(subscription.status_code, 201)
+            self.assertEqual(subscription.json()["scope"]["type"], "repo")
+            self.assertEqual(subscription.json()["scope"]["key"], "owner/repo")
+            self.assertEqual(subscription.json()["actions"][0]["kind"], "issue.opened")
 
             event = {
                 "id": "issue-42",
@@ -48,6 +66,12 @@ class ServerTests(unittest.TestCase):
                 "occurred_at": datetime(2026, 8, 18, tzinfo=timezone.utc).isoformat(),
                 "capture_mode": "webhook",
                 "subscription_id": "core-repo",
+                "action": {"kind": "issue.opened", "object_type": "issue", "verb": "opened"},
+                "target": {
+                    "type": "issue",
+                    "key": "owner/repo#42",
+                    "parent": {"type": "repo", "key": "owner/repo"},
+                },
                 "payload": {"title": "Investigate event routing"},
                 "raw_payload": {"action": "opened", "issue": {"number": 42}},
             }
@@ -64,6 +88,8 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(
                 events["items"][0]["event"]["raw_payload"]["action"], "opened"
             )
+            self.assertEqual(events["items"][0]["event"]["action"]["verb"], "opened")
+            self.assertEqual(events["items"][0]["event"]["target"]["parent"]["key"], "owner/repo")
 
             detail = client.get("/api/events/gitea:issue-42")
             self.assertEqual(detail.status_code, 200)
