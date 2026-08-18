@@ -1,0 +1,67 @@
+name: Preview Docs
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: preview-docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure Git identity
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[docs]"
+      - name: Deploy preview docs
+        run: |
+          git fetch origin gh-pages --depth=1 || true
+          mike deploy dev -p --allow-empty
+          site_url=$(python - <<'PY'
+          from pathlib import Path
+          for line in Path("mkdocs.yml").read_text(encoding="utf-8").splitlines():
+              if line.startswith("site_url:"):
+                  print(line.split(":", 1)[1].strip().rstrip("/"))
+                  break
+          else:
+              raise SystemExit("mkdocs.yml is missing site_url")
+          PY
+          )
+          preview_url="${site_url}/dev/"
+          echo "CHATARCH_PREVIEW_URL=${preview_url}" >> "$GITHUB_ENV"
+          echo "Preview URL: ${preview_url}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Comment PR with preview link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- chatevent-preview-docs -->';
+            const previewLink = process.env.CHATARCH_PREVIEW_URL;
+            const body = `${marker}\nPreview Docs: ${previewLink}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 });
+            const existing = comments.data.find(comment => comment.user.type === 'Bot' && comment.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

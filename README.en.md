@@ -75,11 +75,11 @@ The Observatory is currently frontend polling, not WebSocket/SSE:
 
 - loads immediately when the page opens;
 - automatically refreshes every **5 seconds**;
-- refreshes immediately when clicking **刷新 / Refresh**;
+- refreshes immediately when clicking **Refresh**;
 - search input refreshes after about **260ms debounce**;
-- source/kind filter changes refresh immediately.
+- source, kind, and time-range filter changes refresh immediately.
 
-Each refresh calls `/api/stats`, `/api/subscriptions`, `/api/events`, and `/api/platforms`.
+Each refresh calls `/api/stats`, `/api/subscriptions`, `/api/events`, and `/api/platforms`. The event stream can show all events, the last 24 hours, the last 3/7/30 days, or a custom captured-at start/end range.
 
 ## Event semantics
 
@@ -143,7 +143,7 @@ See `docs/monitoring.md` for detailed registration steps.
 - `POST /api/subscriptions`
 - `GET /api/subscriptions`
 - `POST /api/events`
-- `GET /api/events`
+- `GET /api/events`, with `source`, `kind`, `subscription_id`, `q`, `since`, `days`, `from`, `to`, and `limit` filters
 - `GET /api/events/{source:id}`
 - `GET /api/stats`
 - `POST /webhooks/zulip?subscription_id=...`

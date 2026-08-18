@@ -77,9 +77,9 @@ Observatory 当前使用前端轮询，不是 WebSocket/SSE：
 - 每 **5 秒** 自动刷新；
 - 点击 **刷新 / Refresh** 会立即手动刷新；
 - 搜索输入约 **260ms debounce** 后刷新；
-- 来源和事件类型筛选变化后立即刷新。
+- 来源、事件类型和时间范围筛选变化后立即刷新。
 
-每次刷新会请求 `/api/stats`、`/api/subscriptions`、`/api/events` 和 `/api/platforms`。
+每次刷新会请求 `/api/stats`、`/api/subscriptions`、`/api/events` 和 `/api/platforms`。事件流支持“全部时间 / 最近 24 小时 / 最近 3 天 / 最近 7 天 / 最近 30 天”，也支持自定义开始、结束时间。
 
 ## 事件语义
 
@@ -143,7 +143,7 @@ Zulip:     用 `chatevent capture zulip-once` 做官方 event queue bounded capt
 - `POST /api/subscriptions`
 - `GET /api/subscriptions`
 - `POST /api/events`
-- `GET /api/events`
+- `GET /api/events`，支持 `source`、`kind`、`subscription_id`、`q`、`since`、`days`、`from`、`to` 和 `limit`
 - `GET /api/events/{source:id}`
 - `GET /api/stats`
 - `POST /webhooks/zulip?subscription_id=...`
@@ -160,6 +160,15 @@ Observatory 只是一个调试 consumer。其他系统可以按 checkpoint 轮�
 ```bash
 curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&subscription_id=discourse-practice&since=2026-08-18T12:47:37Z&limit=50'
 ```
+
+日期筛选示例：
+
+```bash
+curl -k 'https://event.public.wzhecnu.cn/api/events?days=7&source=discourse&limit=50'
+curl -k 'https://event.public.wzhecnu.cn/api/events?from=2026-08-16T00:00:00Z&to=2026-08-18T00:00:00Z&limit=50'
+```
+
+其中 `days` 表示按服务器当前时间回看最近 N 天，`from`/`to` 表示按 `captured_at` 做日期区间筛选；`since` 仍保留给 consumer checkpoint，语义是严格返回 `captured_at > since`。
 
 返回体包含：
 

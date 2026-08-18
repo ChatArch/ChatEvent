@@ -229,6 +229,8 @@ class EventStore:
         subscription_id: str | None = None,
         query: str | None = None,
         captured_since: datetime | None = None,
+        captured_from: datetime | None = None,
+        captured_until: datetime | None = None,
         limit: int = 100,
     ) -> list[StoredEvent]:
         clauses: list[str] = []
@@ -249,6 +251,16 @@ class EventStore:
                 raise ValueError("captured_since must include timezone information")
             clauses.append("captured_at > ?")
             parameters.append(captured_since.astimezone(timezone.utc).isoformat())
+        if captured_from is not None:
+            if captured_from.tzinfo is None or captured_from.utcoffset() is None:
+                raise ValueError("captured_from must include timezone information")
+            clauses.append("captured_at >= ?")
+            parameters.append(captured_from.astimezone(timezone.utc).isoformat())
+        if captured_until is not None:
+            if captured_until.tzinfo is None or captured_until.utcoffset() is None:
+                raise ValueError("captured_until must include timezone information")
+            clauses.append("captured_at <= ?")
+            parameters.append(captured_until.astimezone(timezone.utc).isoformat())
         sql = """
             SELECT body, first_captured_at, last_captured_at, seen_count
             FROM events

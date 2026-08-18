@@ -169,6 +169,15 @@ DASHBOARD_HTML = r"""<!doctype html>
           <input class="control" id="search" placeholder="搜索 payload、actor 或 conversation…" />
           <select class="control" id="sourceFilter"><option value="">全部来源</option></select>
           <select class="control" id="kindFilter"><option value="">全部事件类型</option></select>
+          <select class="control" id="timeFilter">
+            <option value="">全部时间</option>
+            <option value="1">最近 24 小时</option>
+            <option value="3">最近 3 天</option>
+            <option value="7">最近 7 天</option>
+            <option value="30">最近 30 天</option>
+          </select>
+          <input class="control" id="fromFilter" type="datetime-local" title="开始时间" />
+          <input class="control" id="toFilter" type="datetime-local" title="结束时间" />
         </div>
         <div class="event-head"><span>Source</span><span>Kind</span><span>Summary</span><span>Captured</span><span>Seen</span></div>
         <div class="event-list" id="events"></div>
@@ -216,6 +225,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
     const formatTime = (value) => value ? new Intl.DateTimeFormat("zh-CN", {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date(value)) : "—";
+    const localDateTimeToIso = (value) => value ? new Date(value).toISOString() : "";
     const api = async (path, options = {}) => {
       const response = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
       if (!response.ok) throw new Error((await response.json()).detail || response.statusText);
@@ -337,6 +347,9 @@ DASHBOARD_HTML = r"""<!doctype html>
         const params = new URLSearchParams();
         if ($("sourceFilter").value) params.set("source", $("sourceFilter").value);
         if ($("kindFilter").value) params.set("kind", $("kindFilter").value);
+        if ($("timeFilter").value) params.set("days", $("timeFilter").value);
+        if ($("fromFilter").value) params.set("from", localDateTimeToIso($("fromFilter").value));
+        if ($("toFilter").value) params.set("to", localDateTimeToIso($("toFilter").value));
         if ($("search").value.trim()) params.set("q", $("search").value.trim());
         const [stats, subscriptions, events, platforms] = await Promise.all([
           api("/api/stats"), api("/api/subscriptions"), api(`/api/events?${params}`), api("/api/platforms")
@@ -352,6 +365,9 @@ DASHBOARD_HTML = r"""<!doctype html>
     $("search").addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(loadAll, 260); });
     $("sourceFilter").addEventListener("change", loadAll);
     $("kindFilter").addEventListener("change", loadAll);
+    $("timeFilter").addEventListener("change", loadAll);
+    $("fromFilter").addEventListener("change", loadAll);
+    $("toFilter").addEventListener("change", loadAll);
     $("refresh").addEventListener("click", loadAll);
     $("closeDetail").addEventListener("click", closeDetail);
     $("detail").addEventListener("click", event => { if (event.target === $("detail")) closeDetail(); });

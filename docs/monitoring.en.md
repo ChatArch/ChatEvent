@@ -97,7 +97,7 @@ After registering a monitor, verify with:
 
 ```bash
 curl -k https://event.public.wzhecnu.cn/api/stats
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&limit=20'
+curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&days=7&limit=20'
 ```
 
-Or open the Observatory, wait up to 5 seconds for automatic refresh, or click **Refresh** manually.
+Or open the Observatory, wait up to 5 seconds for automatic refresh, or click **Refresh** manually. The event stream supports last 24 hours / 3 days / 7 days / 30 days presets plus custom captured-at ranges.

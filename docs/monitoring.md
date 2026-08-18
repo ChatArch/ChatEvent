@@ -97,7 +97,7 @@ GitHub 事件名来自 `X-GitHub-Event` header。ChatEvent 会 ACK `ping`，但�
 
 ```bash
 curl -k https://event.public.wzhecnu.cn/api/stats
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&limit=20'
+curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&days=7&limit=20'
 ```
 
-或者打开 Observatory，等待最多 5 秒自动刷新，也可以手动点击 **刷新**。
+或者打开 Observatory，等待最多 5 秒自动刷新，也可以手动点击 **刷新**；事件流可以选择“最近 24 小时 / 最近 3 天 / 最近 7 天 / 最近 30 天”或自定义日期区间。

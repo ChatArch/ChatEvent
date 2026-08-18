@@ -24,7 +24,7 @@ chatevent
 | `POST` | `/api/subscriptions` | 创建或更新订阅。 |
 | `GET` | `/api/subscriptions` | 列出订阅。 |
 | `POST` | `/api/events` | 写入一条已规范化 `ChatEvent`。 |
-| `GET` | `/api/events` | 查询事件流，可按 source、kind、subscription、关键词、`since` checkpoint 筛选。 |
+| `GET` | `/api/events` | 查询事件流，可按 source、kind、subscription、关键词、`since` checkpoint、最近 N 天或日期区间筛选。 |
 | `GET` | `/api/events/{dedupe_key}` | 查询单条事件详情。 |
 | `GET` | `/api/stats` | 统计事件数、来源数、重复投递数等。 |
 | `POST` | `/webhooks/zulip` | 接收 Zulip event queue/message payload。 |
@@ -35,7 +35,7 @@ chatevent
 ## 查询事件
 
 ```bash
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&kind=reply.created&limit=20'
+curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&kind=reply.created&days=7&limit=20'
 ```
 
 下游系统按 checkpoint 消费：
@@ -51,11 +51,14 @@ curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&subscriptio
 | `source` | 平台来源，例如 `discourse`。 |
 | `kind` | 事件类型，例如 `reply.created`。 |
 | `subscription_id` | 订阅 ID。 |
-| `since` | 只返回 `captured_at > since` 的事件；必须带时区，例如 `2026-08-18T12:47:37Z`。 |
+| `since` | consumer checkpoint：只返回 `captured_at > since` 的事件；必须带时区，例如 `2026-08-18T12:47:37Z`。 |
+| `days` | 日期快捷筛选：只返回最近 N 天捕获的事件，例如 `days=7`。 |
+| `from` | 日期区间开始：只返回 `captured_at >= from` 的事件；必须带时区。 |
+| `to` | 日期区间结束：只返回 `captured_at <= to` 的事件；必须带时区。 |
 | `q` | payload、actor、conversation 等关键词搜索。 |
 | `limit` | 返回条数，1 到 500。 |
 
-响应包含 `items`、`count`、`latest_captured_at` 和 `next_since`。consumer 处理成功后保存 `next_since`，下一轮作为 `since` 继续拉取。
+响应包含 `items`、`count`、`latest_captured_at` 和 `next_since`。consumer 处理成功后保存 `next_since`，下一轮作为 `since` 继续拉取。Observatory 的“最近 24 小时 / 最近 3 天 / 最近 7 天 / 最近 30 天”使用 `days`；自定义起止时间使用 `from`/`to`。
 
 ## 去重
 

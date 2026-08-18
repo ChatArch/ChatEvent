@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -186,6 +186,9 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         subscription_id: str | None = None,
         q: str | None = None,
         since: datetime | None = None,
+        from_: Annotated[datetime | None, Query(alias="from")] = None,
+        to: datetime | None = None,
+        days: Annotated[float | None, Query(gt=0, le=365)] = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 100,
     ) -> EventPage:
         if since is not None and (since.tzinfo is None or since.utcoffset() is None):
@@ -193,12 +196,31 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
                 status_code=422,
                 detail="since must include timezone information, for example 2026-08-18T10:00:02Z",
             )
+        if from_ is not None and (from_.tzinfo is None or from_.utcoffset() is None):
+            raise HTTPException(
+                status_code=422,
+                detail="from must include timezone information, for example 2026-08-18T00:00:00Z",
+            )
+        if to is not None and (to.tzinfo is None or to.utcoffset() is None):
+            raise HTTPException(
+                status_code=422,
+                detail="to must include timezone information, for example 2026-08-19T00:00:00Z",
+            )
+        days_from = None
+        if days is not None:
+            days_from = datetime.now(timezone.utc) - timedelta(days=days)
+        captured_from_candidates = [value for value in (from_, days_from) if value is not None]
+        captured_from = max(captured_from_candidates) if captured_from_candidates else None
+        if captured_from is not None and to is not None and captured_from > to:
+            raise HTTPException(status_code=422, detail="from/days lower bound must not be after to")
         items = store.list_events(
             source=source,
             kind=kind,
             subscription_id=subscription_id,
             query=q,
             captured_since=since,
+            captured_from=captured_from,
+            captured_until=to,
             limit=limit,
         )
         latest_captured_at = max(

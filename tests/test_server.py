@@ -220,6 +220,77 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(payload["items"][0]["event"]["id"], "post-2")
             self.assertEqual(payload["items"][0]["event"]["kind"], "reply.created")
 
+    def test_api_events_days_filters_recent_captures(self) -> None:
+        with TemporaryDirectory() as directory:
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+
+            client.post(
+                "/api/events",
+                json={
+                    "id": "old-post",
+                    "source": "discourse",
+                    "kind": "post.created",
+                    "occurred_at": "2000-01-01T00:00:00+00:00",
+                    "captured_at": "2000-01-01T00:00:00+00:00",
+                    "capture_mode": "webhook",
+                    "payload": {"title": "old"},
+                },
+            )
+            client.post(
+                "/api/events",
+                json={
+                    "id": "recent-post",
+                    "source": "discourse",
+                    "kind": "reply.created",
+                    "occurred_at": datetime.now(timezone.utc).isoformat(),
+                    "captured_at": datetime.now(timezone.utc).isoformat(),
+                    "capture_mode": "webhook",
+                    "payload": {"title": "recent"},
+                },
+            )
+
+            response = client.get("/api/events", params={"days": "1"})
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["count"], 1)
+            self.assertEqual(payload["items"][0]["event"]["id"], "recent-post")
+
+    def test_api_events_from_to_filter_captured_range(self) -> None:
+        with TemporaryDirectory() as directory:
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+
+            for event_id, captured_at in [
+                ("before", "2026-08-15T23:59:59+00:00"),
+                ("inside", "2026-08-16T12:00:00+00:00"),
+                ("after", "2026-08-18T00:00:01+00:00"),
+            ]:
+                client.post(
+                    "/api/events",
+                    json={
+                        "id": event_id,
+                        "source": "gitea",
+                        "kind": "issue.opened",
+                        "occurred_at": captured_at,
+                        "captured_at": captured_at,
+                        "capture_mode": "webhook",
+                        "payload": {"title": event_id},
+                    },
+                )
+
+            response = client.get(
+                "/api/events",
+                params={
+                    "from": "2026-08-16T00:00:00+00:00",
+                    "to": "2026-08-18T00:00:00+00:00",
+                },
+            )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["count"], 1)
+            self.assertEqual(payload["items"][0]["event"]["id"], "inside")
+
     def test_webhook_subscription_id_updates_subscription_cursor(self) -> None:
         with TemporaryDirectory() as directory:
             client = TestClient(create_app(db_path=Path(directory) / "events.db"))
