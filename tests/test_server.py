@@ -25,8 +25,10 @@ class ServerTests(unittest.TestCase):
                     "label": "Core repository",
                     "source": "gitea",
                     "target": "owner/repo",
-                    "event_kinds": ["issue.*"],
-                    "capture_modes": ["push", "pull"],
+                    "event_kinds": ["issue.opened"],
+                    "capture_modes": ["webhook", "api_cursor"],
+                    "filters": {"repository": "owner/repo"},
+                    "labels": ["practice", "repo:owner/repo"],
                 },
             )
             self.assertEqual(subscription.status_code, 201)
@@ -36,7 +38,7 @@ class ServerTests(unittest.TestCase):
                 "source": "gitea",
                 "kind": "issue.opened",
                 "occurred_at": datetime(2026, 8, 18, tzinfo=timezone.utc).isoformat(),
-                "capture_mode": "push",
+                "capture_mode": "webhook",
                 "subscription_id": "core-repo",
                 "payload": {"title": "Investigate event routing"},
                 "raw_payload": {"action": "opened", "issue": {"number": 42}},
@@ -66,6 +68,11 @@ class ServerTests(unittest.TestCase):
 
             event_schema = client.get("/api/schema/event").json()
             self.assertIn("raw_payload", event_schema["properties"])
+
+            platforms = client.get("/api/platforms")
+            self.assertEqual(platforms.status_code, 200)
+            platform_ids = [item["id"] for item in platforms.json()["items"]]
+            self.assertEqual(platform_ids, ["discourse", "gitea", "github", "zulip"])
 
     def test_webhook_endpoints_normalize_platform_payloads(self) -> None:
         with TemporaryDirectory() as directory:
@@ -114,13 +121,32 @@ class ServerTests(unittest.TestCase):
                     },
                 },
             )
+            github = client.post(
+                "/webhooks/github",
+                headers={"X-GitHub-Event": "push"},
+                json={
+                    "ref": "refs/heads/main",
+                    "after": "abc123456789",
+                    "head_commit": {
+                        "id": "abc123456789",
+                        "message": "feat: record ChatEvent demo loop",
+                        "timestamp": "2026-08-18T10:30:00Z",
+                    },
+                    "repository": {"full_name": "ChatArch/ChatEvent"},
+                    "sender": {"login": "RexWang"},
+                },
+            )
 
             self.assertEqual(zulip.status_code, 202)
             self.assertEqual(discourse.status_code, 202)
             self.assertEqual(gitea.status_code, 202)
+            self.assertEqual(github.status_code, 202)
             stats = client.get("/api/stats").json()
-            self.assertEqual(stats["event_count"], 3)
-            self.assertEqual(stats["sources"], {"discourse": 1, "gitea": 1, "zulip": 1})
+            self.assertEqual(stats["event_count"], 4)
+            self.assertEqual(
+                stats["sources"],
+                {"discourse": 1, "gitea": 1, "github": 1, "zulip": 1},
+            )
 
     def test_webhook_subscription_id_updates_subscription_cursor(self) -> None:
         with TemporaryDirectory() as directory:

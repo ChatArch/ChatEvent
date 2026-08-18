@@ -17,8 +17,24 @@ from pydantic import (
 
 
 class CaptureMode(str, Enum):
-    """How an event entered the capture layer."""
+    """How an event entered the capture layer.
 
+    ``push``/``pull`` are legacy coarse buckets retained for existing stored
+    events and subscriptions. New integrations should use the platform-specific
+    acquisition modes below: webhooks, event queues, API cursors, polling, or
+    explicit backfill/synthetic/demo events.
+    """
+
+    WEBHOOK = "webhook"
+    EVENT_QUEUE = "event_queue"
+    API_CURSOR = "api_cursor"
+    POLL = "poll"
+    MANUAL_BACKFILL = "manual_backfill"
+    GATEWAY_FORWARD = "gateway_forward"
+    TEST_FIXTURE = "test_fixture"
+    SYNTHETIC = "synthetic"
+
+    # Legacy compatibility for previously recorded events/subscriptions.
     PUSH = "push"
     PULL = "pull"
 

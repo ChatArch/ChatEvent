@@ -6,15 +6,17 @@ import os
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict
 
 from .adapters import (
     normalize_discourse_post,
+    normalize_github_event,
     normalize_gitea_issue,
     normalize_zulip_message_event,
 )
+from .catalog import PlatformSpec, list_platform_specs
 from .dashboard import DASHBOARD_HTML
 from .model import CaptureMode, ChatEvent
 from .store import EventStore, StoredEvent
@@ -33,6 +35,13 @@ class EventPage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[StoredEvent]
+    count: int
+
+
+class PlatformPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[PlatformSpec]
     count: int
 
 
@@ -67,6 +76,11 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
     @app.get("/api/schema/subscription")
     def subscription_schema() -> dict[str, Any]:
         return Subscription.model_json_schema()
+
+    @app.get("/api/platforms", response_model=PlatformPage)
+    def list_platforms() -> PlatformPage:
+        items = list(list_platform_specs())
+        return PlatformPage(items=items, count=len(items))
 
     @app.post("/api/subscriptions", response_model=Subscription, status_code=201)
     def save_subscription(subscription: Subscription) -> Subscription:
@@ -104,7 +118,7 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
                 payload,
                 subscription_id=subscription_id,
                 site_url=os.environ.get("ZULIP_SITE"),
-                capture_mode=CaptureMode.PUSH,
+                capture_mode=CaptureMode.EVENT_QUEUE,
             )
         except Exception as error:  # pragma: no cover - exercised through HTTP response
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -119,7 +133,7 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
                 payload,
                 subscription_id=subscription_id,
                 base_url=os.environ.get("DISCOURSE_BASE_URL"),
-                capture_mode=CaptureMode.PUSH,
+                capture_mode=CaptureMode.WEBHOOK,
             )
         except Exception as error:  # pragma: no cover - exercised through HTTP response
             raise HTTPException(status_code=422, detail=str(error)) from error
@@ -133,7 +147,24 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
             event = normalize_gitea_issue(
                 payload,
                 subscription_id=subscription_id,
-                capture_mode=CaptureMode.PUSH,
+                capture_mode=CaptureMode.WEBHOOK,
+            )
+        except Exception as error:  # pragma: no cover - exercised through HTTP response
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _record(event)
+
+    @app.post("/webhooks/github", response_model=EventWriteResult, status_code=202)
+    def record_github_webhook(
+        payload: dict[str, Any],
+        subscription_id: str | None = None,
+        x_github_event: str | None = Header(default=None, alias="X-GitHub-Event"),
+    ) -> EventWriteResult:
+        try:
+            event = normalize_github_event(
+                x_github_event or "push",
+                payload,
+                subscription_id=subscription_id,
+                capture_mode=CaptureMode.WEBHOOK,
             )
         except Exception as error:  # pragma: no cover - exercised through HTTP response
             raise HTTPException(status_code=422, detail=str(error)) from error

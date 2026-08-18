@@ -14,7 +14,7 @@ from pydantic import (
     field_validator,
 )
 
-from .model import CaptureMode, utc_now
+from .model import CaptureMode, JsonValue, utc_now
 
 
 class Subscription(BaseModel):
@@ -28,8 +28,10 @@ class Subscription(BaseModel):
     label: str | None = None
     event_kinds: list[str] = Field(default_factory=lambda: ["*"], min_length=1)
     capture_modes: list[CaptureMode] = Field(
-        default_factory=lambda: [CaptureMode.PULL], min_length=1
+        default_factory=lambda: [CaptureMode.API_CURSOR], min_length=1
     )
+    filters: dict[str, JsonValue] = Field(default_factory=dict)
+    labels: list[str] = Field(default_factory=list)
     enabled: bool = True
     created_at: AwareDatetime = Field(default_factory=utc_now)
     updated_at: AwareDatetime = Field(default_factory=utc_now)

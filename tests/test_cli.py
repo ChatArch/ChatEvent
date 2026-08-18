@@ -22,7 +22,19 @@ class CliTests(unittest.TestCase):
         self.assertIn("serve", tree)
         self.assertIn("schema event", tree)
         self.assertIn("record-json", tree)
+        self.assertIn("platforms", tree)
         self.assertIn("capture zulip-once", tree)
+
+    def test_platforms_outputs_action_catalog(self) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            main(["platforms", "--json"])
+
+        result = json.loads(stdout.getvalue())
+        self.assertEqual(result["count"], 4)
+        github = next(item for item in result["items"] if item["id"] == "github")
+        self.assertIn("repo:ChatArch/ChatEvent", github["scope_examples"])
+        self.assertIn("commit.pushed", {action["kind"] for action in github["actions"]})
 
     def test_schema_event_outputs_json_schema(self) -> None:
         stdout = io.StringIO()

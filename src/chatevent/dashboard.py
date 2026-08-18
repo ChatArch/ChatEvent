@@ -64,8 +64,13 @@ DASHBOARD_HTML = r"""<!doctype html>
     .subscription p { margin: 7px 0; color: #c8cfdb; font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
     .chips { display: flex; flex-wrap: wrap; gap: 5px; }
     .chip { padding: 3px 7px; border-radius: 999px; font: 600 10px/1.4 ui-monospace, SFMono-Regular, monospace; color: var(--muted); background: rgba(255,255,255,.05); }
+    .chip.webhook, .chip.event_queue, .chip.gateway_forward { color: var(--blue); background: rgba(119,184,255,.1); }
+    .chip.api_cursor, .chip.poll, .chip.manual_backfill { color: var(--orange); background: rgba(255,184,107,.1); }
     .chip.push { color: var(--blue); background: rgba(119,184,255,.1); }
     .chip.pull { color: var(--orange); background: rgba(255,184,107,.1); }
+    .platforms { padding: 9px; display: grid; gap: 9px; border-top: 1px solid var(--line); }
+    .platform { padding: 12px; border-radius: 12px; background: rgba(255,255,255,.025); }
+    .platform p { margin: 7px 0 9px; color: #c8cfdb; font: 12px/1.5 ui-monospace, SFMono-Regular, monospace; overflow-wrap: anywhere; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
     .dot.off { background: #555d6b; }
     .filters { display: grid; grid-template-columns: minmax(170px, 1fr) 150px 190px; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
@@ -149,6 +154,10 @@ DASHBOARD_HTML = r"""<!doctype html>
           <button class="button" id="addSubscription">＋ 新建</button>
         </div>
         <div class="subscriptions" id="subscriptions"></div>
+        <div class="panel-head">
+          <div><h2>Platform actions</h2><span>v0.1 可控事件目录</span></div>
+        </div>
+        <div class="platforms" id="platforms"></div>
       </aside>
 
       <section class="panel">
@@ -184,12 +193,14 @@ DASHBOARD_HTML = r"""<!doctype html>
       <h2>新建订阅</h2>
       <div class="form-grid">
         <label>显示名称<input class="control" name="label" placeholder="核心仓库 Issues" /></label>
-        <label>平台 source<input class="control" name="source" required placeholder="gitea" /></label>
-        <label class="wide">关注目标<input class="control" name="target" required placeholder="https://gitea.example/owner/repo" /></label>
-        <label class="wide">事件类型<input class="control" name="eventKinds" value="*" placeholder="issue.opened, pull_request.updated" /></label>
+        <label>平台 source<select class="control" name="source" id="subscriptionSource" required><option value="">选择平台</option></select></label>
+        <label class="wide">关注目标<input class="control" name="target" required placeholder="repo:ChatArch/ChatEvent / stream:demo/topic:loop" /></label>
+        <label class="wide">事件类型<input class="control" name="eventKinds" value="*" placeholder="issue.opened, pull_request.merged" /></label>
         <div class="wide checks">
-          <label><input type="checkbox" name="push" checked /> Push / webhook</label>
-          <label><input type="checkbox" name="pull" /> Pull / scan</label>
+          <label><input type="checkbox" name="mode" value="webhook" checked /> webhook</label>
+          <label><input type="checkbox" name="mode" value="event_queue" /> event_queue</label>
+          <label><input type="checkbox" name="mode" value="api_cursor" /> api_cursor</label>
+          <label><input type="checkbox" name="mode" value="poll" /> poll</label>
         </div>
       </div>
       <div class="error" id="formError"></div>
@@ -201,7 +212,7 @@ DASHBOARD_HTML = r"""<!doctype html>
   </dialog>
 
   <script>
-    const state = { events: [], stats: {}, detail: null };
+    const state = { events: [], stats: {}, platforms: [], detail: null };
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
     const formatTime = (value) => value ? new Intl.DateTimeFormat("zh-CN", {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date(value)) : "—";
@@ -247,6 +258,31 @@ DASHBOARD_HTML = r"""<!doctype html>
             <span class="chip">${escapeHtml(item.event_kinds.join(", "))}</span>
           </div>
         </article>`).join("");
+    }
+
+    function renderPlatforms(platforms) {
+      state.platforms = platforms;
+      const root = $("platforms");
+      if (!platforms.length) {
+        root.innerHTML = `<div class="empty"><strong>还没有平台目录</strong>/api/platforms 暂无返回。</div>`;
+        return;
+      }
+      root.innerHTML = platforms.map(platform => `
+        <article class="platform">
+          <div class="subscription-top"><strong>${escapeHtml(platform.display_name)}</strong><span class="chip">${escapeHtml(platform.id)}</span></div>
+          <p>scope: ${escapeHtml(platform.scope_examples.slice(0, 2).join(" / "))}</p>
+          <div class="chips">
+            ${platform.primary_acquisition_modes.map(mode => `<span class="chip ${escapeHtml(mode)}">${escapeHtml(mode)}</span>`).join("")}
+          </div>
+          <p>actions:</p>
+          <div class="chips">
+            ${platform.actions.slice(0, 12).map(action => `<span class="chip" title="${escapeHtml(action.description)}">${escapeHtml(action.kind)}</span>`).join("")}
+          </div>
+        </article>`).join("");
+      const source = $("subscriptionSource");
+      const current = source.value;
+      source.innerHTML = `<option value="">选择平台</option>` + platforms.map(platform => `<option value="${escapeHtml(platform.id)}">${escapeHtml(platform.display_name)} · ${escapeHtml(platform.id)}</option>`).join("");
+      source.value = platforms.some(platform => platform.id === current) ? current : "";
     }
 
     function renderEvents(items) {
@@ -302,10 +338,10 @@ DASHBOARD_HTML = r"""<!doctype html>
         if ($("sourceFilter").value) params.set("source", $("sourceFilter").value);
         if ($("kindFilter").value) params.set("kind", $("kindFilter").value);
         if ($("search").value.trim()) params.set("q", $("search").value.trim());
-        const [stats, subscriptions, events] = await Promise.all([
-          api("/api/stats"), api("/api/subscriptions"), api(`/api/events?${params}`)
+        const [stats, subscriptions, events, platforms] = await Promise.all([
+          api("/api/stats"), api("/api/subscriptions"), api(`/api/events?${params}`), api("/api/platforms")
         ]);
-        renderStats(stats); renderSubscriptions(subscriptions); renderEvents(events.items);
+        renderStats(stats); renderSubscriptions(subscriptions); renderPlatforms(platforms.items); renderEvents(events.items);
         $("liveStatus").textContent = `本地事件流 · ${formatTime(stats.latest_captured_at)}`;
       } catch (error) {
         $("liveStatus").textContent = `连接失败 · ${error.message}`;
@@ -328,7 +364,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       event.preventDefault(); $("formError").textContent = "";
       const formElement = event.currentTarget;
       const form = new FormData(formElement);
-      const captureModes = [form.get("push") ? "push" : null, form.get("pull") ? "pull" : null].filter(Boolean);
+      const captureModes = Array.from(formElement.querySelectorAll('input[name="mode"]:checked')).map(input => input.value);
       if (!captureModes.length) { $("formError").textContent = "至少选择一种捕获方式。"; return; }
       const body = {
         label: form.get("label") || null,

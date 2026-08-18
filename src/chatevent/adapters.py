@@ -85,7 +85,7 @@ def normalize_zulip_message_event(
     *,
     subscription_id: str | None = None,
     site_url: str | None = None,
-    capture_mode: CaptureMode = CaptureMode.PUSH,
+    capture_mode: CaptureMode = CaptureMode.EVENT_QUEUE,
 ) -> ChatEvent:
     """Normalize a Zulip ``message`` event-queue payload into ``ChatEvent``.
 
@@ -156,7 +156,7 @@ def normalize_discourse_post(
     *,
     subscription_id: str | None = None,
     base_url: str | None = None,
-    capture_mode: CaptureMode = CaptureMode.PUSH,
+    capture_mode: CaptureMode = CaptureMode.WEBHOOK,
 ) -> ChatEvent:
     """Normalize a Discourse post webhook or post API payload."""
 
@@ -184,7 +184,11 @@ def normalize_discourse_post(
         url = f"{base_url.rstrip('/')}/t/{quote(slug, safe='-._~')}/{topic_id}{suffix}"
 
     event_name = _string(raw.get("event_name") or raw.get("discourse_event"))
-    acquisition = "discourse-webhook" if capture_mode == CaptureMode.PUSH else "discourse-posts-api"
+    acquisition = (
+        "discourse-webhook"
+        if capture_mode in {CaptureMode.WEBHOOK, CaptureMode.PUSH}
+        else "discourse-posts-api"
+    )
     return ChatEvent(
         id=f"post:{post_id}",
         source="discourse",
@@ -215,7 +219,7 @@ def normalize_gitea_issue(
     *,
     repository: str | None = None,
     subscription_id: str | None = None,
-    capture_mode: CaptureMode = CaptureMode.PULL,
+    capture_mode: CaptureMode = CaptureMode.API_CURSOR,
 ) -> ChatEvent:
     """Normalize a Gitea issue webhook payload or issue API object."""
 
@@ -270,6 +274,274 @@ def normalize_gitea_issue(
             "labels": label_names,
         },
         raw_payload=raw,
-        metadata={"acquisition": "gitea-webhook" if capture_mode == CaptureMode.PUSH else "gitea-issues-api"},
+        metadata={
+            "acquisition": (
+                "gitea-webhook"
+                if capture_mode in {CaptureMode.WEBHOOK, CaptureMode.PUSH}
+                else "gitea-issues-api"
+            )
+        },
         tags=["gitea", "issue"],
     )
+
+
+def _github_repository_name(raw: dict[str, Any]) -> str | None:
+    repository = raw.get("repository") if isinstance(raw.get("repository"), dict) else {}
+    return _string(repository.get("full_name") or repository.get("name"))
+
+
+def _github_sender_login(raw: dict[str, Any]) -> str | None:
+    sender = raw.get("sender") if isinstance(raw.get("sender"), dict) else {}
+    return _string(sender.get("login"))
+
+
+def _github_pull_request_kind(action: str | None, pull_request: dict[str, Any]) -> str:
+    if action == "closed" and pull_request.get("merged") is True:
+        return "pull_request.merged"
+    if action:
+        return f"pull_request.{action}"
+    return "pull_request.updated"
+
+
+def normalize_github_event(
+    github_event: str,
+    raw: dict[str, Any],
+    *,
+    subscription_id: str | None = None,
+    capture_mode: CaptureMode = CaptureMode.WEBHOOK,
+) -> ChatEvent:
+    """Normalize a GitHub repository webhook payload into ``ChatEvent``.
+
+    The first GitHub demo target is expected to be ``repo:ChatArch/ChatEvent``.
+    The normalizer accepts GitHub's official webhook event name from the
+    ``X-GitHub-Event`` header and turns platform-specific actions into the
+    controlled ``source + kind`` contract exposed by :mod:`chatevent.catalog`.
+    """
+
+    github_event = github_event.strip().lower().replace("-", "_")
+    repo_name = _github_repository_name(raw)
+    if not repo_name:
+        raise ValueError("GitHub payload is missing repository.full_name")
+    sender_login = _github_sender_login(raw)
+
+    if github_event == "push":
+        commit = raw.get("head_commit") if isinstance(raw.get("head_commit"), dict) else {}
+        commit_id = _string(commit.get("id") or raw.get("after"))
+        if not commit_id:
+            raise ValueError("GitHub push payload is missing head commit id")
+        occurred_at = commit.get("timestamp") or raw.get("pushed_at")
+        if occurred_at is None:
+            raise ValueError("GitHub push payload is missing timestamp")
+        author = commit.get("author") if isinstance(commit.get("author"), dict) else {}
+        actor = _string(author.get("username") or author.get("name") or sender_login)
+        return ChatEvent(
+            id=f"commit:{repo_name}:{commit_id}",
+            source="github",
+            kind="commit.pushed",
+            occurred_at=_parse_datetime(occurred_at),
+            capture_mode=capture_mode,
+            subscription_id=subscription_id,
+            actor_id=f"user:{actor}" if actor else None,
+            conversation_id=f"repo:{repo_name}",
+            subject_id=f"commit:{commit_id}",
+            subject_type="commit",
+            url=_string(commit.get("url")),
+            cursor=commit_id,
+            payload={
+                "title": commit.get("message") or "GitHub push",
+                "content": commit.get("message") or "",
+                "repository": repo_name,
+                "ref": raw.get("ref") or "",
+                "after": raw.get("after") or commit_id,
+            },
+            raw_payload=raw,
+            metadata={"acquisition": "github-webhook", "github_event": "push"},
+            tags=["github", "commit", "push"],
+        )
+
+    if github_event == "pull_request":
+        pull_request = raw.get("pull_request") if isinstance(raw.get("pull_request"), dict) else {}
+        number = _string(pull_request.get("number") or raw.get("number"))
+        if not number:
+            raise ValueError("GitHub pull_request payload is missing number")
+        action_name = _string(raw.get("action"))
+        kind = _github_pull_request_kind(action_name, pull_request)
+        occurred_at = (
+            pull_request.get("merged_at")
+            if kind == "pull_request.merged"
+            else pull_request.get("updated_at") or pull_request.get("created_at")
+        )
+        if occurred_at is None:
+            raise ValueError("GitHub pull_request payload is missing timestamp")
+        user = pull_request.get("user") if isinstance(pull_request.get("user"), dict) else {}
+        login = _string(user.get("login") or sender_login)
+        return ChatEvent(
+            id=f"pull_request:{repo_name}:{number}",
+            source="github",
+            kind=kind,
+            occurred_at=_parse_datetime(occurred_at),
+            capture_mode=capture_mode,
+            subscription_id=subscription_id,
+            actor_id=f"user:{login}" if login else None,
+            conversation_id=f"repo:{repo_name}",
+            subject_id=f"pull_request:{number}",
+            subject_type="pull_request",
+            url=_string(pull_request.get("html_url")),
+            cursor=str(pull_request.get("id") or number),
+            payload={
+                "title": pull_request.get("title") or "",
+                "content": pull_request.get("body") or "",
+                "repository": repo_name,
+                "number": number,
+                "action": action_name or "",
+                "state": pull_request.get("state") or "",
+                "merged": bool(pull_request.get("merged")),
+            },
+            raw_payload=raw,
+            metadata={"acquisition": "github-webhook", "github_event": "pull_request"},
+            tags=["github", "pull_request"],
+        )
+
+    if github_event == "issues":
+        issue = raw.get("issue") if isinstance(raw.get("issue"), dict) else {}
+        number = _string(issue.get("number"))
+        if not number:
+            raise ValueError("GitHub issues payload is missing issue.number")
+        action_name = _string(raw.get("action")) or "updated"
+        occurred_at = issue.get("updated_at") or issue.get("created_at")
+        if occurred_at is None:
+            raise ValueError("GitHub issues payload is missing timestamp")
+        user = issue.get("user") if isinstance(issue.get("user"), dict) else {}
+        login = _string(user.get("login") or sender_login)
+        return ChatEvent(
+            id=f"issue:{repo_name}:{number}",
+            source="github",
+            kind=f"issue.{action_name}",
+            occurred_at=_parse_datetime(occurred_at),
+            capture_mode=capture_mode,
+            subscription_id=subscription_id,
+            actor_id=f"user:{login}" if login else None,
+            conversation_id=f"repo:{repo_name}",
+            subject_id=f"issue:{number}",
+            subject_type="issue",
+            url=_string(issue.get("html_url")),
+            cursor=str(issue.get("id") or number),
+            payload={
+                "title": issue.get("title") or "",
+                "content": issue.get("body") or "",
+                "repository": repo_name,
+                "number": number,
+                "action": action_name,
+                "state": issue.get("state") or "",
+            },
+            raw_payload=raw,
+            metadata={"acquisition": "github-webhook", "github_event": "issues"},
+            tags=["github", "issue"],
+        )
+
+    if github_event == "issue_comment":
+        issue = raw.get("issue") if isinstance(raw.get("issue"), dict) else {}
+        comment = raw.get("comment") if isinstance(raw.get("comment"), dict) else {}
+        issue_number = _string(issue.get("number"))
+        comment_id = _string(comment.get("id"))
+        if not (issue_number and comment_id):
+            raise ValueError("GitHub issue_comment payload is missing issue number/comment id")
+        occurred_at = comment.get("updated_at") or comment.get("created_at")
+        if occurred_at is None:
+            raise ValueError("GitHub issue_comment payload is missing timestamp")
+        user = comment.get("user") if isinstance(comment.get("user"), dict) else {}
+        action_name = _string(raw.get("action")) or "created"
+        return ChatEvent(
+            id=f"issue_comment:{repo_name}:{comment_id}",
+            source="github",
+            kind="issue.commented" if action_name == "created" else f"issue_comment.{action_name}",
+            occurred_at=_parse_datetime(occurred_at),
+            capture_mode=capture_mode,
+            subscription_id=subscription_id,
+            actor_id=f"user:{_string(user.get('login') or sender_login)}" if _string(user.get("login") or sender_login) else None,
+            conversation_id=f"issue:{repo_name}:{issue_number}",
+            subject_id=f"comment:{comment_id}",
+            subject_type="issue_comment",
+            url=_string(comment.get("html_url")),
+            cursor=comment_id,
+            payload={
+                "title": issue.get("title") or "GitHub issue comment",
+                "content": comment.get("body") or "",
+                "repository": repo_name,
+                "number": issue_number,
+                "action": action_name,
+            },
+            raw_payload=raw,
+            metadata={"acquisition": "github-webhook", "github_event": "issue_comment"},
+            tags=["github", "issue", "comment"],
+        )
+
+    if github_event == "workflow_run":
+        workflow_run = raw.get("workflow_run") if isinstance(raw.get("workflow_run"), dict) else {}
+        run_id = _string(workflow_run.get("id"))
+        if not run_id:
+            raise ValueError("GitHub workflow_run payload is missing id")
+        occurred_at = workflow_run.get("updated_at") or workflow_run.get("created_at")
+        if occurred_at is None:
+            raise ValueError("GitHub workflow_run payload is missing timestamp")
+        action_name = _string(raw.get("action")) or "completed"
+        return ChatEvent(
+            id=f"workflow_run:{repo_name}:{run_id}",
+            source="github",
+            kind=f"workflow_run.{action_name}",
+            occurred_at=_parse_datetime(occurred_at),
+            capture_mode=capture_mode,
+            subscription_id=subscription_id,
+            actor_id=f"user:{sender_login}" if sender_login else None,
+            conversation_id=f"repo:{repo_name}",
+            subject_id=f"workflow_run:{run_id}",
+            subject_type="workflow_run",
+            url=_string(workflow_run.get("html_url")),
+            cursor=run_id,
+            payload={
+                "title": workflow_run.get("name") or "GitHub workflow run",
+                "content": workflow_run.get("display_title") or "",
+                "repository": repo_name,
+                "status": workflow_run.get("status") or "",
+                "conclusion": workflow_run.get("conclusion") or "",
+            },
+            raw_payload=raw,
+            metadata={"acquisition": "github-webhook", "github_event": "workflow_run"},
+            tags=["github", "workflow_run"],
+        )
+
+    if github_event == "release":
+        release = raw.get("release") if isinstance(raw.get("release"), dict) else {}
+        release_id = _string(release.get("id") or release.get("tag_name"))
+        if not release_id:
+            raise ValueError("GitHub release payload is missing id/tag_name")
+        occurred_at = release.get("published_at") or release.get("created_at")
+        if occurred_at is None:
+            raise ValueError("GitHub release payload is missing timestamp")
+        action_name = _string(raw.get("action")) or "published"
+        return ChatEvent(
+            id=f"release:{repo_name}:{release_id}",
+            source="github",
+            kind=f"release.{action_name}",
+            occurred_at=_parse_datetime(occurred_at),
+            capture_mode=capture_mode,
+            subscription_id=subscription_id,
+            actor_id=f"user:{sender_login}" if sender_login else None,
+            conversation_id=f"repo:{repo_name}",
+            subject_id=f"release:{release_id}",
+            subject_type="release",
+            url=_string(release.get("html_url")),
+            cursor=release_id,
+            payload={
+                "title": release.get("name") or release.get("tag_name") or "GitHub release",
+                "content": release.get("body") or "",
+                "repository": repo_name,
+                "tag": release.get("tag_name") or "",
+                "action": action_name,
+            },
+            raw_payload=raw,
+            metadata={"acquisition": "github-webhook", "github_event": "release"},
+            tags=["github", "release"],
+        )
+
+    raise ValueError(f"unsupported GitHub webhook event: {github_event}")

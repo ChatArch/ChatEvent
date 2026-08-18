@@ -13,6 +13,7 @@ TREE = """chatevent
   serve [--host HOST] [--port PORT] [--db DB]
                                  Run the local Event Observatory
   schema event|subscription      Print JSON Schema contracts
+  platforms [--json]             List supported platforms and action kinds
   record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
   capture zulip-once [options]   Official Zulip event-queue capture pass
 """
@@ -38,6 +39,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     schema = subparsers.add_parser("schema", help="print JSON Schema contracts")
     schema.add_argument("kind", choices=("event", "subscription"))
+
+    platforms = subparsers.add_parser(
+        "platforms", help="list supported platforms and action kinds"
+    )
+    platforms.add_argument(
+        "--json",
+        action="store_true",
+        help="print the complete platform catalog as JSON",
+    )
 
     record = subparsers.add_parser("record-json", help="validate and write one ChatEvent JSON file")
     record.add_argument("file", type=Path)
@@ -113,6 +123,23 @@ def main(argv: Sequence[str] | None = None) -> None:
             _print_json(ChatEvent.model_json_schema())
         else:
             _print_json(Subscription.model_json_schema())
+        return
+    if args.command == "platforms":
+        from .catalog import list_platform_specs
+
+        specs = list(list_platform_specs())
+        if args.json:
+            _print_json(
+                {
+                    "items": [spec.model_dump(mode="json") for spec in specs],
+                    "count": len(specs),
+                }
+            )
+        else:
+            for spec in specs:
+                actions = ", ".join(action.kind for action in spec.actions)
+                modes = ", ".join(mode.value for mode in spec.primary_acquisition_modes)
+                print(f"{spec.id}\t{modes}\t{actions}")
         return
     if args.command == "record-json":
         from .model import ChatEvent
