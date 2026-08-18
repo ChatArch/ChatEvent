@@ -127,7 +127,7 @@ Observatory 当前使用前端轮询，不是 WebSocket/SSE：
 - 搜索输入约 **260ms debounce** 后刷新；
 - 来源、事件类型和时间范围筛选变化后立即刷新。
 
-每次刷新会请求 `/api/stats`、`/api/subscriptions`、`/api/events` 和 `/api/platforms`。事件流支持“全部时间 / 最近 24 小时 / 最近 3 天 / 最近 7 天 / 最近 30 天”，也支持自定义开始、结束时间。
+每次刷新会请求 `/api/stats`、`/api/subscriptions`、`/api/events` 和 `/api/platforms`。事件流顶层只保留“来源”和“时间”两个下拉框；事件类型、订阅/渠道、关键词和自定义开始/结束时间在“高级选项”里组合筛选。事件类型 checkbox 会随来源联动，避免把不同平台 action 混在同一个下拉框里。
 
 ## 事件语义
 

@@ -99,4 +99,4 @@ curl -k https://event.public.wzhecnu.cn/api/stats
 curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&days=7&limit=20'
 ```
 
-或者打开 Observatory，等待最多 5 秒自动刷新，也可以手动点击 **刷新**；事件流可以选择“最近 24 小时 / 最近 3 天 / 最近 7 天 / 最近 30 天”或自定义日期区间。
+或者打开 Observatory，等待最多 5 秒自动刷新，也可以手动点击 **刷新**；事件流顶层只保留来源和时间两个下拉框，事件类型、订阅/渠道、关键词和自定义日期区间放在 **高级选项** 里，事件类型多选会随来源联动。

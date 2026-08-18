@@ -127,7 +127,7 @@ The Observatory is currently frontend polling, not WebSocket/SSE:
 - search input refreshes after about **260ms debounce**;
 - source, kind, and time-range filter changes refresh immediately.
 
-Each refresh calls `/api/stats`, `/api/subscriptions`, `/api/events`, and `/api/platforms`. The event stream can show all events, the last 24 hours, the last 3/7/30 days, or a custom captured-at start/end range.
+Each refresh calls `/api/stats`, `/api/subscriptions`, `/api/events`, and `/api/platforms`. The top Event Stream filter keeps only source and time dropdowns; action kinds, subscription/channel filters, keyword search, and custom start/end ranges live under Advanced options. Action-kind checkboxes are bound to the selected source so platform-specific actions are not mixed into one flat dropdown.
 
 ## Event semantics
 

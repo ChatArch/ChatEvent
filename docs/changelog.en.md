@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- The Observatory top filter bar now keeps only source and time dropdowns; the rest moved into Advanced options.
+- Advanced options support source-bound action-kind checkboxes, subscription/channel checkboxes, keyword search, and custom time ranges.
+- Platform action chips can be opened to show action kind, target types, acquisition modes, webhook events, and a short API meaning summary.
+- The header now includes GitHub / Docs icon links and a black/white theme toggle.
+
 ## 0.1.1
 
 - Add open-ended `CarrierTarget` / `ActionDescriptor` / `ActorDescriptor` to record action, carrier target chain, and initiator role.

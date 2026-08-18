@@ -1,5 +1,12 @@
 # 发行说明
 
+## 0.1.2
+
+- Observatory 顶层筛选收敛为来源和时间下拉框，其余筛选进入高级选项。
+- 高级选项支持按来源联动的事件类型多选、订阅/渠道多选、关键词和自定义时间范围。
+- Platform actions 的 action chip 可点击打开详情，查看 action kind、target types、捕获方式、webhook events 和 API 大致含义。
+- 页面头部新增 GitHub / Docs 图标链接，并支持黑底/白底主题切换。
+
 ## 0.1.1
 
 - 新增开放式 `CarrierTarget` / `ActionDescriptor` / `ActorDescriptor`，记录动作、承载目标链和发起人角色。
