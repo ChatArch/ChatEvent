@@ -25,7 +25,8 @@ TREE = """chatevent
   api platforms                  GET /api/platforms
   api session                    GET /api/session
   api users                      GET /api/users
-  api create-user USERNAME       POST /api/users and print one-time arch_ token
+  api create-user USERNAME       POST /api/users (admin)
+  api create-token [USER_ID]     POST /api/me/token or /api/users/{id}/token
   api delete-user ID             DELETE /api/users/{id}
   api schema event|subscription  GET /api/schema/{kind}
   api subscriptions [--enabled]  GET /api/subscriptions
@@ -94,7 +95,21 @@ def build_parser() -> argparse.ArgumentParser:
     api_common.add_argument(
         "--admin-token",
         default=os.environ.get("CHATEVENT_ADMIN_TOKEN"),
-        help="admin token for subscription mutations; can also use CHATEVENT_ADMIN_TOKEN",
+        help="API token for account-scoped operations; can also use CHATEVENT_ADMIN_TOKEN",
+    )
+    api_common.add_argument(
+        "--username",
+        dest="api_username",
+        default=os.environ.get("CHATEVENT_API_USERNAME"),
+        help="username for password login when no API token is provided",
+    )
+    api_common.add_argument(
+        "--password-file",
+        type=Path,
+        default=Path(os.environ["CHATEVENT_API_PASSWORD_FILE"]).expanduser()
+        if os.environ.get("CHATEVENT_API_PASSWORD_FILE")
+        else None,
+        help="file containing the password for CLI username/password login",
     )
 
     api_subparsers.add_parser("health", parents=[api_common], help="GET /api/health")
@@ -107,8 +122,21 @@ def build_parser() -> argparse.ArgumentParser:
         "create-user", parents=[api_common], help="POST /api/users"
     )
     api_create_user.add_argument("username")
+    api_create_user.add_argument(
+        "--new-password-file",
+        type=Path,
+        required=True,
+        help="file containing the new user's initial password",
+    )
     api_create_user.add_argument("--display-name", default=None)
     api_create_user.add_argument("--role", choices=("admin", "member"), default="member")
+
+    api_create_token = api_subparsers.add_parser(
+        "create-token",
+        parents=[api_common],
+        help="POST /api/me/token or /api/users/{id}/token",
+    )
+    api_create_token.add_argument("id", nargs="?", help="optional target user id")
 
     api_delete_user = api_subparsers.add_parser(
         "delete-user", parents=[api_common], help="DELETE /api/users/{id}"
@@ -208,6 +236,12 @@ def _optional_bool(value: str | None) -> bool | None:
     return value == "true"
 
 
+def _read_secret_file(path: Path | None) -> str | None:
+    if path is None:
+        return None
+    return path.expanduser().read_text(encoding="utf-8").strip()
+
+
 def _handle_api_command(args: argparse.Namespace) -> None:
     from .client import ChatEventApiClient, ChatEventApiError
 
@@ -215,6 +249,8 @@ def _handle_api_command(args: argparse.Namespace) -> None:
         base_url=args.base_url,
         timeout=args.timeout,
         admin_token=args.admin_token,
+        username=args.api_username,
+        password=_read_secret_file(args.password_file),
     )
     try:
         if args.api_command == "health":
@@ -232,7 +268,10 @@ def _handle_api_command(args: argparse.Namespace) -> None:
                 username=args.username,
                 display_name=args.display_name,
                 role=args.role,
+                password=_read_secret_file(args.new_password_file),
             )
+        elif args.api_command == "create-token":
+            result = client.create_user_token(args.id) if args.id else client.create_my_token()
         elif args.api_command == "delete-user":
             result = client.delete_user(args.id)
         elif args.api_command == "schema":

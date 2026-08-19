@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.1.5 - 2026-08-19
+
+- 修正登录模型：Web 主页改为账号密码登录，`arch_xxx` token 不再作为网页登录凭据。
+- 新增 password hash 存储与 bootstrap 管理员账号初始化：`CHATEVENT_BOOTSTRAP_USERNAME` + `CHATEVENT_BOOTSTRAP_PASSWORD_FILE`。
+- 新增 API Token 生成接口：`POST /api/me/token` 与 `POST /api/users/{id}/token`；token 仅用于 CLI、模型或程序代表账号调用 API。
+- Web 登录后可直接编辑订阅；CLI/API 可用 token，也可通过用户名 + 密码文件先登录后操作。
+
 ## 0.1.4 - 2026-08-19
 
 - 新增登录页 gate：配置管理员 token 或用户后，未登录访问 `/` 只显示登录页，不能直接进入 Observatory。
@@ -10,7 +17,7 @@
 
 - 修复来源联动高级事件类型列表：现在会合并平台 action catalog 与当前已观察到的该来源事件类型。
 - GitHub action catalog 补充 `workflow_run.requested` 与 `workflow_run.in_progress`，避免真实 webhook 事件在高级筛选中缺失。
-- 新增轻量登录与用户管理骨架：`arch_xxx` token 登录、`/api/session`、`/api/users`、CLI `api create-user`，token 只返回一次且服务端只存 hash。
+- 新增轻量登录与用户管理骨架（0.1.5 已修正为账号密码网页登录 + API Token 机制）：`/api/session`、`/api/users`、CLI `api create-user`，token 只返回一次且服务端只存 hash。
 - Subscription 增加 `owner_user_id`，为后续用户数据隔离打基础；member token 创建/读取订阅时按 owner 隔离，bootstrap/admin token 可管理全部。
 
 ## 0.1.2 - 2026-08-19

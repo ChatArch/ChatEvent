@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+- Corrected the login model: the Web entry now uses username/password login, and `arch_xxx` tokens are no longer Web login credentials.
+- Added password-hash storage and bootstrap admin initialization through `CHATEVENT_BOOTSTRAP_USERNAME` + `CHATEVENT_BOOTSTRAP_PASSWORD_FILE`.
+- Added API token issue endpoints: `POST /api/me/token` and `POST /api/users/{id}/token`; tokens are for CLI, model, or programmatic API calls on behalf of an account.
+- The logged-in Web session can edit subscriptions directly; CLI/API clients can use a token or login with username + password file.
+
 ## 0.1.4
 
 - Added a login-page gate: once an admin token or users exist, unauthenticated visits to `/` see only the login page and cannot enter the Observatory.
@@ -10,7 +17,7 @@
 
 - Advanced action-kind options now merge the platform action catalog with observed event kinds for the selected source.
 - The GitHub action catalog now includes `workflow_run.requested` and `workflow_run.in_progress`.
-- Added an `arch_xxx` token login and user-management skeleton: `/api/session`, `/api/users`, and CLI `api create-user`.
+- Added an early login/user-management skeleton (corrected in 0.1.5 to username/password Web login plus API tokens): `/api/session`, `/api/users`, and CLI `api create-user`.
 - `Subscription.owner_user_id` provides the first isolation boundary for member-owned subscriptions while administrators can still manage all subscriptions.
 
 ## 0.1.2

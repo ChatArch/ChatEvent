@@ -49,6 +49,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("api delete-subscription ID", tree)
         self.assertIn("api session", tree)
         self.assertIn("api create-user USERNAME", tree)
+        self.assertIn("api create-token [USER_ID]", tree)
 
     def test_version_outputs_package_version(self) -> None:
         stdout = io.StringIO()
@@ -56,7 +57,7 @@ class CliTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(captured.exception.code, 0)
-        self.assertIn("chatevent 0.1.4", stdout.getvalue())
+        self.assertIn("chatevent 0.1.5", stdout.getvalue())
 
     def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
         requests = []
@@ -169,7 +170,50 @@ class CliTests(unittest.TestCase):
         self.assertEqual(request.headers["X-chatevent-admin-token"], "secret-token")
         self.assertEqual(urlparse(request.full_url).path, "/api/subscriptions/discourse-practice")
 
-    def test_api_create_user_cli_prints_one_time_token(self) -> None:
+    def test_api_create_user_cli_sends_initial_password(self) -> None:
+        requests = []
+
+        def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+            requests.append(request)
+            return FakeHttpResponse(
+                {"user": {"id": "u1", "username": "rexwzh@lookeng.cn", "role": "member", "enabled": True}}
+            )
+
+        with TemporaryDirectory() as directory:
+            password_file = Path(directory) / "password.txt"
+            password_file.write_text("initial-password\n", encoding="utf-8")
+            stdout = io.StringIO()
+            with patch("urllib.request.urlopen", fake_urlopen), contextlib.redirect_stdout(stdout):
+                main(
+                    [
+                        "api",
+                        "create-user",
+                        "rexwzh@lookeng.cn",
+                        "--new-password-file",
+                        str(password_file),
+                        "--display-name",
+                        "Rex",
+                        "--role",
+                        "member",
+                        "--base-url",
+                        "https://event.example.test",
+                        "--admin-token",
+                        "arch_admin",
+                    ]
+                )
+
+        result = json.loads(stdout.getvalue())
+        self.assertNotIn("token", result)
+        request = requests[0]
+        self.assertEqual(request.get_method(), "POST")
+        self.assertEqual(request.headers["X-chatevent-admin-token"], "arch_admin")
+        self.assertEqual(urlparse(request.full_url).path, "/api/users")
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(body["username"], "rexwzh@lookeng.cn")
+        self.assertEqual(body["password"], "initial-password")
+        self.assertEqual(body["display_name"], "Rex")
+
+    def test_api_create_token_cli_prints_one_time_token(self) -> None:
         requests = []
 
         def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
@@ -183,12 +227,7 @@ class CliTests(unittest.TestCase):
             main(
                 [
                     "api",
-                    "create-user",
-                    "rexwzh@lookeng.cn",
-                    "--display-name",
-                    "Rex",
-                    "--role",
-                    "member",
+                    "create-token",
                     "--base-url",
                     "https://event.example.test",
                     "--admin-token",
@@ -201,10 +240,7 @@ class CliTests(unittest.TestCase):
         request = requests[0]
         self.assertEqual(request.get_method(), "POST")
         self.assertEqual(request.headers["X-chatevent-admin-token"], "arch_admin")
-        self.assertEqual(urlparse(request.full_url).path, "/api/users")
-        body = json.loads(request.data.decode("utf-8"))
-        self.assertEqual(body["username"], "rexwzh@lookeng.cn")
-        self.assertEqual(body["display_name"], "Rex")
+        self.assertEqual(urlparse(request.full_url).path, "/api/me/token")
 
     def test_platforms_outputs_action_catalog(self) -> None:
         stdout = io.StringIO()

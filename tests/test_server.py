@@ -45,21 +45,20 @@ class ServerTests(unittest.TestCase):
             self.assertIn("deleteSubscription", dashboard.text)
             self.assertIn("adminToken", dashboard.text)
             self.assertIn('id="sessionStatus"', dashboard.text)
-            self.assertIn("登录 / 管理令牌", dashboard.text)
+            self.assertIn("账号 / API Token", dashboard.text)
             self.assertIn('id="adminTokenDialog"', dashboard.text)
             self.assertIn('id="generatedAdminToken"', dashboard.text)
             self.assertIn('id="generateAdminToken"', dashboard.text)
             self.assertIn('id="copyAdminToken"', dashboard.text)
             self.assertIn("arch_", dashboard.text)
-            self.assertIn("generateAdminTokenValue", dashboard.text)
-            self.assertIn("crypto.getRandomValues", dashboard.text)
-            self.assertIn("复制令牌", dashboard.text)
-            self.assertIn("ChatArch secret", dashboard.text)
+            self.assertIn("复制 Token", dashboard.text)
+            self.assertIn("它不是主页登录凭据", dashboard.text)
             self.assertIn('id="userAdminPanel"', dashboard.text)
             self.assertIn('id="newUserName"', dashboard.text)
+            self.assertIn('id="newUserPassword"', dashboard.text)
             self.assertIn('id="createUser"', dashboard.text)
             self.assertIn('id="userList"', dashboard.text)
-            self.assertIn("subscription owner", dashboard.text)
+            self.assertIn("API Token 用于 CLI", dashboard.text)
             self.assertIn("subscriptionScopeType", dashboard.text)
             self.assertIn("Action target", dashboard.text)
             self.assertIn("Actor role", dashboard.text)
@@ -188,7 +187,11 @@ class ServerTests(unittest.TestCase):
 
     def test_login_page_gates_observatory_and_read_apis(self) -> None:
         with TemporaryDirectory() as directory, patch.dict(
-            "os.environ", {"CHATEVENT_ADMIN_TOKEN": "arch_login_test"}
+            "os.environ",
+            {
+                "CHATEVENT_BOOTSTRAP_USERNAME": "rexwzh@lookeng.cn",
+                "CHATEVENT_BOOTSTRAP_PASSWORD": "test-password",
+            },
         ):
             client = TestClient(create_app(db_path=Path(directory) / "events.db"))
 
@@ -196,16 +199,26 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(login_page.status_code, 200)
             self.assertIn("登录 Observatory", login_page.text)
             self.assertIn('id="loginForm"', login_page.text)
+            self.assertIn('id="usernameInput"', login_page.text)
+            self.assertIn('id="passwordInput"', login_page.text)
+            self.assertNotIn('id="tokenInput"', login_page.text)
             self.assertNotIn('role="tablist"', login_page.text)
             self.assertEqual(client.get("/api/stats").status_code, 401)
             self.assertEqual(client.get("/api/events").status_code, 401)
 
-            bad_login = client.post("/api/login", json={"token": "arch_wrong"})
+            bad_login = client.post(
+                "/api/login",
+                json={"username": "rexwzh@lookeng.cn", "password": "wrong"},
+            )
             self.assertEqual(bad_login.status_code, 401)
 
-            good_login = client.post("/api/login", json={"token": "arch_login_test"})
+            good_login = client.post(
+                "/api/login",
+                json={"username": "rexwzh@lookeng.cn", "password": "test-password"},
+            )
             self.assertEqual(good_login.status_code, 200)
             self.assertTrue(good_login.json()["authenticated"])
+            self.assertEqual(good_login.json()["user"]["username"], "rexwzh@lookeng.cn")
             self.assertIn("chatevent_session", good_login.headers["set-cookie"])
 
             dashboard = client.get("/")
@@ -475,7 +488,7 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(item["last_cursor"], "101")
             self.assertIsNotNone(item["last_event_at"])
 
-    def test_token_login_user_management_and_subscription_isolation(self) -> None:
+    def test_password_login_api_token_and_subscription_isolation(self) -> None:
         with TemporaryDirectory() as directory, patch.dict(
             "os.environ", {"CHATEVENT_ADMIN_TOKEN": "arch_bootstrap_test"}
         ):
@@ -495,23 +508,35 @@ class ServerTests(unittest.TestCase):
             created = client.post(
                 "/api/users",
                 headers={"X-ChatEvent-Admin-Token": "arch_bootstrap_test"},
-                json={"username": "rexwzh@lookeng.cn", "display_name": "Rex", "role": "member"},
+                json={
+                    "username": "rexwzh@lookeng.cn",
+                    "password": "member-password",
+                    "display_name": "Rex",
+                    "role": "member",
+                },
             )
             self.assertEqual(created.status_code, 201)
-            member_token = created.json()["token"]
-            self.assertTrue(member_token.startswith("arch_"))
+            self.assertNotIn("token", created.json())
+            self.assertNotIn("password", created.text)
             self.assertNotIn("token_hash", created.text)
             member = created.json()["user"]
 
-            member_session = client.get(
-                "/api/session", headers={"X-ChatEvent-Admin-Token": member_token}
-            ).json()
-            self.assertTrue(member_session["authenticated"])
-            self.assertEqual(member_session["user"]["username"], "rexwzh@lookeng.cn")
+            bad_login = client.post(
+                "/api/login",
+                json={"username": "rexwzh@lookeng.cn", "password": "wrong"},
+            )
+            self.assertEqual(bad_login.status_code, 401)
 
-            member_subscription = client.post(
+            good_login = client.post(
+                "/api/login",
+                json={"username": "rexwzh@lookeng.cn", "password": "member-password"},
+            )
+            self.assertEqual(good_login.status_code, 200)
+            self.assertTrue(good_login.json()["authenticated"])
+            self.assertEqual(good_login.json()["user"]["username"], "rexwzh@lookeng.cn")
+
+            web_subscription = client.post(
                 "/api/subscriptions",
-                headers={"X-ChatEvent-Admin-Token": member_token},
                 json={
                     "id": "member-discourse",
                     "source": "discourse",
@@ -520,11 +545,32 @@ class ServerTests(unittest.TestCase):
                     "capture_modes": ["webhook"],
                 },
             )
-            self.assertEqual(member_subscription.status_code, 201)
-            self.assertEqual(member_subscription.json()["owner_user_id"], member["id"])
+            self.assertEqual(web_subscription.status_code, 201)
+            self.assertEqual(web_subscription.json()["owner_user_id"], member["id"])
 
+            issued = client.post("/api/me/token")
+            self.assertEqual(issued.status_code, 200)
+            member_token = issued.json()["token"]
+            self.assertTrue(member_token.startswith("arch_"))
+            self.assertNotIn("token_hash", issued.text)
+
+            logout = client.post("/api/logout")
+            self.assertEqual(logout.status_code, 200)
             anonymous_subscriptions = client.get("/api/subscriptions")
             self.assertEqual(anonymous_subscriptions.status_code, 401)
+            self.assertEqual(
+                client.get(
+                    "/api/subscriptions",
+                    headers={"X-ChatEvent-Admin-Token": "arch_wrong"},
+                ).status_code,
+                401,
+            )
+
+            member_session = client.get(
+                "/api/session", headers={"X-ChatEvent-Admin-Token": member_token}
+            ).json()
+            self.assertTrue(member_session["authenticated"])
+            self.assertEqual(member_session["user"]["username"], "rexwzh@lookeng.cn")
             self.assertEqual(
                 len(
                     client.get(
