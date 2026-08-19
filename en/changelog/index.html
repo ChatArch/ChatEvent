@@ -447,6 +447,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#015" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.1.5
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#014" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -547,6 +558,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#015" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.1.5
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#014" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -633,6 +655,13 @@
 
 
 <h1 id="changelog">Changelog</h1>
+<h2 id="015">0.1.5</h2>
+<ul>
+<li>Corrected the login model: the Web entry now uses username/password login, and <code>arch_xxx</code> tokens are no longer Web login credentials.</li>
+<li>Added password-hash storage and bootstrap admin initialization through <code>CHATEVENT_BOOTSTRAP_USERNAME</code> + <code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code>.</li>
+<li>Added API token issue endpoints: <code>POST /api/me/token</code> and <code>POST /api/users/{id}/token</code>; tokens are for CLI, model, or programmatic API calls on behalf of an account.</li>
+<li>The logged-in Web session can edit subscriptions directly; CLI/API clients can use a token or login with username + password file.</li>
+</ul>
 <h2 id="014">0.1.4</h2>
 <ul>
 <li>Added a login-page gate: once an admin token or users exist, unauthenticated visits to <code>/</code> see only the login page and cannot enter the Observatory.</li>
@@ -643,7 +672,7 @@
 <ul>
 <li>Advanced action-kind options now merge the platform action catalog with observed event kinds for the selected source.</li>
 <li>The GitHub action catalog now includes <code>workflow_run.requested</code> and <code>workflow_run.in_progress</code>.</li>
-<li>Added an <code>arch_xxx</code> token login and user-management skeleton: <code>/api/session</code>, <code>/api/users</code>, and CLI <code>api create-user</code>.</li>
+<li>Added an early login/user-management skeleton (corrected in 0.1.5 to username/password Web login plus API tokens): <code>/api/session</code>, <code>/api/users</code>, and CLI <code>api create-user</code>.</li>
 <li><code>Subscription.owner_user_id</code> provides the first isolation boundary for member-owned subscriptions while administrators can still manage all subscriptions.</li>
 </ul>
 <h2 id="012">0.1.2</h2>

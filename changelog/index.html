@@ -447,6 +447,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#015" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.1.5
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#014" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -547,6 +558,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#015" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.1.5
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#014" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -633,6 +655,13 @@
 
 
 <h1 id="_1">发行说明</h1>
+<h2 id="015">0.1.5</h2>
+<ul>
+<li>修正登录模型：Web 主页改为账号密码登录，<code>arch_xxx</code> token 不再作为网页登录凭据。</li>
+<li>新增 password hash 存储与 bootstrap 管理员账号初始化：<code>CHATEVENT_BOOTSTRAP_USERNAME</code> + <code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code>。</li>
+<li>新增 API Token 生成接口：<code>POST /api/me/token</code> 与 <code>POST /api/users/{id}/token</code>；token 仅用于 CLI、模型或程序代表账号调用 API。</li>
+<li>Web 登录后可直接编辑订阅；CLI/API 可用 token，也可通过用户名 + 密码文件先登录后操作。</li>
+</ul>
 <h2 id="014">0.1.4</h2>
 <ul>
 <li>新增登录页 gate：配置管理员 token 或用户后，未登录访问 <code>/</code> 只显示登录页，不能直接进入 Observatory。</li>
@@ -643,7 +672,7 @@
 <ul>
 <li>高级事件类型列表现在会合并平台 action catalog 与当前已观察到的来源事件类型。</li>
 <li>GitHub action catalog 补充 <code>workflow_run.requested</code> 与 <code>workflow_run.in_progress</code>。</li>
-<li>新增 <code>arch_xxx</code> token 登录与用户管理骨架：<code>/api/session</code>、<code>/api/users</code> 和 CLI <code>api create-user</code>。</li>
+<li>新增轻量登录与用户管理骨架（0.1.5 已修正为账号密码网页登录 + API Token 机制）：<code>/api/session</code>、<code>/api/users</code> 和 CLI <code>api create-user</code>。</li>
 <li><code>Subscription.owner_user_id</code> 为 member 用户订阅隔离打基础，管理员仍可管理全部订阅。</li>
 </ul>
 <h2 id="012">0.1.2</h2>
