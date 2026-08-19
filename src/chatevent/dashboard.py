@@ -28,9 +28,10 @@ LOGIN_HTML = r"""<!doctype html>
   <main class="login-card">
     <div class="eyebrow">ChatEvent / Login</div>
     <h1>登录 Observatory</h1>
-    <p>登录后才能查看事件流、订阅和用户管理。请输入管理员或成员的 <code>arch_xxx</code> 令牌。</p>
+    <p>登录后才能查看事件流、订阅和用户管理。Token 不是网页登录凭据，只用于 CLI、模型或程序代表你的账号调用 API。</p>
     <form id="loginForm">
-      <label>登录令牌<input id="tokenInput" name="token" placeholder="arch_xxx" autocomplete="off" spellcheck="false" autofocus /></label>
+      <label>账号<input id="usernameInput" name="username" placeholder="you@example.com" autocomplete="username" spellcheck="false" autofocus /></label>
+      <label>密码<input id="passwordInput" name="password" type="password" autocomplete="current-password" /></label>
       <button type="submit">进入 Observatory</button>
       <div class="error" id="loginError"></div>
     </form>
@@ -42,13 +43,13 @@ LOGIN_HTML = r"""<!doctype html>
   <script>
     document.getElementById("loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const token = document.getElementById("tokenInput").value.trim();
+      const username = document.getElementById("usernameInput").value.trim();
+      const password = document.getElementById("passwordInput").value;
       const error = document.getElementById("loginError");
-      if (!token) { error.textContent = "请输入登录令牌。"; return; }
+      if (!username || !password) { error.textContent = "请输入账号和密码。"; return; }
       try {
-        const response = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token})});
+        const response = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username, password})});
         if (!response.ok) throw new Error((await response.json()).detail || "login failed");
-        sessionStorage.setItem("chateventAdminToken", token);
         window.location.reload();
       } catch (err) { error.textContent = `登录失败：${err.message}`; }
     });
@@ -329,7 +330,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <div><h2>Subscriptions</h2><span>当前关注对象</span></div>
           <div class="subscription-actions">
             <span class="chip" id="sessionStatus">未登录</span>
-            <button class="button" id="adminToken" type="button">登录 / 管理令牌</button>
+            <button class="button" id="adminToken" type="button">账号 / API Token</button>
             <button class="button" id="addSubscription" type="button">＋ 新建</button>
           </div>
         </div>
@@ -387,26 +388,27 @@ DASHBOARD_HTML = r"""<!doctype html>
   </dialog>
 
   <dialog id="adminTokenDialog">
-    <div class="eyebrow">Admin token</div>
-    <h2>管理令牌</h2>
-    <p class="dialog-note">令牌格式为 <span class="token-preview">arch_xxx</span>。点击“生成令牌”会随机生成一个新值，可复制后写入服务端 ChatArch secret 或环境变量；前端只把它保存到当前浏览器 session，用于后续订阅编辑请求。</p>
-    <label class="wide">当前令牌<input class="control token-preview" id="generatedAdminToken" placeholder="arch_xxx" autocomplete="off" spellcheck="false" /></label>
+    <div class="eyebrow">Account / API token</div>
+    <h2>账号与 API Token</h2>
+    <p class="dialog-note">网页端使用账号密码登录。API Token 用于 CLI、模型或程序代表你的账号调用 API；它不是主页登录凭据。生成后只展示一次，请复制保存。</p>
+    <label class="wide">当前 API Token<input class="control token-preview" id="generatedAdminToken" placeholder="点击生成后显示 arch_xxx" autocomplete="off" spellcheck="false" /></label>
     <div class="error" id="adminTokenStatus"></div>
     <div class="dialog-actions">
-      <button type="button" class="button" id="generateAdminToken">生成令牌</button>
-      <button type="button" class="button" id="copyAdminToken">复制令牌</button>
-      <button type="button" class="button" id="clearAdminToken">清除</button>
+      <button type="button" class="button primary" id="generateAdminToken">生成 / 轮换我的 Token</button>
+      <button type="button" class="button" id="copyAdminToken">复制 Token</button>
+      <button type="button" class="button" id="saveAdminToken">保存到当前浏览器</button>
+      <button type="button" class="button" id="clearAdminToken">清除本地 Token</button>
       <button type="button" class="button" id="closeAdminToken">关闭</button>
-      <button type="button" class="button primary" id="saveAdminToken">登录并保存</button>
     </div>
     <section class="user-admin" id="userAdminPanel">
       <div class="eyebrow">User management</div>
-      <p class="dialog-note">管理员登录后可以创建用户。每个用户会生成一个只展示一次的 <span class="token-preview">arch_xxx</span> 登录令牌；用户数据先按 subscription owner 隔离。</p>
+      <p class="dialog-note">管理员可以创建用户账号密码。用户登录后可生成自己的 API Token；管理员也可为用户轮换 Token。</p>
       <div class="form-grid">
         <label>用户名 / 邮箱<input class="control" id="newUserName" placeholder="user@example.com" autocomplete="off" /></label>
         <label>显示名称<input class="control" id="newUserDisplay" placeholder="Rex Wang" autocomplete="off" /></label>
+        <label>初始密码<input class="control" id="newUserPassword" type="password" autocomplete="new-password" /></label>
         <label>角色<select class="control" id="newUserRole"><option value="member">member</option><option value="admin">admin</option></select></label>
-        <button type="button" class="button primary" id="createUser">创建用户并生成令牌</button>
+        <button type="button" class="button primary" id="createUser">创建用户</button>
       </div>
       <div class="user-list" id="userList"></div>
     </section>
@@ -462,21 +464,15 @@ DASHBOARD_HTML = r"""<!doctype html>
       }
       return response.json();
     };
-    const getAdminToken = () => sessionStorage.getItem("chateventAdminToken") || "";
+    const getAdminToken = () => sessionStorage.getItem("chateventApiToken") || "";
     const adminAuthHeaders = (token = getAdminToken()) => token ? {"X-ChatEvent-Admin-Token": token} : {};
     function setAdminToken(value) {
-      if (value) sessionStorage.setItem("chateventAdminToken", value);
-      else sessionStorage.removeItem("chateventAdminToken");
+      if (value) sessionStorage.setItem("chateventApiToken", value);
+      else sessionStorage.removeItem("chateventApiToken");
     }
-    function generateAdminTokenValue() {
-      const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      const bytes = new Uint8Array(32);
-      crypto.getRandomValues(bytes);
-      return "arch_" + Array.from(bytes, byte => alphabet[byte % alphabet.length]).join("");
-    }
-    function openAdminTokenDialog({generate = false, message = ""} = {}) {
+    function openAdminTokenDialog({message = ""} = {}) {
       const input = $("generatedAdminToken");
-      input.value = generate || !getAdminToken() ? generateAdminTokenValue() : getAdminToken();
+      input.value = getAdminToken();
       $("adminTokenStatus").textContent = message;
       $("adminTokenDialog").showModal();
       input.focus();
@@ -485,14 +481,17 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
     async function copyAdminToken() {
       const input = $("generatedAdminToken");
-      if (!input.value.trim()) input.value = generateAdminTokenValue();
+      if (!input.value.trim()) {
+        $("adminTokenStatus").textContent = "请先生成或粘贴 API Token。";
+        return;
+      }
       input.select();
       try {
         await navigator.clipboard.writeText(input.value.trim());
       } catch (_error) {
         document.execCommand("copy");
       }
-      $("adminTokenStatus").textContent = "已复制令牌；要让它生效，请同步写入服务端 ChatArch secret 或 CHATEVENT_ADMIN_TOKEN。";
+      $("adminTokenStatus").textContent = "已复制 API Token；CLI/模型可用它作为 X-ChatEvent-Admin-Token。";
     }
     function renderSessionStatus(session) {
       const status = $("sessionStatus");
@@ -506,34 +505,38 @@ DASHBOARD_HTML = r"""<!doctype html>
       }
       status.textContent = "未登录";
     }
-    async function validateAdminToken(token) {
-      const session = await api("/api/session", {headers: adminAuthHeaders(token)});
-      renderSessionStatus(session);
-      return session;
-    }
-    async function loginWithAdminToken(token) {
-      const session = await api("/api/login", {method: "POST", body: JSON.stringify({token})});
-      renderSessionStatus(session);
-      return session;
-    }
     async function logoutAdminToken() {
       const session = await api("/api/logout", {method: "POST"});
       renderSessionStatus(session);
       return session;
     }
+    async function generateMyApiToken() {
+      const result = await api("/api/me/token", {method: "POST"});
+      $("generatedAdminToken").value = result.token;
+      setAdminToken(result.token);
+      $("adminTokenStatus").textContent = "已生成并保存你的 API Token；它只展示一次，请复制保存。";
+      await copyAdminToken();
+    }
     function renderUsers(users) {
       const root = $("userList");
       if (!users.length) {
-        root.innerHTML = `<span class="advanced-note">暂无用户；管理员可以创建 member/admin 并复制一次性 token。</span>`;
+        root.innerHTML = `<span class="advanced-note">暂无用户；管理员可以创建 member/admin 账号。</span>`;
         return;
       }
       root.innerHTML = users.map(user => `
         <div class="user-row">
           <span>${escapeHtml(user.username)} · ${escapeHtml(user.role)}${user.enabled ? "" : " · disabled"}</span>
           <span>${escapeHtml(user.display_name || "")}</span>
+          <button class="button small" type="button" data-token-user="${escapeHtml(user.id)}">生成 Token</button>
           <button class="button small danger" type="button" data-delete-user="${escapeHtml(user.id)}">删除</button>
         </div>
       `).join("");
+      root.querySelectorAll("[data-token-user]").forEach(button => button.addEventListener("click", async () => {
+        const result = await adminApi(`/api/users/${encodeURIComponent(button.dataset.tokenUser)}/token`, {method: "POST"});
+        $("generatedAdminToken").value = result.token;
+        $("adminTokenStatus").textContent = `已为 ${result.user.username} 生成 API Token，只展示一次。`;
+        await copyAdminToken();
+      }));
       root.querySelectorAll("[data-delete-user]").forEach(button => button.addEventListener("click", async () => {
         await adminApi(`/api/users/${encodeURIComponent(button.dataset.deleteUser)}`, {method: "DELETE"});
         await loadUsers();
@@ -541,7 +544,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
     async function loadUsers() {
       try {
-        const users = await api("/api/users", {headers: adminAuthHeaders()});
+        const users = await api("/api/users");
         renderUsers(users);
       } catch (_error) {
         $("userList").innerHTML = `<span class="advanced-note">管理员登录后可查看和创建用户。</span>`;
@@ -549,24 +552,24 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
     async function createManagedUser() {
       const username = $("newUserName").value.trim();
-      if (!username) {
-        $("adminTokenStatus").textContent = "请输入用户名或邮箱。";
+      const password = $("newUserPassword").value;
+      if (!username || !password) {
+        $("adminTokenStatus").textContent = "请输入用户名/邮箱和初始密码。";
         return;
       }
-      const result = await api("/api/users", {
+      const result = await adminApi("/api/users", {
         method: "POST",
-        headers: adminAuthHeaders(),
         body: JSON.stringify({
           username,
+          password,
           display_name: $("newUserDisplay").value.trim() || null,
           role: $("newUserRole").value,
         }),
       });
-      $("generatedAdminToken").value = result.token;
-      $("adminTokenStatus").textContent = `已创建 ${result.user.username}，令牌只展示一次，请复制给用户。`;
+      $("adminTokenStatus").textContent = `已创建 ${result.user.username}；用户可用账号密码登录，并自行生成 API Token。`;
       $("newUserName").value = "";
       $("newUserDisplay").value = "";
-      await copyAdminToken();
+      $("newUserPassword").value = "";
       await loadUsers();
     }
     async function adminApi(path, options = {}, retry = true) {
@@ -576,7 +579,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       try { return await api(path, {...options, headers}); }
       catch (error) {
         if (error.status === 401 && retry) {
-          openAdminTokenDialog({message: "当前 session 令牌未通过鉴权；请复制 arch_xxx 到服务端 ChatArch secret 后，再保存同一个值重试。"});
+          openAdminTokenDialog({message: "需要登录或 API Token 才能完成这个操作；请先登录，或在账号面板生成/保存 Token。"});
           throw error;
         }
         throw error;
@@ -945,42 +948,29 @@ DASHBOARD_HTML = r"""<!doctype html>
     $("closePlatformAction").addEventListener("click", () => $("platformActionDialog").close());
 
     const dialog = $("subscriptionDialog");
-    $("adminToken").addEventListener("click", () => openAdminTokenDialog({generate: !getAdminToken()}));
-    $("generateAdminToken").addEventListener("click", () => {
-      $("generatedAdminToken").value = generateAdminTokenValue();
-      $("adminTokenStatus").textContent = "已生成新的 arch_ 令牌。";
-      $("generatedAdminToken").select();
+    $("adminToken").addEventListener("click", () => openAdminTokenDialog());
+    $("generateAdminToken").addEventListener("click", async () => {
+      try { await generateMyApiToken(); }
+      catch (error) { $("adminTokenStatus").textContent = `生成 Token 失败：${error.message}`; }
     });
     $("copyAdminToken").addEventListener("click", copyAdminToken);
     $("createUser").addEventListener("click", async () => {
       try { await createManagedUser(); }
       catch (error) { $("adminTokenStatus").textContent = `创建用户失败：${error.message}`; }
     });
-    $("saveAdminToken").addEventListener("click", async () => {
+    $("saveAdminToken").addEventListener("click", () => {
       const token = $("generatedAdminToken").value.trim();
       if (token && !token.startsWith("arch_")) {
-        $("adminTokenStatus").textContent = "建议使用 arch_xxx 格式，便于和 ChatArch 令牌规范保持一致。";
+        $("adminTokenStatus").textContent = "API Token 应使用 arch_xxx 格式。";
         return;
       }
-      try {
-        const session = token ? await loginWithAdminToken(token) : await logoutAdminToken();
-        if (session.admin_required && !session.authenticated) {
-          $("adminTokenStatus").textContent = "登录失败：服务端未接受该令牌。";
-          return;
-        }
-        setAdminToken(token);
-        $("adminTokenStatus").textContent = token ? "登录成功，已保存到当前浏览器 session。" : "当前部署不需要登录，session 令牌已清空。";
-        await loadAll();
-      } catch (error) {
-        $("adminTokenStatus").textContent = `登录失败：${error.message}`;
-      }
+      setAdminToken(token);
+      $("adminTokenStatus").textContent = token ? "已保存到当前浏览器，后续编辑会带上这个 API Token。" : "已清空当前浏览器保存的 API Token。";
     });
-    $("clearAdminToken").addEventListener("click", async () => {
+    $("clearAdminToken").addEventListener("click", () => {
       setAdminToken("");
-      await logoutAdminToken();
       $("generatedAdminToken").value = "";
-      $("adminTokenStatus").textContent = "当前 session 令牌已清空。";
-      window.location.reload();
+      $("adminTokenStatus").textContent = "已清空当前浏览器保存的 API Token。";
     });
     $("closeAdminToken").addEventListener("click", () => $("adminTokenDialog").close());
     $("addSubscription").addEventListener("click", () => openSubscriptionDialog());

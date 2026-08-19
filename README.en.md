@@ -247,9 +247,10 @@ The default base URL is `CHATEVENT_API_URL`, falling back to `http://127.0.0.1:8
 | --- | --- | --- |
 | `chatevent api health` | `GET /api/health` | Read service health and DB path. |
 | `chatevent api stats` | `GET /api/stats` | Read event/source/duplicate statistics. |
-| `chatevent api session` | `GET /api/session` | Validate the current `arch_xxx` token and return user/role. |
+| `chatevent api session` | `GET /api/session` | Validate the current API token or login cookie and return user/role. |
 | `chatevent api users` | `GET /api/users` | List users as an administrator. |
-| `chatevent api create-user <username>` | `POST /api/users` | Create a user and print the one-time `arch_xxx` token. |
+| `chatevent api create-user <username> --new-password-file pass.txt` | `POST /api/users` | Create a username/password user; no token is returned. |
+| `chatevent api create-token [user_id]` | `POST /api/me/token` or `POST /api/users/{id}/token` | Issue a one-time `arch_xxx` API token for the current account or a target user. |
 | `chatevent api delete-user <id>` | `DELETE /api/users/{id}` | Delete a user as an administrator. |
 | `chatevent api events --source discourse --days 7` | `GET /api/events?...` | Query the event stream with source/kind/subscription/q/since/days/from/to/limit filters. |
 | `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` | Read one concrete event. |
@@ -274,17 +275,21 @@ uv run chatevent api event \
 
 ## Online editing and safety settings
 
-The Web Observatory `Subscriptions` tab supports creating, editing, enabling/disabling, and deleting subscriptions through the same REST API. If `CHATEVENT_ADMIN_TOKEN` is set, visits to `/` first show the login page and the Observatory is shown only after login; event-stream, stats, platform catalog, schema, and subscription read APIs also require login. Mutation requests must include `X-ChatEvent-Admin-Token`, or the browser can first call `/api/login` to set a session cookie. The web page's Admin token panel can generate a random `arch_xxx` token, copy it, and store the chosen value only in browser sessionStorage; to make that token valid, write the same value to the server-side secret file or environment variable.
+The Web Observatory `Subscriptions` tab supports creating, editing, enabling/disabling, and deleting subscriptions through the same REST API. If users or bootstrap credentials are configured, visits to `/` first show a username/password login page and the Observatory is shown only after login; event-stream, stats, platform catalog, schema, and subscription read APIs also require login. The logged-in browser session can edit directly. CLI, model, or programmatic clients can use `X-ChatEvent-Admin-Token` with the account's `arch_xxx` API token, or use the CLI username/password options to login before calling an endpoint.
 
-`CHATEVENT_ADMIN_TOKEN` is the bootstrap administrator credential. After logging in, an administrator can create users through `POST /api/users` or `chatevent api create-user <username>`. Each user receives a one-time `arch_xxx` token, while the server stores only its hash. `Subscription.owner_user_id` is the first isolation boundary: member tokens create/read/delete only their own subscriptions; bootstrap/admin tokens manage all subscriptions. Username/password login can be layered on top of this user table later, but passwords must not be written to source, docs, tests, or Git history.
+`CHATEVENT_ADMIN_TOKEN` is only a bootstrap administrator API credential, not a Web login mechanism. Production deployments should configure `CHATEVENT_BOOTSTRAP_USERNAME` and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` to initialize the administrator account. After logging in, an administrator can create username/password users through `POST /api/users` or `chatevent api create-user <username> --new-password-file pass.txt`. Users generate their own `arch_xxx` API tokens from Account / API Token after login; the server stores only token hashes. `Subscription.owner_user_id` is the first isolation boundary: member accounts create/read/delete only their own subscriptions, while admins can manage all subscriptions. Passwords and tokens must not be written to source, docs, or Git history.
 
 ```bash
 mkdir -p ~/.chatarch/chatevent/secrets
 chmod 700 ~/.chatarch/chatevent ~/.chatarch/chatevent/secrets
 printf '<admin-token>\n' > ~/.chatarch/chatevent/secrets/admin-token
-chmod 600 ~/.chatarch/chatevent/secrets/admin-token
+printf '<admin-password>\n' > ~/.chatarch/chatevent/secrets/admin-password
+chmod 600 ~/.chatarch/chatevent/secrets/admin-token ~/.chatarch/chatevent/secrets/admin-password
 
+CHATEVENT_BOOTSTRAP_USERNAME='admin@example.com' \
+CHATEVENT_BOOTSTRAP_PASSWORD_FILE=~/.chatarch/chatevent/secrets/admin-password \
 uv run --extra serve chatevent serve
+uv run chatevent api create-token --username admin@example.com --password-file ~/.chatarch/chatevent/secrets/admin-password
 uv run chatevent api save-subscription subscription.json --admin-token ...
 uv run chatevent api delete-subscription discourse-practice --admin-token ...
 ```

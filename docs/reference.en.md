@@ -130,20 +130,22 @@ Path precedence is `--db`, `CHATEVENT_DB`, `$CHATARCH_HOME/chatevent/events.db`,
 
 `subscriptions.body` stores the full `Subscription` JSON, including `last_cursor` and `last_event_at` updates after events arrive; `events.body` stores the full `ChatEvent` JSON.
 
-The Web Observatory `Subscriptions` tab can create, edit, enable/disable, and delete subscriptions. For production or public deployments, configure an admin token: `CHATEVENT_ADMIN_TOKEN` first, then `CHATEVENT_ADMIN_TOKEN_FILE`, then the default file `$CHATARCH_HOME/chatevent/secrets/admin-token` or `~/.chatarch/chatevent/secrets/admin-token`. Once configured, `POST /api/subscriptions` and `DELETE /api/subscriptions/{id}` require the `X-ChatEvent-Admin-Token` header.
+The Web Observatory `Subscriptions` tab can create, edit, enable/disable, and delete subscriptions. Production or public deployments should configure user login and may keep a bootstrap API token: `CHATEVENT_ADMIN_TOKEN` first, then `CHATEVENT_ADMIN_TOKEN_FILE`, then the default file `$CHATARCH_HOME/chatevent/secrets/admin-token` or `~/.chatarch/chatevent/secrets/admin-token`. The bootstrap token is for API/CLI initialization or recovery only; it is not a Web login credential.
 
 ## Login, User Management, And Isolation
 
-ChatEvent now includes a lightweight token login skeleton:
+ChatEvent now uses a minimal username/password + API token model:
 
-- `GET /`: when an admin token or users are configured, unauthenticated callers receive only the login page; authenticated callers receive the Observatory.
-- `POST /api/login`: validate an `arch_xxx` token and set a browser cookie.
+- `GET /`: when users or bootstrap credentials are configured, unauthenticated callers receive only the username/password login page; authenticated callers receive the Observatory.
+- `POST /api/login`: validate `username` / `password` and set a browser cookie.
 - `POST /api/logout`: clear the browser cookie.
 - `GET /api/session`: validate the current `X-ChatEvent-Admin-Token` or cookie and return `admin_required`, `authenticated`, `user`, and whether the caller is the bootstrap admin.
 - `GET /api/users`: list users as an administrator.
-- `POST /api/users`: create a user and return a one-time `arch_xxx` token; the server stores only the token hash.
+- `POST /api/users`: create a username/password user; the server stores only the password hash.
+- `POST /api/me/token`: issue a one-time `arch_xxx` API token for the current logged-in account.
+- `POST /api/users/{id}/token`: issue a one-time API token for a target user as an administrator.
 - `DELETE /api/users/{id}`: delete a user as an administrator.
 
 After an admin token or users exist, read APIs such as `/api/stats`, `/api/events`, `/api/events/{dedupe_key}`, schema, platforms, and subscriptions require login. Event-write and webhook endpoints remain reachable so platform events can still arrive.
 
-`CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` is the bootstrap administrator credential for creating the first users. `Subscription.owner_user_id` is the current isolation boundary: subscriptions created by member tokens are automatically owned by that user; members can only read, update, and delete their own subscriptions; bootstrap/admin tokens can manage all subscriptions. The event stream remains an Observatory debugging view for now and can be tightened by tenant/user owner later.
+`CHATEVENT_BOOTSTRAP_USERNAME` and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` can initialize the first administrator account. `CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` is the bootstrap administrator API credential for CLI/model/API user creation or recovery. `Subscription.owner_user_id` is the current isolation boundary: subscriptions created by member accounts are automatically owned by that user; members can only read, update, and delete their own subscriptions; admins can manage all subscriptions. The event stream remains an Observatory debugging view for now and can be tightened by tenant/user owner later.

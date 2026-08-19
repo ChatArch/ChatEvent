@@ -10,7 +10,7 @@ from typing import Annotated, Any
 
 from fastapi import Cookie, FastAPI, Header, HTTPException, Query, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from . import __version__
 from .adapters import (
@@ -19,7 +19,14 @@ from .adapters import (
     normalize_gitea_issue,
     normalize_zulip_message_event,
 )
-from .auth import UserRecord, UserRole, generate_arch_token, token_digest
+from .auth import (
+    UserRecord,
+    UserRole,
+    generate_arch_token,
+    password_digest,
+    token_digest,
+    verify_password,
+)
 from .catalog import PlatformSpec, list_platform_specs
 from .dashboard import DASHBOARD_HTML, LOGIN_HTML
 from .model import CaptureMode, ChatEvent
@@ -72,6 +79,7 @@ class UserCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     username: str
+    password: str = Field(min_length=1)
     display_name: str | None = None
     role: UserRole = "member"
     enabled: bool = True
@@ -81,13 +89,20 @@ class UserCreateResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     user: UserRecord
+
+
+class UserTokenResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user: UserRecord
     token: str
 
 
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    token: str
+    username: str
+    password: str
 
 
 SESSION_COOKIE = "chatevent_session"
@@ -102,6 +117,33 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
     )
     app.state.store = store
     admin_token = load_admin_token()
+    sessions: dict[str, str] = {}
+
+    def load_secret(name: str, file_name: str) -> str | None:
+        value = os.environ.get(name)
+        if value:
+            return value.strip()
+        path = os.environ.get(file_name)
+        if path:
+            secret_path = Path(path).expanduser()
+            if secret_path.exists():
+                return secret_path.read_text(encoding="utf-8").strip()
+        return None
+
+    def bootstrap_password_user() -> None:
+        username = os.environ.get("CHATEVENT_BOOTSTRAP_USERNAME", "").strip()
+        password = load_secret(
+            "CHATEVENT_BOOTSTRAP_PASSWORD", "CHATEVENT_BOOTSTRAP_PASSWORD_FILE"
+        )
+        if not username or not password:
+            return
+        existing = store.get_user_by_username(username, enabled_only=False)
+        user = existing or UserRecord(username=username, role="admin")
+        if user.role != "admin":
+            user = user.model_copy(update={"role": "admin"})
+        store.save_user(user, password_hash=password_digest(password))
+
+    bootstrap_password_user()
 
     def admin_required() -> bool:
         return bool(admin_token or store.list_users())
@@ -114,17 +156,33 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
             role="admin",
         )
 
+    def resolve_api_identity(header_value: str | None) -> tuple[UserRecord | None, bool]:
+        if not header_value:
+            return None, False
+        if admin_token and secrets.compare_digest(header_value, admin_token):
+            return bootstrap_admin(True), True
+        user = store.get_user_by_token_hash(token_digest(header_value))
+        if user is not None:
+            return user, False
+        return None, False
+
+    def resolve_session_identity(cookie_value: str | None) -> UserRecord | None:
+        if not cookie_value:
+            return None
+        user_id = sessions.get(cookie_value)
+        if not user_id:
+            return None
+        return store.get_user(user_id)
+
     def resolve_identity(
         header_value: str | None, cookie_value: str | None = None
     ) -> tuple[UserRecord | None, bool]:
-        for token in (header_value, cookie_value):
-            if not token:
-                continue
-            if admin_token and secrets.compare_digest(token, admin_token):
-                return bootstrap_admin(True), True
-            user = store.get_user_by_token_hash(token_digest(token))
-            if user is not None:
-                return user, False
+        api_identity, legacy = resolve_api_identity(header_value)
+        if api_identity is not None:
+            return api_identity, legacy
+        session_identity = resolve_session_identity(cookie_value)
+        if session_identity is not None:
+            return session_identity, False
         if not admin_required():
             return bootstrap_admin(False), False
         return None, False
@@ -162,12 +220,15 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
 
     @app.post("/api/login", response_model=SessionStatus)
     def login(payload: LoginRequest, response: Response) -> SessionStatus:
-        identity, legacy = resolve_identity(payload.token)
-        if identity is None:
-            raise HTTPException(status_code=401, detail="invalid login token")
+        user = store.get_user_by_username(payload.username)
+        password_hash = store.get_user_password_hash(user.id) if user is not None else None
+        if user is None or not verify_password(payload.password, password_hash):
+            raise HTTPException(status_code=401, detail="invalid username or password")
+        session_token = secrets.token_urlsafe(32)
+        sessions[session_token] = user.id
         response.set_cookie(
             SESSION_COOKIE,
-            payload.token,
+            session_token,
             httponly=True,
             samesite="lax",
             max_age=60 * 60 * 24,
@@ -175,12 +236,17 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         return SessionStatus(
             admin_required=admin_required(),
             authenticated=True,
-            user=identity,
-            legacy_admin=legacy,
+            user=user,
+            legacy_admin=False,
         )
 
     @app.post("/api/logout", response_model=SessionStatus)
-    def logout(response: Response) -> SessionStatus:
+    def logout(
+        response: Response,
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> SessionStatus:
+        if chatevent_session:
+            sessions.pop(chatevent_session, None)
         response.delete_cookie(SESSION_COOKIE)
         return SessionStatus(admin_required=admin_required(), authenticated=False)
 
@@ -228,7 +294,6 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
         chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> UserCreateResult:
         require_admin_token(x_chatevent_admin_token, chatevent_session)
-        token = generate_arch_token()
         user = store.save_user(
             UserRecord(
                 username=payload.username,
@@ -236,9 +301,41 @@ def create_app(*, db_path: str | Path | None = None) -> FastAPI:
                 role=payload.role,
                 enabled=payload.enabled,
             ),
-            token_hash=token_digest(token),
+            password_hash=password_digest(payload.password),
         )
-        return UserCreateResult(user=user, token=token)
+        return UserCreateResult(user=user)
+
+    @app.post("/api/me/token", response_model=UserTokenResult)
+    def create_my_token(
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> UserTokenResult:
+        identity = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        if identity.id in {"bootstrap-admin", "local-admin"}:
+            raise HTTPException(status_code=409, detail="create a real user before issuing API tokens")
+        token = generate_arch_token()
+        user = store.save_user(identity, token_hash=token_digest(token))
+        return UserTokenResult(user=user, token=token)
+
+    @app.post("/api/users/{user_id}/token", response_model=UserTokenResult)
+    def create_user_token(
+        user_id: str,
+        x_chatevent_admin_token: str | None = Header(
+            default=None, alias="X-ChatEvent-Admin-Token"
+        ),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> UserTokenResult:
+        admin = require_admin_token(x_chatevent_admin_token, chatevent_session)
+        target = store.get_user(user_id)
+        if target is None:
+            raise HTTPException(status_code=404, detail="user not found")
+        if admin.role != "admin" and admin.id != target.id:
+            raise HTTPException(status_code=403, detail="cannot issue token for another user")
+        token = generate_arch_token()
+        user = store.save_user(target, token_hash=token_digest(token))
+        return UserTokenResult(user=user, token=token)
 
     @app.delete("/api/users/{user_id}", response_model=DeleteResult)
     def delete_user(

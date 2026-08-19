@@ -247,9 +247,10 @@ ChatEvent 可以当作一个轻量 Event Hub：平台官方 webhook / event queu
 | --- | --- | --- |
 | `chatevent api health` | `GET /api/health` | 读服务健康状态和 DB 路径。 |
 | `chatevent api stats` | `GET /api/stats` | 读事件数、来源数、重复投递数。 |
-| `chatevent api session` | `GET /api/session` | 校验当前 `arch_xxx` token 并返回登录用户/角色。 |
+| `chatevent api session` | `GET /api/session` | 校验当前 API token 或登录 cookie 并返回用户/角色。 |
 | `chatevent api users` | `GET /api/users` | 管理员列出用户。 |
-| `chatevent api create-user <username>` | `POST /api/users` | 管理员创建用户并返回一次性 `arch_xxx` token。 |
+| `chatevent api create-user <username> --new-password-file pass.txt` | `POST /api/users` | 管理员创建账号密码用户，不返回 token。 |
+| `chatevent api create-token [user_id]` | `POST /api/me/token` 或 `POST /api/users/{id}/token` | 为当前账号或指定用户生成一次性 `arch_xxx` API token。 |
 | `chatevent api delete-user <id>` | `DELETE /api/users/{id}` | 管理员删除用户。 |
 | `chatevent api events --source discourse --days 7` | `GET /api/events?...` | 按 source/kind/subscription/q/since/days/from/to/limit 查询事件流。 |
 | `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` | 直接读取某一条具体 event。 |
@@ -274,17 +275,21 @@ uv run chatevent api event \
 
 ## 线上编辑与安全设定
 
-Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若设置 `CHATEVENT_ADMIN_TOKEN`，访问 `/` 会先进入登录页，登录后才显示 Observatory；事件流、统计、平台目录、schema、订阅等读取 API 也需要登录。写操作必须带 `X-ChatEvent-Admin-Token` header，或先通过 `/api/login` 设置当前浏览器 cookie。Web 页面的“管理令牌”会随机生成 `arch_xxx` 格式令牌、支持复制，并只把选中的值保存在当前浏览器 sessionStorage；要让它真正生效，需要把同一个值写入服务端 secret 文件或环境变量。
+Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若配置了用户或 bootstrap 管理凭据，访问 `/` 会先进入账号密码登录页，登录后才显示 Observatory；事件流、统计、平台目录、schema、订阅等读取 API 也需要登录。网页端登录后可以直接编辑；CLI、模型或其他程序可以使用 `X-ChatEvent-Admin-Token` 携带账号的 `arch_xxx` API token，也可以通过 CLI 的账号密码参数先登录后操作。
 
-`CHATEVENT_ADMIN_TOKEN` 是 bootstrap 管理员凭据：管理员登录后可以通过 `POST /api/users` 或 `chatevent api create-user <username>` 创建用户。每个用户会返回一个只展示一次的 `arch_xxx` token，服务端只保存 hash。`Subscription.owner_user_id` 是数据隔离基础：member 创建/读取/删除订阅时只作用于自己的 owner；bootstrap/admin token 可管理全部订阅。账号密码登录可在这个用户表之上继续扩展，但密码不应写入源码、文档或 Git 历史。
+`CHATEVENT_ADMIN_TOKEN` 仅是 bootstrap 管理员 API 凭据，不是 Web 登录方式；生产部署应配置 `CHATEVENT_BOOTSTRAP_USERNAME` 与 `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` 来初始化管理员账号密码。管理员登录后可以通过 `POST /api/users` 或 `chatevent api create-user <username> --new-password-file pass.txt` 创建账号密码用户；用户登录后在“账号 / API Token”里主动生成自己的 `arch_xxx` token，服务端只保存 token hash。`Subscription.owner_user_id` 是数据隔离基础：member 创建/读取/删除订阅时只作用于自己的 owner；admin 可管理全部订阅。密码和 token 都不应写入源码、文档或 Git 历史。
 
 ```bash
 mkdir -p ~/.chatarch/chatevent/secrets
 chmod 700 ~/.chatarch/chatevent ~/.chatarch/chatevent/secrets
 printf '<admin-token>\n' > ~/.chatarch/chatevent/secrets/admin-token
-chmod 600 ~/.chatarch/chatevent/secrets/admin-token
+printf '<admin-password>\n' > ~/.chatarch/chatevent/secrets/admin-password
+chmod 600 ~/.chatarch/chatevent/secrets/admin-token ~/.chatarch/chatevent/secrets/admin-password
 
+CHATEVENT_BOOTSTRAP_USERNAME='admin@example.com' \
+CHATEVENT_BOOTSTRAP_PASSWORD_FILE=~/.chatarch/chatevent/secrets/admin-password \
 uv run --extra serve chatevent serve
+uv run chatevent api create-token --username admin@example.com --password-file ~/.chatarch/chatevent/secrets/admin-password
 uv run chatevent api save-subscription subscription.json --admin-token ...
 uv run chatevent api delete-subscription discourse-practice --admin-token ...
 ```

@@ -23,6 +23,8 @@ class ChatEventApiClient:
     base_url: str = "http://127.0.0.1:8765"
     timeout: float = 20.0
     admin_token: str | None = None
+    username: str | None = None
+    password: str | None = None
 
     def health(self) -> dict[str, Any]:
         return self._request("GET", "/api/health")
@@ -45,11 +47,26 @@ class ChatEventApiClient:
         username: str,
         display_name: str | None = None,
         role: str = "member",
+        password: str | None = None,
     ) -> dict[str, Any]:
         return self._request(
             "POST",
             "/api/users",
-            payload={"username": username, "display_name": display_name, "role": role},
+            payload={
+                "username": username,
+                "password": password,
+                "display_name": display_name,
+                "role": role,
+            },
+        )
+
+    def create_my_token(self) -> dict[str, Any]:
+        return self._request("POST", "/api/me/token")
+
+    def create_user_token(self, user_id: str) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/api/users/" + urllib.parse.quote(user_id, safe="") + "/token",
         )
 
     def delete_user(self, user_id: str) -> dict[str, Any]:
@@ -133,6 +150,8 @@ class ChatEventApiClient:
         admin_token = self.admin_token or os.environ.get("CHATEVENT_ADMIN_TOKEN")
         if admin_token:
             headers["X-ChatEvent-Admin-Token"] = admin_token
+        elif self.username and self.password:
+            headers["Cookie"] = self._login_cookie()
         if payload is not None:
             body = json.dumps(payload).encode("utf-8")
             headers["Content-Type"] = "application/json"
@@ -152,6 +171,27 @@ class ChatEventApiClient:
         except json.JSONDecodeError as error:
             raise ChatEventApiError(f"invalid JSON response from {url}: {error}") from error
 
+    def _login_cookie(self) -> str:
+        url = _build_url(self.base_url, "/api/login")
+        payload = json.dumps({"username": self.username, "password": self.password}).encode(
+            "utf-8"
+        )
+        request = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                cookie = response.headers.get("Set-Cookie", "")
+                response.read()
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace")
+            raise ChatEventApiError(f"{error.code} {error.reason}: {detail}") from error
+        if not cookie:
+            raise ChatEventApiError("login succeeded but no session cookie was returned")
+        return cookie.split(";", 1)[0]
 
 def _build_url(
     base_url: str,

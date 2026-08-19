@@ -61,7 +61,8 @@ class EventStore:
                     username TEXT NOT NULL UNIQUE,
                     role TEXT NOT NULL,
                     enabled INTEGER NOT NULL,
-                    token_hash TEXT NOT NULL UNIQUE,
+                    token_hash TEXT UNIQUE,
+                    password_hash TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     body TEXT NOT NULL
@@ -93,6 +94,52 @@ class EventStore:
                     ON users(role, enabled);
                 """
             )
+            self._migrate_users_schema(connection)
+
+    def _migrate_users_schema(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row["name"]: row
+            for row in connection.execute("PRAGMA table_info(users)").fetchall()
+        }
+        if "password_hash" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+            columns = {
+                row["name"]: row
+                for row in connection.execute("PRAGMA table_info(users)").fetchall()
+            }
+        if columns.get("token_hash") and columns["token_hash"]["notnull"]:
+            connection.executescript(
+                """
+                CREATE TABLE users_new (
+                    id TEXT PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    role TEXT NOT NULL,
+                    enabled INTEGER NOT NULL,
+                    token_hash TEXT UNIQUE,
+                    password_hash TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    body TEXT NOT NULL
+                );
+                INSERT INTO users_new(
+                    id, username, role, enabled, token_hash, password_hash,
+                    created_at, updated_at, body
+                )
+                SELECT id, username, role, enabled, token_hash, password_hash,
+                       created_at, updated_at, body
+                FROM users;
+                DROP TABLE users;
+                ALTER TABLE users_new RENAME TO users;
+                """
+            )
+        connection.executescript(
+            """
+            CREATE INDEX IF NOT EXISTS idx_users_token_hash
+                ON users(token_hash);
+            CREATE INDEX IF NOT EXISTS idx_users_role_enabled
+                ON users(role, enabled);
+            """
+        )
 
     @staticmethod
     def _json(value: BaseModel) -> str:
@@ -102,20 +149,50 @@ class EventStore:
             separators=(",", ":"),
         )
 
-    def save_user(self, user: UserRecord, *, token_hash: str) -> UserRecord:
+    def save_user(
+        self,
+        user: UserRecord,
+        *,
+        token_hash: str | None = None,
+        password_hash: str | None = None,
+    ) -> UserRecord:
         now = utc_now()
-        created = user.created_at or now
-        updated = user.model_copy(update={"created_at": created, "updated_at": now})
         with self._connect() as connection:
+            existing = connection.execute(
+                "SELECT * FROM users WHERE id = ? OR username = ? ORDER BY id = ? DESC LIMIT 1",
+                (user.id, user.username, user.id),
+            ).fetchone()
+            created = (
+                datetime.fromisoformat(existing["created_at"])
+                if existing is not None
+                else user.created_at or now
+            )
+            stored_token_hash = token_hash if token_hash is not None else (
+                existing["token_hash"] if existing is not None else None
+            )
+            stored_password_hash = password_hash if password_hash is not None else (
+                existing["password_hash"] if existing is not None else None
+            )
+            updated = user.model_copy(
+                update={
+                    "id": existing["id"] if existing is not None else user.id,
+                    "created_at": created,
+                    "updated_at": now,
+                }
+            )
             connection.execute(
                 """
-                INSERT INTO users(id, username, role, enabled, token_hash, created_at, updated_at, body)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO users(
+                    id, username, role, enabled, token_hash, password_hash,
+                    created_at, updated_at, body
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     username=excluded.username,
                     role=excluded.role,
                     enabled=excluded.enabled,
                     token_hash=excluded.token_hash,
+                    password_hash=excluded.password_hash,
                     updated_at=excluded.updated_at,
                     body=excluded.body
                 """,
@@ -124,7 +201,8 @@ class EventStore:
                     updated.username,
                     updated.role,
                     int(updated.enabled),
-                    token_hash,
+                    stored_token_hash,
+                    stored_password_hash,
                     updated.created_at.isoformat(),
                     updated.updated_at.isoformat(),
                     self._json(updated),
@@ -138,6 +216,37 @@ class EventStore:
                 "SELECT body FROM users ORDER BY updated_at DESC"
             ).fetchall()
         return [UserRecord.model_validate_json(row["body"]) for row in rows]
+
+    def get_user(self, user_id: str, *, enabled_only: bool = True) -> UserRecord | None:
+        sql = "SELECT body FROM users WHERE id = ?"
+        parameters: list[Any] = [user_id]
+        if enabled_only:
+            sql += " AND enabled = 1"
+        with self._connect() as connection:
+            row = connection.execute(sql, parameters).fetchone()
+        if row is None:
+            return None
+        return UserRecord.model_validate_json(row["body"])
+
+    def get_user_by_username(
+        self, username: str, *, enabled_only: bool = True
+    ) -> UserRecord | None:
+        sql = "SELECT body FROM users WHERE username = ?"
+        parameters: list[Any] = [username.strip()]
+        if enabled_only:
+            sql += " AND enabled = 1"
+        with self._connect() as connection:
+            row = connection.execute(sql, parameters).fetchone()
+        if row is None:
+            return None
+        return UserRecord.model_validate_json(row["body"])
+
+    def get_user_password_hash(self, user_id: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT password_hash FROM users WHERE id = ? AND enabled = 1", (user_id,)
+            ).fetchone()
+        return row["password_hash"] if row is not None else None
 
     def get_user_by_token_hash(self, token_hash: str) -> UserRecord | None:
         with self._connect() as connection:
