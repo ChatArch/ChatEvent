@@ -7,6 +7,7 @@ from .catalog import (
     get_platform_spec,
     list_platform_specs,
 )
+from .config import ChatEventConfig
 from .model import ActionDescriptor, ActorDescriptor, CaptureMode, CarrierTarget, ChatEvent
 from .monitor import EventMonitor
 from .state import ChatEventPaths, default_database_path, load_admin_token, state_paths
@@ -19,6 +20,7 @@ __all__ = [
     "CaptureMode",
     "CarrierTarget",
     "ChatEvent",
+    "ChatEventConfig",
     "ChatEventPaths",
     "EventMonitor",
     "EventStore",
@@ -30,4 +32,4 @@ __all__ = [
     "get_platform_spec",
     "list_platform_specs",
 ]
-__version__ = "0.1.5"
+__version__ = "0.2.0"

@@ -36,17 +36,31 @@ class ChatEventPaths:
         }
 
 
+def _default_chatarch_home() -> Path:
+    """Resolve ChatArch home through ChatEnv, with legacy fallback."""
+
+    try:
+        from chatenv import get_paths
+
+        return Path(get_paths().home_dir)
+    except Exception:
+        return Path(os.environ.get("CHATARCH_HOME") or Path.home() / ".chatarch")
+
+
 def state_paths(*, chatarch_home: str | Path | None = None, create: bool = False) -> ChatEventPaths:
     """Return all default ChatEvent state paths under ChatArch home.
 
     Precedence for the ChatArch root is explicit ``chatarch_home`` >
-    ``CHATARCH_HOME`` > ``~/.chatarch``. Individual DB overrides still use
-    ``CHATEVENT_DB`` at the command boundary, but the default always stays here.
+    ChatEnv ``get_paths().home_dir`` > ``CHATARCH_HOME`` > ``~/.chatarch``.
+    Individual DB overrides still use ``CHATEVENT_DB`` at the command boundary,
+    but the default always stays here.
     """
 
-    root = Path(
-        chatarch_home or os.environ.get("CHATARCH_HOME") or Path.home() / ".chatarch"
-    ).expanduser()
+    root = (
+        Path(chatarch_home).expanduser()
+        if chatarch_home
+        else _default_chatarch_home().expanduser()
+    )
     state_dir = root / "chatevent"
     paths = ChatEventPaths(
         chatarch_home=root,

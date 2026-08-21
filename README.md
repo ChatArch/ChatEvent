@@ -2,7 +2,7 @@
 
 `chatevent` 是 ChatArch 的协作事件观察包：提供类型化事件 envelope、SQLite 事件账本、平台 normalizer 和 Web Observatory，用于观察 Discourse、Zulip、Gitea、GitHub 等协作平台的真实动作。
 
-当前 `0.1.0` 范围聚焦 **Discourse、Zulip、Gitea、GitHub**。每个平台都有明确 action catalog，订阅和 UI 不再把任意 `tag` 当成事件语义。
+当前 `0.2.0` 范围把 ChatEvent 收敛为标准 Chat 系列包：依赖 ChatStyle 渲染 CLI 树，注册 ChatEnv 配置接口，并继续聚焦 **Discourse、Zulip、Gitea、GitHub** 的明确 action catalog。
 
 ```text
 平台官方 webhook / event queue / API cursor -> ChatEvent -> SQLite -> Observatory / API
@@ -34,32 +34,26 @@ uv sync --extra serve --extra test --extra docs
 uv run --extra serve chatevent --tree
 ```
 
-`0.1.0` 是第一个完整 Event Hub 版本：包含 Observatory、SQLite 事件账本、平台 action registry、REST API/CLI 对应、订阅编辑和 ChatArch 内部默认路径。
+`0.2.0` 是标准 Chat 系列对齐版本：保留 Event Hub 功能，新增 ChatStyle-rendered CLI tree、ChatEnv config registration 和标准 MkDocs 命令/接口导航。
 
 ## CLI
 
+完整 CLI 树见 [docs/cli-tree.md](docs/cli-tree.md)，运行时可回读：
+
+```bash
+uv run chatevent --tree
+```
+
+核心命令族：
+
 ```text
 chatevent
-  --tree                         Print this command tree
-  --version                      Print package version
-  paths [--json]                 Show ChatArch-owned runtime paths
-  serve [--host HOST] [--port PORT] [--db DB]
-                                 Run the local Event Observatory
-  schema event|subscription      Print JSON Schema contracts
-  platforms [--json]             List supported platforms and action kinds
-  record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
-  api health                     GET /api/health from a running Event Hub
-  api stats                      GET /api/stats
-  api platforms                  GET /api/platforms
-  api schema event|subscription  GET /api/schema/{kind}
-  api subscriptions [--enabled]  GET /api/subscriptions
-  api subscription ID            GET /api/subscriptions/{id}
-  api events [filters]           GET /api/events
-  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
-  api record-json FILE           POST /api/events
-  api save-subscription FILE     POST /api/subscriptions
-  api delete-subscription ID     DELETE /api/subscriptions/{id}
-  capture zulip-once [options]   Official Zulip event-queue capture pass
+├── api        # REST API client for Event Hub operations
+├── capture    # bounded official platform capture passes
+├── paths      # ChatEnv/ChatArch-owned runtime paths
+├── platforms  # platform action catalog
+├── schema     # JSON Schema contracts
+└── serve      # local Event Observatory and REST API
 ```
 
 ## 启动 Event Observatory
@@ -83,7 +77,7 @@ http://127.0.0.1:8765/
 
 ## ChatArch 内部默认目录
 
-ChatEvent 是 ChatArch 系列包，默认运行态必须留在 ChatArch home 内部。ChatArch home 的解析顺序是 `CHATARCH_HOME`，未设置时使用 `~/.chatarch`。
+ChatEvent 是 ChatArch 系列包，默认运行态必须留在 ChatArch home 内部。ChatArch home 优先由 ChatEnv `get_paths().home_dir` 提供；显式传入 `CHATARCH_HOME` 时保留兼容。
 
 ```text
 <chatarch-home>/
@@ -99,8 +93,9 @@ ChatEvent 是 ChatArch 系列包，默认运行态必须留在 ChatArch home 内
 
 1. CLI 显式 `--db <path>`；
 2. `CHATEVENT_DB=<path>`；
-3. `$CHATARCH_HOME/chatevent/events.db`；
-4. `~/.chatarch/chatevent/events.db`。
+3. ChatEnv `get_paths().home_dir / "chatevent/events.db"`；
+4. `$CHATARCH_HOME/chatevent/events.db`；
+5. `~/.chatarch/chatevent/events.db`。
 
 首次使用默认路径时，如果发现旧版 `~/.chatevent/events.db` 且新数据库不存在，ChatEvent 会把旧库复制到 ChatArch 内部路径；旧文件保留不删除。显式 `--db` 或 `CHATEVENT_DB` 不触发自动迁移。
 
@@ -114,6 +109,12 @@ SQLite 内部主要有两张表：
 
 - `subscriptions`：订阅配置和状态，`body` 保存完整 `Subscription` JSON；`last_cursor`、`last_event_at` 等更新也在这里。
 - `events`：规范化后的 `ChatEvent`，`body` 保存完整事件 JSON，索引列保存 source、kind、subscription_id、captured_at 和 seen_count。
+
+## ChatStyle 与 ChatEnv 对齐
+
+`chatevent --tree` 由 ChatStyle 渲染；`chatevent.config:ChatEventConfig` 注册到 ChatEnv 的 `chatenv.configs` entry point。ChatEvent 自身只声明 Event Hub 相关 ENV：`CHATEVENT_API_URL`、`CHATEVENT_DB`、`CHATEVENT_ADMIN_TOKEN(_FILE)`、`CHATEVENT_API_USERNAME`、`CHATEVENT_API_PASSWORD_FILE`、`CHATEVENT_BOOTSTRAP_USERNAME`、`CHATEVENT_BOOTSTRAP_PASSWORD_FILE`。
+
+平台凭据交给各平台 ChatEnv profile 或服务 secret 文件管理。比如 `capture zulip-once` 默认读取 ChatEnv `envs_dir/Zulip/.env`，文件内容需要包含 `ZULIP_SITE`、`BOT_EMAIL`、`BOT_API_KEY`，ChatEvent 不在 CLI 输出里打印这些值。
 
 平台侧 webhook 注册、Zulip secret 文件、Nginx upstream、运行端口等不写入 SQLite；它们属于外部平台或运行时部署配置，凭据不写入项目文件。
 

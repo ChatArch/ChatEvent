@@ -54,13 +54,13 @@ Zulip should use the official event queue first:
 
 ```bash
 uv run --extra serve chatevent capture zulip-once \
-  --env-file /path/to/zulip.env \
+  --env-file ~/.chatarch/envs/Zulip/.env \
   --stream "chatevent-practice" \
   --topic "real-loop" \
   --subscription-id zulip-practice
 ```
 
-Secret files are referenced by path only. Do not copy or print secrets. A long-running capture should later be supervised by a proper service/cron/watchdog; the current CLI is a bounded capture pass.
+Platform secrets are managed by ChatEnv profiles or service secret files; ChatEvent references them by path only and does not copy or print secrets. A long-running capture should later be supervised by a proper service/cron/watchdog; the current CLI is a bounded capture pass.
 
 ## Gitea webhook
 

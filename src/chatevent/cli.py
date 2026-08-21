@@ -8,36 +8,206 @@ import os
 from collections.abc import Sequence
 from pathlib import Path
 
+import click
+from chatstyle import render_click_tree
+
 from . import __version__
 
 
-TREE = """chatevent
-  --tree                         Print this command tree
-  --version                      Print package version
-  paths [--json]                 Show ChatArch-owned runtime paths
-  serve [--host HOST] [--port PORT] [--db DB]
-                                 Run the local Event Observatory
-  schema event|subscription      Print JSON Schema contracts
-  platforms [--json]             List supported platforms and action kinds
-  record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
-  api health                     GET /api/health from a running Event Hub
-  api stats                      GET /api/stats
-  api platforms                  GET /api/platforms
-  api session                    GET /api/session
-  api users                      GET /api/users
-  api create-user USERNAME       POST /api/users (admin)
-  api create-token [USER_ID]     POST /api/me/token or /api/users/{id}/token
-  api delete-user ID             DELETE /api/users/{id}
-  api schema event|subscription  GET /api/schema/{kind}
-  api subscriptions [--enabled]  GET /api/subscriptions
-  api subscription ID            GET /api/subscriptions/{id}
-  api events [filters]           GET /api/events
-  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
-  api record-json FILE           POST /api/events
-  api save-subscription FILE     POST /api/subscriptions
-  api delete-subscription ID     DELETE /api/subscriptions/{id}
-  capture zulip-once [options]   Official Zulip event-queue capture pass
-"""
+def _option(*decls: str, **kwargs: object) -> click.Option:
+    return click.Option(list(decls), **kwargs)
+
+
+def _argument(name: str, **kwargs: object) -> click.Argument:
+    return click.Argument([name], **kwargs)
+
+
+def _command(
+    name: str,
+    help_text: str,
+    params: Sequence[click.Parameter] = (),
+) -> click.Command:
+    return click.Command(name, help=help_text, params=list(params))
+
+
+def _build_tree_command() -> click.Group:
+    root = click.Group("chatevent", help="ChatArch collaboration Event Hub")
+    root.params.extend(
+        [
+            _option("--tree", is_flag=True, help="Print the registered CLI tree."),
+            _option("--version", is_flag=True, help="Print package version."),
+        ]
+    )
+    root.add_command(
+        _command(
+            "paths",
+            "Show ChatArch-owned runtime paths.",
+            [_option("--json", is_flag=True, help="Print paths as JSON.")],
+        )
+    )
+    root.add_command(
+        _command(
+            "serve",
+            "Run the local Event Observatory and REST API.",
+            [
+                _option("--host", metavar="HOST"),
+                _option("--port", metavar="PORT"),
+                _option("--db", metavar="DB"),
+            ],
+        )
+    )
+    root.add_command(
+        _command(
+            "schema",
+            "Print local JSON Schema contracts.",
+            [_argument("event|subscription")],
+        )
+    )
+    root.add_command(
+        _command(
+            "platforms",
+            "List supported platforms and action kinds.",
+            [_option("--json", is_flag=True, help="Print the platform catalog as JSON.")],
+        )
+    )
+    root.add_command(
+        _command(
+            "record-json",
+            "Validate and write one local ChatEvent JSON file.",
+            [_argument("FILE"), _option("--db", metavar="DB")],
+        )
+    )
+
+    api = click.Group("api", help="Call a running ChatEvent REST API server.")
+
+    def api_params(extra: Sequence[click.Parameter] = ()) -> list[click.Parameter]:
+        return [
+            *extra,
+            _option("--base-url", metavar="URL", help="ChatEvent API base URL."),
+            _option("--timeout", metavar="SECONDS", help="HTTP timeout."),
+            _option("--admin-token", metavar="TOKEN", help="Account API token."),
+            _option("--username", metavar="USERNAME", help="Username login fallback."),
+            _option("--password-file", metavar="FILE", help="Password file login fallback."),
+        ]
+
+    for name, help_text in (
+        ("health", "GET /api/health."),
+        ("stats", "GET /api/stats."),
+        ("platforms", "GET /api/platforms."),
+        ("session", "GET /api/session."),
+        ("users", "GET /api/users."),
+    ):
+        api.add_command(_command(name, help_text, api_params()))
+    api.add_command(
+        _command(
+            "create-user",
+            "POST /api/users.",
+            api_params(
+                [
+                    _argument("USERNAME"),
+                    _option("--new-password-file", metavar="FILE"),
+                    _option("--display-name", metavar="NAME"),
+                    _option("--role", metavar="admin|member"),
+                ]
+            ),
+        )
+    )
+    api.add_command(
+        _command(
+            "create-token",
+            "POST /api/me/token or /api/users/{id}/token.",
+            api_params([_argument("USER_ID", required=False)]),
+        )
+    )
+    api.add_command(
+        _command("delete-user", "DELETE /api/users/{id}.", api_params([_argument("ID")]))
+    )
+    api.add_command(
+        _command("schema", "GET /api/schema/{kind}.", api_params([_argument("event|subscription")]))
+    )
+    api.add_command(
+        _command(
+            "subscriptions",
+            "GET /api/subscriptions.",
+            api_params([_option("--enabled", metavar="true|false")]),
+        )
+    )
+    api.add_command(
+        _command("subscription", "GET /api/subscriptions/{id}.", api_params([_argument("ID")]))
+    )
+    api.add_command(
+        _command(
+            "events",
+            "GET /api/events.",
+            api_params(
+                [
+                    _option("--source", metavar="SOURCE"),
+                    _option("--kind", metavar="KIND"),
+                    _option("--subscription-id", metavar="ID"),
+                    _option("--q", metavar="QUERY"),
+                    _option("--since", metavar="TIMESTAMP"),
+                    _option("--days", metavar="N"),
+                    _option("--from", metavar="TIMESTAMP"),
+                    _option("--to", metavar="TIMESTAMP"),
+                    _option("--limit", metavar="N"),
+                ]
+            ),
+        )
+    )
+    api.add_command(
+        _command("event", "GET /api/events/{dedupe_key}.", api_params([_argument("DEDUPE_KEY")]))
+    )
+    api.add_command(
+        _command("record-json", "POST /api/events.", api_params([_argument("FILE")]))
+    )
+    api.add_command(
+        _command("save-subscription", "POST /api/subscriptions.", api_params([_argument("FILE")]))
+    )
+    api.add_command(
+        _command(
+            "delete-subscription",
+            "DELETE /api/subscriptions/{id}.",
+            api_params([_argument("ID")]),
+        )
+    )
+    root.add_command(api)
+
+    capture = click.Group("capture", help="Run bounded official platform capture passes.")
+    capture.add_command(
+        _command(
+            "zulip-once",
+            "Official Zulip event-queue capture pass.",
+            [
+                _option("--db", metavar="DB"),
+                _option("--env-file", metavar="FILE"),
+                _option("--stream", metavar="STREAM"),
+                _option("--topic", metavar="TOPIC"),
+                _option("--content", metavar="TEXT"),
+                _option("--timeout", metavar="SECONDS"),
+                _option("--subscription-id", metavar="ID"),
+            ],
+        )
+    )
+    root.add_command(capture)
+    return root
+
+
+def render_cli_tree() -> str:
+    """Render the CLI tree with ChatStyle while preserving the argparse runtime."""
+
+    return render_click_tree(_build_tree_command(), root_name="chatevent")
+
+
+TREE = render_cli_tree()
+
+
+def _default_zulip_env_file() -> Path:
+    try:
+        from chatenv import get_paths
+
+        return Path(get_paths().envs_dir) / "Zulip" / ".env"
+    except Exception:
+        return Path("~/.chatarch/envs/Zulip/.env").expanduser()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -211,8 +381,8 @@ def build_parser() -> argparse.ArgumentParser:
     zulip.add_argument(
         "--env-file",
         type=Path,
-        default=Path("~/.chatarch/envs/Zulip/.env"),
-        help="Zulip env file containing ZULIP_SITE/BOT_EMAIL/BOT_API_KEY",
+        default=_default_zulip_env_file(),
+        help="Zulip env file managed by ChatEnv and containing ZULIP_SITE/BOT_EMAIL/BOT_API_KEY",
     )
     zulip.add_argument("--stream", default=None, help="Zulip stream name")
     zulip.add_argument("--topic", default=None, help="Zulip topic")
@@ -310,7 +480,7 @@ def _handle_api_command(args: argparse.Namespace) -> None:
 def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     if args.tree:
-        print(TREE, end="")
+        print(TREE)
         return
     if args.command is None:
         build_parser().print_help()

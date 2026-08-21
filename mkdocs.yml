@@ -3,14 +3,21 @@ site_description: ChatArch collaboration event capture and observatory toolkit
 site_url: https://arch.gh.wzhecnu.cn/ChatEvent/
 repo_url: https://github.com/ChatArch/ChatEvent
 repo_name: ChatArch/ChatEvent
+edit_uri: edit/main/docs/
+docs_dir: docs/
 
 theme:
   name: material
   language: zh
   features:
+    - navigation.tabs
     - navigation.sections
-    - navigation.indexes
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
     - content.code.copy
+    - content.action.edit
 
 plugins:
   - search
@@ -34,6 +41,9 @@ plugins:
             快速开始: Quick Start
             注册监控: Register Monitors
             平台与事件: Platforms and Events
+            命令与接口: Commands and APIs
+            CLI 树: CLI Tree
+            接口树: Interface Tree
             接口参考: Reference
             发行说明: Changelog
 
@@ -41,8 +51,13 @@ markdown_extensions:
   - admonition
   - attr_list
   - md_in_html
+  - toc:
+      permalink: true
   - pymdownx.details
   - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
@@ -61,5 +76,8 @@ nav:
   - 快速开始: quickstart.md
   - 注册监控: monitoring.md
   - 平台与事件: platform-actions.md
-  - 接口参考: reference.md
+  - 命令与接口:
+      - CLI 树: cli-tree.md
+      - 接口树: interface-tree.md
+      - 接口参考: reference.md
   - 发行说明: changelog.md

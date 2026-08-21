@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- Aligned ChatEvent with standard Chat-series package conventions by adding `click`, `chatstyle`, and `chatenv` dependencies.
+- `chatevent --tree` now uses a ChatStyle-rendered CLI tree while preserving the existing argparse command runtime.
+- Added `chatevent.config:ChatEventConfig` and registered it under the ChatEnv `chatenv.configs` entry point.
+- Default runtime paths now prefer ChatEnv `get_paths().home_dir` while keeping `CHATARCH_HOME`, `CHATEVENT_DB`, and legacy DB migration compatibility.
+- MkDocs navigation now uses standard grouped command/interface pages, including bilingual `CLI Tree` and `Interface Tree` docs.
+
 ## 0.1.5
 
 - Corrected the login model: the Web entry now uses username/password login, and `arch_xxx` tokens are no longer Web login credentials.

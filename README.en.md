@@ -2,7 +2,7 @@
 
 `chatevent` provides a typed event envelope, SQLite event store, platform normalizers, and a Web Observatory for collaboration-event demos.
 
-Current `0.1.0` scope is focused on **Discourse, Zulip, Gitea, and GitHub**. Each platform registers an explicit action catalog so subscription/UI choices stay controllable instead of treating arbitrary `tag` values as event semantics.
+Current `0.2.0` scope aligns ChatEvent as a standard Chat-series package: ChatStyle renders the CLI tree, ChatEnv owns the configuration contract, and the package keeps focusing on explicit action catalogs for **Discourse, Zulip, Gitea, and GitHub**.
 
 ```text
 platform official webhook/event queue/API cursor -> ChatEvent -> SQLite -> Observatory/API
@@ -34,32 +34,26 @@ uv sync --extra serve --extra test --extra docs
 uv run --extra serve chatevent --tree
 ```
 
-`0.1.0` is the first complete Event Hub release: Observatory, SQLite ledger, platform action registry, REST API/CLI mapping, editable subscriptions, and ChatArch-internal default paths.
+`0.2.0` is the standard Chat-series alignment release: it keeps the Event Hub behavior while adding a ChatStyle-rendered CLI tree, ChatEnv config registration, and standard MkDocs command/interface navigation.
 
 ## CLI
 
+See [docs/cli-tree.en.md](docs/cli-tree.en.md) for the full CLI tree. You can also read it from the installed command:
+
+```bash
+uv run chatevent --tree
+```
+
+Core command families:
+
 ```text
 chatevent
-  --tree                         Print this command tree
-  --version                      Print package version
-  paths [--json]                 Show ChatArch-owned runtime paths
-  serve [--host HOST] [--port PORT] [--db DB]
-                                 Run the local Event Observatory
-  schema event|subscription      Print JSON Schema contracts
-  platforms [--json]             List supported platforms and action kinds
-  record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
-  api health                     GET /api/health from a running Event Hub
-  api stats                      GET /api/stats
-  api platforms                  GET /api/platforms
-  api schema event|subscription  GET /api/schema/{kind}
-  api subscriptions [--enabled]  GET /api/subscriptions
-  api subscription ID            GET /api/subscriptions/{id}
-  api events [filters]           GET /api/events
-  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
-  api record-json FILE           POST /api/events
-  api save-subscription FILE     POST /api/subscriptions
-  api delete-subscription ID     DELETE /api/subscriptions/{id}
-  capture zulip-once [options]   Official Zulip event-queue capture pass
+├── api        # REST API client for Event Hub operations
+├── capture    # bounded official platform capture passes
+├── paths      # ChatEnv/ChatArch-owned runtime paths
+├── platforms  # platform action catalog
+├── schema     # JSON Schema contracts
+└── serve      # local Event Observatory and REST API
 ```
 
 ## Run the Event Observatory
@@ -83,7 +77,7 @@ For the current server demo, nginx exposes the service at:
 
 ## ChatArch-internal default paths
 
-ChatEvent is a ChatArch-series package, so its default runtime state stays under ChatArch home. ChatArch home is resolved from `CHATARCH_HOME`, falling back to `~/.chatarch`.
+ChatEvent is a ChatArch-series package, so its default runtime state stays under ChatArch home. ChatArch home is provided by ChatEnv `get_paths().home_dir` first; explicit `CHATARCH_HOME` remains supported for compatibility.
 
 ```text
 <chatarch-home>/
@@ -99,8 +93,9 @@ Database path precedence:
 
 1. Explicit CLI `--db <path>`;
 2. `CHATEVENT_DB=<path>`;
-3. `$CHATARCH_HOME/chatevent/events.db`;
-4. `~/.chatarch/chatevent/events.db`.
+3. ChatEnv `get_paths().home_dir / "chatevent/events.db"`;
+4. `$CHATARCH_HOME/chatevent/events.db`;
+5. `~/.chatarch/chatevent/events.db`.
 
 On first use of the default path, if legacy `~/.chatevent/events.db` exists and the new database does not, ChatEvent copies it into the ChatArch-internal path and keeps the legacy file in place. Explicit `--db` or `CHATEVENT_DB` does not trigger automatic migration.
 
@@ -114,6 +109,12 @@ The SQLite database mainly contains:
 
 - `subscriptions`: subscription configuration and state. `body` stores the full `Subscription` JSON, including updates such as `last_cursor` and `last_event_at`.
 - `events`: normalized `ChatEvent` records. `body` stores the full event JSON, while indexed columns keep source, kind, subscription_id, captured_at, and seen_count.
+
+## ChatStyle And ChatEnv Alignment
+
+`chatevent --tree` is rendered by ChatStyle. `chatevent.config:ChatEventConfig` is registered under the ChatEnv `chatenv.configs` entry point. ChatEvent only declares Event Hub env keys: `CHATEVENT_API_URL`, `CHATEVENT_DB`, `CHATEVENT_ADMIN_TOKEN(_FILE)`, `CHATEVENT_API_USERNAME`, `CHATEVENT_API_PASSWORD_FILE`, `CHATEVENT_BOOTSTRAP_USERNAME`, and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE`.
+
+Platform credentials belong to platform-specific ChatEnv profiles or service secret files. For example, `capture zulip-once` defaults to ChatEnv `envs_dir/Zulip/.env`; that file contains `ZULIP_SITE`, `BOT_EMAIL`, and `BOT_API_KEY`, and ChatEvent never prints those values.
 
 Platform-side webhook registration, Zulip secret files, nginx upstreams, and runtime ports are deployment/platform configuration, not SQLite records. Credentials are not written into project files.
 

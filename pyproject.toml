@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chatevent"
-version = "0.1.5"
+version = "0.2.0"
 authors = [
     {name = "Rex Wang", email = "1073853456@qq.com"},
 ]
@@ -22,7 +22,12 @@ classifiers = [
     "Topic :: Communications",
     "Typing :: Typed",
 ]
-dependencies = ["pydantic>=2.7,<3"]
+dependencies = [
+    "pydantic>=2.7,<3",
+    "click>=8.1,<9.0",
+    "chatstyle>=0.2.0,<0.3.0",
+    "chatenv>=0.2.9,<0.3.0",
+]
 
 [project.optional-dependencies]
 serve = ["fastapi>=0.115", "uvicorn>=0.30"]
@@ -42,6 +47,9 @@ Issues = "https://github.com/ChatArch/ChatEvent/issues"
 
 [project.scripts]
 chatevent = "chatevent.cli:main"
+
+[project.entry-points."chatenv.configs"]
+chatevent = "chatevent.config:ChatEventConfig"
 
 [tool.setuptools.packages.find]
 where = ["src"]
