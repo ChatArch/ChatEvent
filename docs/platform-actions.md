@@ -1,6 +1,6 @@
 # 平台与事件
 
-ChatEvent 当前把四个平台作为明确支持范围。`push` / `pull` 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 `source + action/kind + target` 表达；target 是承载链，不只是一个标签。
+ChatEvent 当前把五个平台作为明确支持范围。`push` / `pull` 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 `source + action/kind + target` 表达；target 是承载链，不只是一个标签。
 
 ## 支持矩阵
 
@@ -10,12 +10,13 @@ ChatEvent 当前把四个平台作为明确支持范围。`push` / `pull` 不再
 | Discourse | 官方 REST API、webhook | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | 官方 REST API、repository/org webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
 | GitHub | 官方 REST/GraphQL API、webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
+| X | 公开用户页/status URL/oEmbed；后续可扩展官方 API 或浏览器 profile | `poll`, `manual_backfill` | `post.created` |
 
 ## 字段含义
 
 | 字段 | 含义 |
 | --- | --- |
-| `source` | 平台 ID，例如 `discourse`。 |
+| `source` | 平台 ID，例如 `discourse`、`x`。 |
 | `target` | 兼容和展示用订阅范围，例如 `category:agent-runs`、`stream:chatevent-practice/topic:real-loop`、`repo:ChatArch/ChatEvent`。 |
 | `scope` | 结构化订阅承载目标，包含 `type`、`key`、`display`、`url`、`parent`、`metadata`，例如 repo、PR、topic。 |
 | `actions` | 结构化动作选择器，由 `event_kinds` 自动派生，可保存 `kind`、`object_type`、`verb` 和扩展 metadata。 |
@@ -42,3 +43,7 @@ Discourse 官方 webhook 对 topic 首帖和回复都可能发送 `post_created`
 | GitHub/Gitea | `repo:ChatArch/ChatEvent` | `repo:ChatArch/ChatEvent → pull_request:ChatArch/ChatEvent#4 → issue_comment:1234` |
 
 Observatory 的 Platform actions 面板会显示 `action kind → target types`，Event Stream 点开详情会显示真实 `Action target` 和 `Target chain`。
+
+## X 公开网页动作
+
+首版 X 事件使用 `source=x`、`kind=post.created`。`capture x-user --handle <handle> --limit <N> --days <N>` 从公开用户页发现最近 status URL，并通过 oEmbed/status 网页补充内容、作者、发布时间和来源 URL；重复运行按 `x:post:<status-id>` 去重，新发帖会成为新的 Event。当前 acquisition 写入 `metadata.acquisition = "x-web-url"`，后续可并列增加 `x-api` 或 `x-browser` backend。

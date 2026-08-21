@@ -2,10 +2,10 @@
 
 `chatevent` provides a typed event envelope, SQLite event store, platform normalizers, and a Web Observatory for collaboration-event demos.
 
-Current `0.2.1` scope aligns ChatEvent as a standard Chat-series package: ChatStyle renders both full and brief CLI trees, ChatEnv owns the configuration contract, and the package keeps focusing on explicit action catalogs for **Discourse, Zulip, Gitea, and GitHub**.
+Current `0.2.1` scope aligns ChatEvent as a standard Chat-series package: ChatStyle renders both full and brief CLI trees, ChatEnv owns the configuration contract, and the package keeps focusing on explicit action catalogs for **Discourse, Zulip, Gitea, GitHub, and X**.
 
 ```text
-platform official webhook/event queue/API cursor -> ChatEvent -> SQLite -> Observatory/API
+platform official webhook/event queue/API cursor/public web URL -> ChatEvent -> SQLite -> Observatory/API
 ```
 
 Gateway routing and agent execution are intentionally outside this package's current phase.
@@ -118,6 +118,8 @@ The SQLite database mainly contains:
 
 Platform credentials belong to platform-specific ChatEnv profiles or service secret files. For example, `capture zulip-once` defaults to ChatEnv `envs_dir/Zulip/.env`; that file contains `ZULIP_SITE`, `BOT_EMAIL`, and `BOT_API_KEY`, and ChatEvent never prints those values.
 
+The first X public-web capture path does not need an account or API token. If the runtime needs a proxy, pass `--proxy-env-file /path/to/.env`; ChatEvent loads only proxy-related variables and never prints or stores proxy values.
+
 Platform-side webhook registration, Zulip secret files, nginx upstreams, and runtime ports are deployment/platform configuration, not SQLite records. Credentials are not written into project files.
 
 ## Refresh behavior
@@ -136,7 +138,7 @@ Each refresh calls `/api/stats`, `/api/subscriptions`, `/api/events`, and `/api/
 
 Use these fields for product meaning:
 
-- `source`: platform id, e.g. `zulip`, `discourse`, `gitea`, `github`.
+- `source`: platform id, e.g. `zulip`, `discourse`, `gitea`, `github`, `x`.
 - `kind`: platform-specific action kind, e.g. `message.created`, `post.created`, `reply.created`, `issue.opened`, `commit.pushed`, `pull_request.merged`.
 - `conversation_id` / `subject_id` / `subject_type`: where it happened and what object changed.
 - `capture_mode`: acquisition mechanism, not product action. New integrations use `webhook`, `event_queue`, `api_cursor`, `poll`, `manual_backfill`, `gateway_forward`, `test_fixture`, or `synthetic`. Legacy `push`/`pull` remain readable for old data only.
@@ -192,6 +194,26 @@ uv run chatevent platforms --json
 | Discourse | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
 | GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
+| X | `poll`, `manual_backfill` | `post.created` |
+
+
+### X Public Web Capture
+
+The first X support includes two bounded capture actions:
+
+```bash
+uv run chatevent capture x-user \
+  --handle thsottiaux \
+  --limit 20 \
+  --days 7 \
+  --proxy-env-file /home/zhihong/Playground/.env
+
+uv run chatevent capture x-status \
+  --url https://x.com/thsottiaux/status/2087423996115681767 \
+  --proxy-env-file /home/zhihong/Playground/.env
+```
+
+`x-user` discovers recent status URLs from the public user page, then enriches each status with oEmbed and status-page data for author, content, published time, and source URL. Events are recorded as `source=x` / `kind=post.created`. Repeated runs dedupe on `x:post:<status-id>`, while newly published posts create new Events, so the same command supports one-time recent backfill and future trigger-based polling.
 
 ## Register monitors
 
@@ -216,6 +238,7 @@ Discourse: https://event.public.wzhecnu.cn/webhooks/discourse?subscription_id=di
 Gitea:     https://event.public.wzhecnu.cn/webhooks/gitea?subscription_id=gitea-practice
 GitHub:    https://event.public.wzhecnu.cn/webhooks/github?subscription_id=github-chatevent
 Zulip:     use `chatevent capture zulip-once` for the official event queue pass
+X:         use `chatevent capture x-user --handle <handle> --limit <N> --days <N>` to backfill/poll recent public posts
 ```
 
 See `docs/monitoring.md` for detailed registration steps.

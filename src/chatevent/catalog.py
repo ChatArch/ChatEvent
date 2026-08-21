@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .model import CaptureMode
 
-PlatformId = Literal["discourse", "gitea", "github", "zulip"]
+PlatformId = Literal["discourse", "gitea", "github", "x", "zulip"]
 
 
 class PlatformAction(BaseModel):
@@ -119,6 +119,23 @@ PLATFORM_SPECS: tuple[PlatformSpec, ...] = (
             action("workflow_run.in_progress", "workflow_run", "in_progress", "A GitHub Actions workflow run starts executing.", (CaptureMode.WEBHOOK, CaptureMode.API_CURSOR), ("workflow_run",)),
             action("workflow_run.completed", "workflow_run", "completed", "A GitHub Actions workflow run completes.", (CaptureMode.WEBHOOK, CaptureMode.API_CURSOR), ("workflow_run",)),
             action("release.published", "release", "published", "A GitHub release is published.", (CaptureMode.WEBHOOK,), ("release",)),
+        ),
+    ),
+    PlatformSpec(
+        id="x",
+        display_name="X",
+        description="Public X/Twitter posts captured from web URLs today, with room for future official API or browser-profile acquisition backends.",
+        primary_acquisition_modes=(CaptureMode.POLL, CaptureMode.MANUAL_BACKFILL),
+        scope_examples=("user:<handle>", "post:<status-id>"),
+        actions=(
+            action(
+                "post.created",
+                "post",
+                "created",
+                "A watched X user publishes a public post discovered through the web URL acquisition path.",
+                (CaptureMode.POLL, CaptureMode.MANUAL_BACKFILL),
+                target_types=("x_user", "x_post"),
+            ),
         ),
     ),
     PlatformSpec(

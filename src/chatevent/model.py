@@ -144,6 +144,10 @@ class ActorDescriptor(BaseModel):
 
 
 def _target_type_for_prefix(source: str, prefix: str) -> str:
+    if source == "x" and prefix in {"user", "handle"}:
+        return "x_user"
+    if source == "x" and prefix in {"post", "status"}:
+        return "x_post"
     if prefix == "topic":
         return "zulip_topic" if source == "zulip" else "discourse_topic"
     if prefix == "stream":

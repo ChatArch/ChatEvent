@@ -5,11 +5,46 @@ from chatevent import CaptureMode
 from chatevent.adapters import (
     normalize_discourse_post,
     normalize_gitea_issue,
+    normalize_x_post,
     normalize_zulip_message_event,
 )
 
 
 class AdapterNormalizationTests(unittest.TestCase):
+    def test_x_post_normalizes_public_web_payload(self) -> None:
+        event = normalize_x_post(
+            {
+                "status_id": "2087423996115681767",
+                "status_url": "https://x.com/thsottiaux/status/2087423996115681767",
+                "author_handle": "thsottiaux",
+                "author_name": "Tibo",
+                "text": "Little surprise for you tomorrow.",
+                "created_at": "2026-08-12T06:20:37.000Z",
+                "timestamp_source": "x-web-html",
+                "acquisition": "x-web-url",
+            },
+            subscription_id="x-user-thsottiaux",
+        )
+
+        self.assertEqual(event.source, "x")
+        self.assertEqual(event.kind, "post.created")
+        self.assertEqual(event.id, "post:2087423996115681767")
+        self.assertEqual(event.dedupe_key, "x:post:2087423996115681767")
+        self.assertEqual(event.subscription_id, "x-user-thsottiaux")
+        self.assertEqual(event.actor_id, "user:thsottiaux")
+        self.assertEqual(event.actor.display, "Tibo")
+        self.assertEqual(event.actor.role, "author")
+        self.assertEqual(event.conversation_id, "user:thsottiaux")
+        self.assertEqual(event.subject_id, "post:2087423996115681767")
+        self.assertEqual(event.subject_type, "post")
+        self.assertEqual(event.target.type, "x_post")
+        self.assertEqual(event.target.parent.type, "x_user")
+        self.assertEqual(event.url, "https://x.com/thsottiaux/status/2087423996115681767")
+        self.assertEqual(event.payload["content"], "Little surprise for you tomorrow.")
+        self.assertEqual(event.payload["created_at"], "2026-08-12T06:20:37+00:00")
+        self.assertEqual(event.metadata["acquisition"], "x-web-url")
+        self.assertIn("x-web-url", event.tags)
+
     def test_zulip_message_event_normalizes_official_event_queue_payload(self) -> None:
         event = normalize_zulip_message_event(
             {
