@@ -57,6 +57,18 @@ class XCaptureTests(unittest.TestCase):
             "2026-08-12T06:20:37.000Z",
         )
 
+    def test_extract_status_created_at_prefers_timestamp_near_status_id(self) -> None:
+        html = (
+            '"createdAt":"2026-01-01T00:00:00.000Z"'
+            + "x" * 9000
+            + '{"rest_id":"2087423996115681767","createdAt":"2026-08-12T06:20:37.000Z"}'
+        )
+
+        self.assertEqual(
+            extract_x_status_created_at(html, "2087423996115681767"),
+            "2026-08-12T06:20:37.000Z",
+        )
+
     def test_fetch_x_status_payload_uses_oembed_and_web_timestamp(self) -> None:
         def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
             url = request.full_url

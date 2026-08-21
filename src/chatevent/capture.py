@@ -175,8 +175,8 @@ def extract_x_status_created_at(html_text: str, status_id: str) -> str | None:
     """Extract the most likely exact UTC creation timestamp from a status page."""
 
     positions = [match.start() for match in re.finditer(re.escape(status_id), html_text)]
-    windows = [html_text]
-    windows.extend(html_text[max(0, pos - 8000) : pos + 8000] for pos in positions[:5])
+    windows = [html_text[max(0, pos - 8000) : pos + 8000] for pos in positions[:5]]
+    windows.append(html_text)
     for window in windows:
         match = _X_ISO_TIMESTAMP.search(window)
         if match:
