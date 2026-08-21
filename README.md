@@ -2,7 +2,7 @@
 
 `chatevent` 是 ChatArch 的协作事件观察包：提供类型化事件 envelope、SQLite 事件账本、平台 normalizer 和 Web Observatory，用于观察 Discourse、Zulip、Gitea、GitHub 等协作平台的真实动作。
 
-当前 `0.2.0` 范围把 ChatEvent 收敛为标准 Chat 系列包：依赖 ChatStyle 渲染 CLI 树，注册 ChatEnv 配置接口，并继续聚焦 **Discourse、Zulip、Gitea、GitHub** 的明确 action catalog。
+当前 `0.2.1` 范围把 ChatEvent 收敛为标准 Chat 系列包：依赖 ChatStyle 渲染完整/brief CLI 树，注册 ChatEnv 配置接口，并继续聚焦 **Discourse、Zulip、Gitea、GitHub** 的明确 action catalog。
 
 ```text
 平台官方 webhook / event queue / API cursor -> ChatEvent -> SQLite -> Observatory / API
@@ -32,16 +32,18 @@ https://arch.gh.wzhecnu.cn/ChatEvent/
 ```bash
 uv sync --extra serve --extra test --extra docs
 uv run --extra serve chatevent --tree
+uv run --extra serve chatevent --tree-brief
 ```
 
-`0.2.0` 是标准 Chat 系列对齐版本：保留 Event Hub 功能，新增 ChatStyle-rendered CLI tree、ChatEnv config registration 和标准 MkDocs 命令/接口导航。
+`0.2.1` 补齐标准 ChatStyle brief tree：保留 `0.2.0` 的 Event Hub / ChatEnv 对齐能力，并新增 `chatevent --tree-brief` 作为紧凑命令树入口。
 
 ## CLI
 
-完整 CLI 树见 [docs/cli-tree.md](docs/cli-tree.md)，运行时可回读：
+完整 CLI 树见 [docs/cli-tree.md](docs/cli-tree.md)，运行时可回读 detailed/brief 两种视图：
 
 ```bash
 uv run chatevent --tree
+uv run chatevent --tree-brief
 ```
 
 核心命令族：
@@ -112,7 +114,7 @@ SQLite 内部主要有两张表：
 
 ## ChatStyle 与 ChatEnv 对齐
 
-`chatevent --tree` 由 ChatStyle 渲染；`chatevent.config:ChatEventConfig` 注册到 ChatEnv 的 `chatenv.configs` entry point。ChatEvent 自身只声明 Event Hub 相关 ENV：`CHATEVENT_API_URL`、`CHATEVENT_DB`、`CHATEVENT_ADMIN_TOKEN(_FILE)`、`CHATEVENT_API_USERNAME`、`CHATEVENT_API_PASSWORD_FILE`、`CHATEVENT_BOOTSTRAP_USERNAME`、`CHATEVENT_BOOTSTRAP_PASSWORD_FILE`。
+`chatevent --tree` 与 `chatevent --tree-brief` 均由 ChatStyle 渲染；`chatevent.config:ChatEventConfig` 注册到 ChatEnv 的 `chatenv.configs` entry point。ChatEvent 自身只声明 Event Hub 相关 ENV：`CHATEVENT_API_URL`、`CHATEVENT_DB`、`CHATEVENT_ADMIN_TOKEN(_FILE)`、`CHATEVENT_API_USERNAME`、`CHATEVENT_API_PASSWORD_FILE`、`CHATEVENT_BOOTSTRAP_USERNAME`、`CHATEVENT_BOOTSTRAP_PASSWORD_FILE`。
 
 平台凭据交给各平台 ChatEnv profile 或服务 secret 文件管理。比如 `capture zulip-once` 默认读取 ChatEnv `envs_dir/Zulip/.env`，文件内容需要包含 `ZULIP_SITE`、`BOT_EMAIL`、`BOT_API_KEY`，ChatEvent 不在 CLI 输出里打印这些值。
 

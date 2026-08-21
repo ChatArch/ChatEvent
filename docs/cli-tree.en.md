@@ -1,13 +1,16 @@
 # CLI Tree
 
-ChatEvent's CLI is organized into four surfaces: local runtime and schemas, REST API client commands, platform capture, and ChatArch runtime paths. `chatevent --tree` is rendered by ChatStyle and is the command surface shared by docs and tests.
+ChatEvent's CLI is organized into four surfaces: local runtime and schemas, REST API client commands, platform capture, and ChatArch runtime paths. Both `chatevent --tree` and `chatevent --tree-brief` are rendered by ChatStyle and shared by docs and tests.
 
-## Top-Level Commands
+## Full Command Tree
+
+`--tree` keeps parameter signatures by default:
 
 ```text
 chatevent
 ├── --help  # Show this message and exit.
 ├── --tree  # Print the registered CLI tree.
+├── --tree-brief  # Print the registered CLI tree without parameter signatures.
 ├── --version  # Print package version.
 ├── api  # Call a running ChatEvent REST API server.
 │   ├── create-token [USER-ID] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/me/token or /api/users/{id}/token.
@@ -35,6 +38,42 @@ chatevent
 └── serve [--host HOST] [--port PORT] [--db DB]  # Run the local Event Observatory and REST API.
 ```
 
+## Brief Command Tree
+
+`--tree-brief` keeps command nodes and descriptions while omitting parameter signatures, which is useful for README snippets, capability maps, and quick human checks:
+
+```text
+chatevent
+├── --help  # Show this message and exit.
+├── --tree  # Print the registered CLI tree.
+├── --tree-brief  # Print the registered CLI tree without parameter signatures.
+├── --version  # Print package version.
+├── api  # Call a running ChatEvent REST API server.
+│   ├── create-token  # POST /api/me/token or /api/users/{id}/token.
+│   ├── create-user  # POST /api/users.
+│   ├── delete-subscription  # DELETE /api/subscriptions/{id}.
+│   ├── delete-user  # DELETE /api/users/{id}.
+│   ├── event  # GET /api/events/{dedupe_key}.
+│   ├── events  # GET /api/events.
+│   ├── health  # GET /api/health.
+│   ├── platforms  # GET /api/platforms.
+│   ├── record-json  # POST /api/events.
+│   ├── save-subscription  # POST /api/subscriptions.
+│   ├── schema  # GET /api/schema/{kind}.
+│   ├── session  # GET /api/session.
+│   ├── stats  # GET /api/stats.
+│   ├── subscription  # GET /api/subscriptions/{id}.
+│   ├── subscriptions  # GET /api/subscriptions.
+│   └── users  # GET /api/users.
+├── capture  # Run bounded official platform capture passes.
+│   └── zulip-once  # Official Zulip event-queue capture pass.
+├── paths  # Show ChatArch-owned runtime paths.
+├── platforms  # List supported platforms and action kinds.
+├── record-json  # Validate and write one local ChatEvent JSON file.
+├── schema  # Print local JSON Schema contracts.
+└── serve  # Run the local Event Observatory and REST API.
+```
+
 ## Local Runtime And Contracts
 
 ```bash
@@ -46,32 +85,30 @@ chatevent platforms --json
 chatevent record-json event.json
 ```
 
-`paths` never prints secret values. It only reports ChatArch-owned runtime paths. The default database resolution order is `--db`, `CHATEVENT_DB`, ChatEnv `get_paths().home_dir/chatevent/events.db`, `CHATARCH_HOME/chatevent/events.db`, then `~/.chatarch/chatevent/events.db`.
-
 ## REST API Client
 
-`chatevent api ...` mirrors the ChatEvent REST API. The default base URL is `CHATEVENT_API_URL`, or `http://127.0.0.1:8765` when the env var is unset. CLI access can authenticate in two ways:
-
-- API token: pass `--admin-token` or `CHATEVENT_ADMIN_TOKEN`; prefer ChatEnv profiles, secret files, or service env injection instead of shell history.
-- Username/password: pass `--username` and `--password-file` for automated recovery when no API token is available.
-
 ```bash
-chatevent api health --base-url http://127.0.0.1:8765
-chatevent api events --source github --kind issue.opened --days 7 --limit 20
-chatevent api create-user agent-worker@example.invalid --new-password-file ./password.txt --role member
+chatevent api health
+chatevent api session
+chatevent api users
+chatevent api create-user rexwzh@lookeng.cn --new-password-file ~/.chatarch/chatevent/secrets/admin-password
 chatevent api create-token
+chatevent api subscriptions --enabled true
+chatevent api events --source github --kind pull_request.opened --limit 20
+chatevent api record-json event.json
+chatevent api save-subscription subscription.json
 ```
 
-Human Web entry uses username/password login. `arch_xxx` tokens are account API credentials for CLI, model, and programmatic access.
+API tokens are for CLI/model/programmatic access. The Web Observatory homepage still uses username/password login.
 
-## Capture Commands
-
-The only first-class capture command today is `zulip-once`. It uses the official Zulip event queue: register a queue, optionally send a test message, fetch one bounded event pass, and delete the queue. The default env file path comes from ChatEnv `envs_dir/Zulip/.env`. Other platforms primarily enter through webhooks or future API cursor workers; ChatEvent does not pretend full-site scans are capture commands.
+## Platform Capture
 
 ```bash
 chatevent capture zulip-once \
   --env-file ~/.chatarch/envs/Zulip/.env \
   --stream demo \
   --topic loop \
-  --subscription-id zulip-practice
+  --subscription-id zulip-demo
 ```
+
+Platform secrets are managed by ChatEnv profiles or service secret files. ChatEvent references them by path and never prints credential values.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Added the standard ChatStyle brief-tree entry: `chatevent --tree-brief` keeps command nodes and descriptions while omitting parameter signatures.
+- Updated CLI tree docs, README, reference, and tests so both `--tree` and `--tree-brief` are acceptance entry points.
+
 ## 0.2.0
 
 - Aligned ChatEvent with standard Chat-series package conventions by adding `click`, `chatstyle`, and `chatenv` dependencies.

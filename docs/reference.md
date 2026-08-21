@@ -2,7 +2,7 @@
 
 ## CLI 树
 
-完整 CLI 树由 ChatStyle 渲染，见 [CLI 树](cli-tree.md)。`chatevent --tree` 是文档和测试共同校对的命令表面。
+完整 CLI 树由 ChatStyle 渲染，见 [CLI 树](cli-tree.md)。`chatevent --tree` 是带参数签名的完整视图，`chatevent --tree-brief` 是省略参数签名的紧凑视图；两者都是文档和测试共同校对的命令表面。
 
 ## HTTP API
 
