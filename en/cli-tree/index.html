@@ -610,10 +610,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#top-level-commands" class="md-nav__link">
+  <a href="#full-command-tree" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Top-Level Commands
+        Full Command Tree
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brief-command-tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brief Command Tree
       
     </span>
   </a>
@@ -643,10 +654,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#capture-commands" class="md-nav__link">
+  <a href="#platform-capture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Capture Commands
+        Platform Capture
       
     </span>
   </a>
@@ -779,10 +790,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#top-level-commands" class="md-nav__link">
+  <a href="#full-command-tree" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Top-Level Commands
+        Full Command Tree
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brief-command-tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brief Command Tree
       
     </span>
   </a>
@@ -812,10 +834,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#capture-commands" class="md-nav__link">
+  <a href="#platform-capture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Capture Commands
+        Platform Capture
       
     </span>
   </a>
@@ -848,66 +870,99 @@
 
 
 <h1 id="cli-tree">CLI Tree<a class="headerlink" href="#cli-tree" title="Permanent link">&para;</a></h1>
-<p>ChatEvent's CLI is organized into four surfaces: local runtime and schemas, REST API client commands, platform capture, and ChatArch runtime paths. <code>chatevent --tree</code> is rendered by ChatStyle and is the command surface shared by docs and tests.</p>
-<h2 id="top-level-commands">Top-Level Commands<a class="headerlink" href="#top-level-commands" title="Permanent link">&para;</a></h2>
+<p>ChatEvent's CLI is organized into four surfaces: local runtime and schemas, REST API client commands, platform capture, and ChatArch runtime paths. Both <code>chatevent --tree</code> and <code>chatevent --tree-brief</code> are rendered by ChatStyle and shared by docs and tests.</p>
+<h2 id="full-command-tree">Full Command Tree<a class="headerlink" href="#full-command-tree" title="Permanent link">&para;</a></h2>
+<p><code>--tree</code> keeps parameter signatures by default:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>chatevent
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── --help  # Show this message and exit.
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── --tree  # Print the registered CLI tree.
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── --version  # Print package version.
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── api  # Call a running ChatEvent REST API server.
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├── create-token [USER-ID] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/me/token or /api/users/{id}/token.
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   ├── create-user &lt;USERNAME&gt; [--new-password-file NEW-PASSWORD-FILE] [--display-name DISPLAY-NAME] [--role ROLE] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/users.
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   ├── delete-subscription &lt;ID&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # DELETE /api/subscriptions/{id}.
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── delete-user &lt;ID&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # DELETE /api/users/{id}.
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   ├── event &lt;DEDUPE-KEY&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/events/{dedupe_key}.
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   ├── events [--source SOURCE] [--kind KIND] [--subscription-id SUBSCRIPTION-ID] [--q Q] [--since SINCE] [--days DAYS] [--from FROM] [--to TO] [--limit LIMIT] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/events.
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├── health [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/health.
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   ├── platforms [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/platforms.
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   ├── record-json &lt;FILE&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/events.
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   ├── save-subscription &lt;FILE&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/subscriptions.
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   ├── schema &lt;EVENT|SUBSCRIPTION&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/schema/{kind}.
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   ├── session [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/session.
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├── stats [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/stats.
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   ├── subscription &lt;ID&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/subscriptions/{id}.
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   ├── subscriptions [--enabled ENABLED] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/subscriptions.
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   └── users [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/users.
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>├── capture  # Run bounded official platform capture passes.
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│   └── zulip-once [--db DB] [--env-file ENV-FILE] [--stream STREAM] [--topic TOPIC] [--content CONTENT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Official Zulip event-queue capture pass.
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>├── paths [--json]  # Show ChatArch-owned runtime paths.
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>├── platforms [--json]  # List supported platforms and action kinds.
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>├── record-json &lt;FILE&gt; [--db DB]  # Validate and write one local ChatEvent JSON file.
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>├── schema &lt;EVENT|SUBSCRIPTION&gt;  # Print local JSON Schema contracts.
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>└── serve [--host HOST] [--port PORT] [--db DB]  # Run the local Event Observatory and REST API.
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── --tree-brief  # Print the registered CLI tree without parameter signatures.
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── --version  # Print package version.
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── api  # Call a running ChatEvent REST API server.
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   ├── create-token [USER-ID] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/me/token or /api/users/{id}/token.
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   ├── create-user &lt;USERNAME&gt; [--new-password-file NEW-PASSWORD-FILE] [--display-name DISPLAY-NAME] [--role ROLE] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/users.
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── delete-subscription &lt;ID&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # DELETE /api/subscriptions/{id}.
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   ├── delete-user &lt;ID&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # DELETE /api/users/{id}.
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   ├── event &lt;DEDUPE-KEY&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/events/{dedupe_key}.
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├── events [--source SOURCE] [--kind KIND] [--subscription-id SUBSCRIPTION-ID] [--q Q] [--since SINCE] [--days DAYS] [--from FROM] [--to TO] [--limit LIMIT] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/events.
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   ├── health [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/health.
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   ├── platforms [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/platforms.
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   ├── record-json &lt;FILE&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/events.
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   ├── save-subscription &lt;FILE&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # POST /api/subscriptions.
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   ├── schema &lt;EVENT|SUBSCRIPTION&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/schema/{kind}.
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├── session [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/session.
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   ├── stats [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/stats.
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   ├── subscription &lt;ID&gt; [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/subscriptions/{id}.
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   ├── subscriptions [--enabled ENABLED] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/subscriptions.
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   └── users [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/users.
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>├── capture  # Run bounded official platform capture passes.
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   └── zulip-once [--db DB] [--env-file ENV-FILE] [--stream STREAM] [--topic TOPIC] [--content CONTENT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Official Zulip event-queue capture pass.
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>├── paths [--json]  # Show ChatArch-owned runtime paths.
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>├── platforms [--json]  # List supported platforms and action kinds.
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>├── record-json &lt;FILE&gt; [--db DB]  # Validate and write one local ChatEvent JSON file.
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>├── schema &lt;EVENT|SUBSCRIPTION&gt;  # Print local JSON Schema contracts.
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>└── serve [--host HOST] [--port PORT] [--db DB]  # Run the local Event Observatory and REST API.
+</code></pre></div>
+<h2 id="brief-command-tree">Brief Command Tree<a class="headerlink" href="#brief-command-tree" title="Permanent link">&para;</a></h2>
+<p><code>--tree-brief</code> keeps command nodes and descriptions while omitting parameter signatures, which is useful for README snippets, capability maps, and quick human checks:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chatevent
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── --help  # Show this message and exit.
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├── --tree  # Print the registered CLI tree.
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>├── --tree-brief  # Print the registered CLI tree without parameter signatures.
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>├── --version  # Print package version.
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>├── api  # Call a running ChatEvent REST API server.
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│   ├── create-token  # POST /api/me/token or /api/users/{id}/token.
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│   ├── create-user  # POST /api/users.
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│   ├── delete-subscription  # DELETE /api/subscriptions/{id}.
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│   ├── delete-user  # DELETE /api/users/{id}.
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│   ├── event  # GET /api/events/{dedupe_key}.
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>│   ├── events  # GET /api/events.
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>│   ├── health  # GET /api/health.
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>│   ├── platforms  # GET /api/platforms.
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>│   ├── record-json  # POST /api/events.
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>│   ├── save-subscription  # POST /api/subscriptions.
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>│   ├── schema  # GET /api/schema/{kind}.
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>│   ├── session  # GET /api/session.
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>│   ├── stats  # GET /api/stats.
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>│   ├── subscription  # GET /api/subscriptions/{id}.
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>│   ├── subscriptions  # GET /api/subscriptions.
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>│   └── users  # GET /api/users.
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>├── capture  # Run bounded official platform capture passes.
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│   └── zulip-once  # Official Zulip event-queue capture pass.
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>├── paths  # Show ChatArch-owned runtime paths.
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>├── platforms  # List supported platforms and action kinds.
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>├── record-json  # Validate and write one local ChatEvent JSON file.
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>├── schema  # Print local JSON Schema contracts.
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>└── serve  # Run the local Event Observatory and REST API.
 </code></pre></div>
 <h2 id="local-runtime-and-contracts">Local Runtime And Contracts<a class="headerlink" href="#local-runtime-and-contracts" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chatevent<span class="w"> </span>paths<span class="w"> </span>--json
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>chatevent<span class="w"> </span>serve<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8765</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>chatevent<span class="w"> </span>schema<span class="w"> </span>event
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>chatevent<span class="w"> </span>schema<span class="w"> </span>subscription
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>chatevent<span class="w"> </span>platforms<span class="w"> </span>--json
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>chatevent<span class="w"> </span>record-json<span class="w"> </span>event.json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chatevent<span class="w"> </span>paths<span class="w"> </span>--json
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>chatevent<span class="w"> </span>serve<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8765</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>chatevent<span class="w"> </span>schema<span class="w"> </span>event
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>chatevent<span class="w"> </span>schema<span class="w"> </span>subscription
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>chatevent<span class="w"> </span>platforms<span class="w"> </span>--json
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>chatevent<span class="w"> </span>record-json<span class="w"> </span>event.json
 </code></pre></div>
-<p><code>paths</code> never prints secret values. It only reports ChatArch-owned runtime paths. The default database resolution order is <code>--db</code>, <code>CHATEVENT_DB</code>, ChatEnv <code>get_paths().home_dir/chatevent/events.db</code>, <code>CHATARCH_HOME/chatevent/events.db</code>, then <code>~/.chatarch/chatevent/events.db</code>.</p>
 <h2 id="rest-api-client">REST API Client<a class="headerlink" href="#rest-api-client" title="Permanent link">&para;</a></h2>
-<p><code>chatevent api ...</code> mirrors the ChatEvent REST API. The default base URL is <code>CHATEVENT_API_URL</code>, or <code>http://127.0.0.1:8765</code> when the env var is unset. CLI access can authenticate in two ways:</p>
-<ul>
-<li>API token: pass <code>--admin-token</code> or <code>CHATEVENT_ADMIN_TOKEN</code>; prefer ChatEnv profiles, secret files, or service env injection instead of shell history.</li>
-<li>Username/password: pass <code>--username</code> and <code>--password-file</code> for automated recovery when no API token is available.</li>
-</ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chatevent<span class="w"> </span>api<span class="w"> </span>health<span class="w"> </span>--base-url<span class="w"> </span>http://127.0.0.1:8765
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>chatevent<span class="w"> </span>api<span class="w"> </span>events<span class="w"> </span>--source<span class="w"> </span>github<span class="w"> </span>--kind<span class="w"> </span>issue.opened<span class="w"> </span>--days<span class="w"> </span><span class="m">7</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">20</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>chatevent<span class="w"> </span>api<span class="w"> </span>create-user<span class="w"> </span>agent-worker@example.invalid<span class="w"> </span>--new-password-file<span class="w"> </span>./password.txt<span class="w"> </span>--role<span class="w"> </span>member
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>chatevent<span class="w"> </span>api<span class="w"> </span>create-token
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chatevent<span class="w"> </span>api<span class="w"> </span>health
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>chatevent<span class="w"> </span>api<span class="w"> </span>session
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>chatevent<span class="w"> </span>api<span class="w"> </span>users
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>chatevent<span class="w"> </span>api<span class="w"> </span>create-user<span class="w"> </span>rexwzh@lookeng.cn<span class="w"> </span>--new-password-file<span class="w"> </span>~/.chatarch/chatevent/secrets/admin-password
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>chatevent<span class="w"> </span>api<span class="w"> </span>create-token
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>chatevent<span class="w"> </span>api<span class="w"> </span>subscriptions<span class="w"> </span>--enabled<span class="w"> </span><span class="nb">true</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>chatevent<span class="w"> </span>api<span class="w"> </span>events<span class="w"> </span>--source<span class="w"> </span>github<span class="w"> </span>--kind<span class="w"> </span>pull_request.opened<span class="w"> </span>--limit<span class="w"> </span><span class="m">20</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>chatevent<span class="w"> </span>api<span class="w"> </span>record-json<span class="w"> </span>event.json
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>chatevent<span class="w"> </span>api<span class="w"> </span>save-subscription<span class="w"> </span>subscription.json
 </code></pre></div>
-<p>Human Web entry uses username/password login. <code>arch_xxx</code> tokens are account API credentials for CLI, model, and programmatic access.</p>
-<h2 id="capture-commands">Capture Commands<a class="headerlink" href="#capture-commands" title="Permanent link">&para;</a></h2>
-<p>The only first-class capture command today is <code>zulip-once</code>. It uses the official Zulip event queue: register a queue, optionally send a test message, fetch one bounded event pass, and delete the queue. The default env file path comes from ChatEnv <code>envs_dir/Zulip/.env</code>. Other platforms primarily enter through webhooks or future API cursor workers; ChatEvent does not pretend full-site scans are capture commands.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>zulip-once<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--env-file<span class="w"> </span>~/.chatarch/envs/Zulip/.env<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--stream<span class="w"> </span>demo<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--topic<span class="w"> </span>loop<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>--subscription-id<span class="w"> </span>zulip-practice
+<p>API tokens are for CLI/model/programmatic access. The Web Observatory homepage still uses username/password login.</p>
+<h2 id="platform-capture">Platform Capture<a class="headerlink" href="#platform-capture" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>zulip-once<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--env-file<span class="w"> </span>~/.chatarch/envs/Zulip/.env<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--stream<span class="w"> </span>demo<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--topic<span class="w"> </span>loop<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--subscription-id<span class="w"> </span>zulip-demo
 </code></pre></div>
+<p>Platform secrets are managed by ChatEnv profiles or service secret files. ChatEvent references them by path and never prints credential values.</p>
 
 
 
