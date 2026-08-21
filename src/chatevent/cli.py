@@ -193,6 +193,34 @@ def _build_tree_command() -> click.Group:
             ],
         )
     )
+    capture.add_command(
+        _command(
+            "x-status",
+            "Capture one public X status URL through the web/oEmbed path.",
+            [
+                _option("--db", metavar="DB"),
+                _option("--url", metavar="URL", required=True),
+                _option("--timeout", metavar="SECONDS"),
+                _option("--subscription-id", metavar="ID"),
+                _option("--proxy-env-file", metavar="FILE"),
+            ],
+        )
+    )
+    capture.add_command(
+        _command(
+            "x-user",
+            "Capture recent public posts from one X user page.",
+            [
+                _option("--db", metavar="DB"),
+                _option("--handle", metavar="HANDLE", required=True),
+                _option("--limit", metavar="N"),
+                _option("--days", metavar="N"),
+                _option("--timeout", metavar="SECONDS"),
+                _option("--subscription-id", metavar="ID"),
+                _option("--proxy-env-file", metavar="FILE"),
+            ],
+        )
+    )
     root.add_command(capture)
     return root
 
@@ -404,6 +432,48 @@ def build_parser() -> argparse.ArgumentParser:
     )
     zulip.add_argument("--timeout", type=float, default=10.0)
     zulip.add_argument("--subscription-id", default="zulip-practice")
+
+    x_status = capture_subparsers.add_parser(
+        "x-status",
+        help="capture one public X status URL through the web/oEmbed path",
+    )
+    x_status.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
+    )
+    x_status.add_argument("--url", required=True, help="public X/Twitter status URL")
+    x_status.add_argument("--timeout", type=float, default=15.0)
+    x_status.add_argument("--subscription-id", default=None)
+    x_status.add_argument(
+        "--proxy-env-file",
+        type=Path,
+        default=None,
+        help="optional env file containing proxy variables for this capture pass",
+    )
+
+    x_user = capture_subparsers.add_parser(
+        "x-user",
+        help="capture recent public posts from one X user page",
+    )
+    x_user.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
+    )
+    x_user.add_argument("--handle", required=True, help="X handle without @")
+    x_user.add_argument("--limit", type=int, default=5, help="maximum recent status URLs to capture")
+    x_user.add_argument("--days", type=int, default=None, help="only store posts newer than this many days")
+    x_user.add_argument("--timeout", type=float, default=15.0)
+    x_user.add_argument("--subscription-id", default=None)
+    x_user.add_argument(
+        "--proxy-env-file",
+        type=Path,
+        default=None,
+        help="optional env file containing proxy variables for this capture pass",
+    )
     return parser
 
 
@@ -583,6 +653,34 @@ def main(argv: Sequence[str] | None = None) -> None:
             content=args.content,
             timeout_seconds=args.timeout,
             subscription_id=args.subscription_id,
+        )
+        _print_json(summary.to_dict())
+        return
+    if args.command == "capture" and args.capture_command == "x-status":
+        from .capture import capture_x_status_once
+        from .state import default_database_path
+
+        summary = capture_x_status_once(
+            db_path=args.db or default_database_path(),
+            url=args.url,
+            timeout_seconds=args.timeout,
+            subscription_id=args.subscription_id,
+            proxy_env_file=args.proxy_env_file,
+        )
+        _print_json(summary.to_dict())
+        return
+    if args.command == "capture" and args.capture_command == "x-user":
+        from .capture import capture_x_user_once
+        from .state import default_database_path
+
+        summary = capture_x_user_once(
+            db_path=args.db or default_database_path(),
+            handle=args.handle,
+            limit=args.limit,
+            days=args.days,
+            timeout_seconds=args.timeout,
+            subscription_id=args.subscription_id,
+            proxy_env_file=args.proxy_env_file,
         )
         _print_json(summary.to_dict())
         return

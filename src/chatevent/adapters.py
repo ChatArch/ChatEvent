@@ -19,6 +19,7 @@ from .model import (
     CarrierTarget,
     ChatEvent,
     action_from_kind,
+    utc_now,
 )
 
 
@@ -72,6 +73,105 @@ def _actor(actor_id: str | None, *, display: str | None = None, role: str | None
 
 def _repo_target(repo_name: str, url: str | None = None) -> CarrierTarget:
     return CarrierTarget(type="repo", key=repo_name, display=repo_name, url=url)
+
+
+def _x_user_target(handle: str, *, display: str | None = None) -> CarrierTarget:
+    return CarrierTarget(
+        type="x_user",
+        key=handle,
+        display=display or f"@{handle}",
+        url=f"https://x.com/{handle}",
+    )
+
+
+def _x_post_target(
+    *,
+    status_id: str,
+    handle: str,
+    url: str,
+    author_name: str | None = None,
+) -> CarrierTarget:
+    return CarrierTarget(
+        type="x_post",
+        key=status_id,
+        display=f"@{handle} status {status_id}",
+        url=url,
+        parent=_x_user_target(handle, display=author_name or f"@{handle}"),
+    )
+
+
+def normalize_x_post(
+    raw: dict[str, Any],
+    *,
+    subscription_id: str | None = None,
+    capture_mode: CaptureMode = CaptureMode.POLL,
+) -> ChatEvent:
+    """Normalize one public X/Twitter post payload into ``ChatEvent``.
+
+    The acquisition layer may build ``raw`` from public oEmbed, X web HTML,
+    official API data, or a logged-in browser backend.  The normalized event
+    semantics stay stable: an observed user post is ``source=x`` and
+    ``kind=post.created`` with the acquisition route recorded in metadata.
+    """
+
+    status_id = _string(raw.get("status_id") or raw.get("id"))
+    handle = _string(raw.get("author_handle") or raw.get("handle"))
+    status_url = _string(raw.get("status_url") or raw.get("url"))
+    if not (status_id and handle and status_url):
+        raise ValueError("X post payload requires status_id, author_handle, and status_url")
+
+    author_name = _string(raw.get("author_name"))
+    text = _string(raw.get("text") or raw.get("content")) or ""
+    created_at = raw.get("created_at") or raw.get("occurred_at")
+    occurred_at = _parse_datetime(created_at) if created_at else utc_now()
+    acquisition = _string(raw.get("acquisition")) or "x-web-url"
+    timestamp_source = _string(raw.get("timestamp_source")) or (
+        "source-payload" if created_at else "capture-time"
+    )
+
+    return ChatEvent(
+        id=f"post:{status_id}",
+        source="x",
+        kind="post.created",
+        occurred_at=occurred_at,
+        capture_mode=capture_mode,
+        subscription_id=subscription_id,
+        action=_action("post.created", "post"),
+        target=_x_post_target(
+            status_id=status_id,
+            handle=handle,
+            url=status_url,
+            author_name=author_name,
+        ),
+        actor=ActorDescriptor(
+            id=f"user:{handle}",
+            type="user",
+            display=author_name or f"@{handle}",
+            role="author",
+            metadata={"handle": handle},
+        ),
+        conversation_id=f"user:{handle}",
+        subject_id=f"post:{status_id}",
+        subject_type="post",
+        url=status_url,
+        cursor=status_id,
+        payload={
+            "title": f"X post by {author_name or '@' + handle}",
+            "content": text,
+            "author_name": author_name or "",
+            "author_handle": handle,
+            "status_id": status_id,
+            "status_url": status_url,
+            "created_at": occurred_at.isoformat(),
+            "timestamp_source": timestamp_source,
+        },
+        raw_payload=raw,
+        metadata={
+            "acquisition": acquisition,
+            "timestamp_source": timestamp_source,
+        },
+        tags=["x", "post", acquisition],
+    )
 
 
 def _zulip_message_target(

@@ -143,7 +143,7 @@ class ServerTests(unittest.TestCase):
             platforms = client.get("/api/platforms")
             self.assertEqual(platforms.status_code, 200)
             platform_ids = [item["id"] for item in platforms.json()["items"]]
-            self.assertEqual(platform_ids, ["discourse", "gitea", "github", "zulip"])
+            self.assertEqual(platform_ids, ["discourse", "gitea", "github", "x", "zulip"])
 
     def test_subscription_mutations_can_require_admin_token(self) -> None:
         with TemporaryDirectory() as directory, patch.dict(

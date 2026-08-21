@@ -30,6 +30,8 @@ chatevent
 │   ├── subscriptions [--enabled ENABLED] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/subscriptions.
 │   └── users [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/users.
 ├── capture  # Run bounded official platform capture passes.
+│   ├── x-status [--db DB] [--url URL] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID] [--proxy-env-file PROXY-ENV-FILE]  # Capture one public X status URL through the web/oEmbed path.
+│   ├── x-user [--db DB] [--handle HANDLE] [--limit LIMIT] [--days DAYS] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID] [--proxy-env-file PROXY-ENV-FILE]  # Capture recent public posts from one X user page.
 │   └── zulip-once [--db DB] [--env-file ENV-FILE] [--stream STREAM] [--topic TOPIC] [--content CONTENT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Official Zulip event-queue capture pass.
 ├── paths [--json]  # Show ChatArch-owned runtime paths.
 ├── platforms [--json]  # List supported platforms and action kinds.
@@ -66,6 +68,8 @@ chatevent
 │   ├── subscriptions  # GET /api/subscriptions.
 │   └── users  # GET /api/users.
 ├── capture  # Run bounded official platform capture passes.
+│   ├── x-status  # Capture one public X status URL through the web/oEmbed path.
+│   ├── x-user  # Capture recent public posts from one X user page.
 │   └── zulip-once  # Official Zulip event-queue capture pass.
 ├── paths  # Show ChatArch-owned runtime paths.
 ├── platforms  # List supported platforms and action kinds.
@@ -104,6 +108,13 @@ API token 供 CLI/模型/程序使用；Web Observatory 首页仍使用账号密
 ## 平台 capture
 
 ```bash
+chatevent capture x-user --handle thsottiaux --limit 20 --days 7 \
+  --proxy-env-file /home/zhihong/Playground/.env
+
+chatevent capture x-status \
+  --url https://x.com/thsottiaux/status/2087423996115681767 \
+  --proxy-env-file /home/zhihong/Playground/.env
+
 chatevent capture zulip-once \
   --env-file ~/.chatarch/envs/Zulip/.env \
   --stream demo \

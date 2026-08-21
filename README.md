@@ -1,11 +1,11 @@
 # ChatEvent
 
-`chatevent` 是 ChatArch 的协作事件观察包：提供类型化事件 envelope、SQLite 事件账本、平台 normalizer 和 Web Observatory，用于观察 Discourse、Zulip、Gitea、GitHub 等协作平台的真实动作。
+`chatevent` 是 ChatArch 的协作事件观察包：提供类型化事件 envelope、SQLite 事件账本、平台 normalizer 和 Web Observatory，用于观察 Discourse、Zulip、Gitea、GitHub、X 等协作平台的真实动作。
 
-当前 `0.2.1` 范围把 ChatEvent 收敛为标准 Chat 系列包：依赖 ChatStyle 渲染完整/brief CLI 树，注册 ChatEnv 配置接口，并继续聚焦 **Discourse、Zulip、Gitea、GitHub** 的明确 action catalog。
+当前 `0.2.1` 范围把 ChatEvent 收敛为标准 Chat 系列包：依赖 ChatStyle 渲染完整/brief CLI 树，注册 ChatEnv 配置接口，并继续聚焦 **Discourse、Zulip、Gitea、GitHub、X** 的明确 action catalog。
 
 ```text
-平台官方 webhook / event queue / API cursor -> ChatEvent -> SQLite -> Observatory / API
+平台官方 webhook / event queue / API cursor / public web URL -> ChatEvent -> SQLite -> Observatory / API
 ```
 
 Gateway 路由和 Agent 执行不在当前包的阶段范围内。
@@ -118,6 +118,8 @@ SQLite 内部主要有两张表：
 
 平台凭据交给各平台 ChatEnv profile 或服务 secret 文件管理。比如 `capture zulip-once` 默认读取 ChatEnv `envs_dir/Zulip/.env`，文件内容需要包含 `ZULIP_SITE`、`BOT_EMAIL`、`BOT_API_KEY`，ChatEvent 不在 CLI 输出里打印这些值。
 
+X 公开网页捕获首版不需要账号或 API token；若目标环境需要代理，可对单次捕获传入 `--proxy-env-file /path/to/.env`，ChatEvent 只加载 proxy 相关变量，不打印或保存代理值。
+
 平台侧 webhook 注册、Zulip secret 文件、Nginx upstream、运行端口等不写入 SQLite；它们属于外部平台或运行时部署配置，凭据不写入项目文件。
 
 ## 刷新机制
@@ -136,7 +138,7 @@ Observatory 当前使用前端轮询，不是 WebSocket/SSE：
 
 产品语义使用这些字段表达：
 
-- `source`：平台来源，例如 `zulip`、`discourse`、`gitea`、`github`。
+- `source`：平台来源，例如 `zulip`、`discourse`、`gitea`、`github`、`x`。
 - `kind`：平台动作，例如 `message.created`、`post.created`、`reply.created`、`issue.opened`、`commit.pushed`、`pull_request.merged`。
 - `conversation_id` / `subject_id` / `subject_type`：动作发生在哪里、对象是什么。
 - `capture_mode`：捕获机制，不是业务动作。新接入使用 `webhook`、`event_queue`、`api_cursor`、`poll`、`manual_backfill`、`gateway_forward`、`test_fixture` 或 `synthetic`；旧数据里的 `push`/`pull` 仅兼容读取。
@@ -192,6 +194,26 @@ uv run chatevent platforms --json
 | Discourse | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
 | GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
+| X | `poll`, `manual_backfill` | `post.created` |
+
+
+### X 公开网页捕获
+
+首版 X 支持分为两个 bounded capture 动作：
+
+```bash
+uv run chatevent capture x-user \
+  --handle thsottiaux \
+  --limit 20 \
+  --days 7 \
+  --proxy-env-file /home/zhihong/Playground/.env
+
+uv run chatevent capture x-status \
+  --url https://x.com/thsottiaux/status/2087423996115681767 \
+  --proxy-env-file /home/zhihong/Playground/.env
+```
+
+`x-user` 用公开用户页发现最近 status URL，再逐条通过 oEmbed 和 status 网页补充作者、内容、发布时间和来源 URL，写入 `source=x` / `kind=post.created` 事件。重复运行会复用 `x:post:<status-id>` 去重，新帖子会新增 Event，适合先做一次性最近 N 条/最近 N 天回填，再由后续 trigger 定时执行。
 
 ## 注册监控
 
@@ -216,6 +238,7 @@ Discourse: https://event.public.wzhecnu.cn/webhooks/discourse?subscription_id=di
 Gitea:     https://event.public.wzhecnu.cn/webhooks/gitea?subscription_id=gitea-practice
 GitHub:    https://event.public.wzhecnu.cn/webhooks/github?subscription_id=github-chatevent
 Zulip:     用 `chatevent capture zulip-once` 做官方 event queue bounded capture pass
+X:         用 `chatevent capture x-user --handle <handle> --limit <N> --days <N>` 从公开用户页回填/轮询最近 post
 ```
 
 详细步骤见 `docs/monitoring.md`。
