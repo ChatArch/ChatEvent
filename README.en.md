@@ -2,7 +2,7 @@
 
 `chatevent` provides a typed event envelope, SQLite event store, platform normalizers, and a Web Observatory for collaboration-event demos.
 
-Current `0.2.1` scope aligns ChatEvent as a standard Chat-series package: ChatStyle renders both full and brief CLI trees, ChatEnv owns the configuration contract, and the package keeps focusing on explicit action catalogs for **Discourse, Zulip, Gitea, GitHub, and X**.
+Current `0.2.2` scope adds **X/Twitter public web capture**: `source=x`, `post.created`, `capture x-user` / `capture x-status`, while keeping the ChatStyle CLI tree and ChatEnv configuration contract.
 
 ```text
 platform official webhook/event queue/API cursor/public web URL -> ChatEvent -> SQLite -> Observatory/API
@@ -35,7 +35,7 @@ uv run --extra serve chatevent --tree
 uv run --extra serve chatevent --tree-brief
 ```
 
-`0.2.1` completes the standard ChatStyle brief-tree entry: it keeps the `0.2.0` Event Hub / ChatEnv alignment and adds `chatevent --tree-brief` as the compact command-tree view.
+`0.2.2` adds the X/Twitter web URL acquisition path: public user pages or status URLs can be recorded as Event history, with `metadata.acquisition="x-web-url"` so future `x-api` or `x-browser` backends can coexist.
 
 ## CLI
 

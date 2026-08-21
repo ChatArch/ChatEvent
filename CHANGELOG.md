@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.2.2 - 2026-08-22
+
+- 新增 X/Twitter 平台目录：`source=x`，支持 `post.created` action，并区分当前网页 URL 获取路径 `x-web-url`。
+- 新增 `capture x-user` 与 `capture x-status`，可通过公开 X 用户页 / status URL 捕获 post 并写入 Event 历史。
+- X normalizer 记录作者、正文、原始 URL、发布时间、target chain、raw payload 和 acquisition metadata；重复轮询会走现有 dedupe/seen_count。
+- README、CLI tree、平台 action 文档和测试同步覆盖 X 支持。
+
 ## 0.2.1 - 2026-08-21
 
 - 补齐标准 ChatStyle brief tree 入口：新增 `chatevent --tree-brief`，保留命令节点和说明但省略参数签名。

@@ -2,7 +2,7 @@
 
 `chatevent` 是 ChatArch 的协作事件观察包：提供类型化事件 envelope、SQLite 事件账本、平台 normalizer 和 Web Observatory，用于观察 Discourse、Zulip、Gitea、GitHub、X 等协作平台的真实动作。
 
-当前 `0.2.1` 范围把 ChatEvent 收敛为标准 Chat 系列包：依赖 ChatStyle 渲染完整/brief CLI 树，注册 ChatEnv 配置接口，并继续聚焦 **Discourse、Zulip、Gitea、GitHub、X** 的明确 action catalog。
+当前 `0.2.2` 范围加入 **X/Twitter public web capture**：`source=x`、`post.created`、`capture x-user` / `capture x-status`，并保留 ChatStyle CLI 树和 ChatEnv 配置接口。
 
 ```text
 平台官方 webhook / event queue / API cursor / public web URL -> ChatEvent -> SQLite -> Observatory / API
@@ -35,7 +35,7 @@ uv run --extra serve chatevent --tree
 uv run --extra serve chatevent --tree-brief
 ```
 
-`0.2.1` 补齐标准 ChatStyle brief tree：保留 `0.2.0` 的 Event Hub / ChatEnv 对齐能力，并新增 `chatevent --tree-brief` 作为紧凑命令树入口。
+`0.2.2` 新增 X/Twitter 网页 URL 获取路径：可用公开用户页或 status URL 把 X post 写入 Event 历史，`metadata.acquisition="x-web-url"` 便于以后并列接入 `x-api` 或 `x-browser`。
 
 ## CLI
 
