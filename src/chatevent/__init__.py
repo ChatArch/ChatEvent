@@ -32,4 +32,4 @@ __all__ = [
     "get_platform_spec",
     "list_platform_specs",
 ]
-__version__ = "0.2.1"
+__version__ = "0.2.2"

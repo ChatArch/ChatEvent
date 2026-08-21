@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+- Added the X/Twitter platform catalog with `source=x`, `post.created`, and the current public-web acquisition route `x-web-url`.
+- Added `capture x-user` and `capture x-status` to capture posts from public X user pages or known status URLs into the Event ledger.
+- The X normalizer records author, content, source URL, published time, target chain, raw payload, and acquisition metadata; repeated polling uses the existing dedupe/seen_count flow.
+- Updated README, CLI tree, platform action docs, and tests for X support.
+
 ## 0.2.1
 
 - Added the standard ChatStyle brief-tree entry: `chatevent --tree-brief` keeps command nodes and descriptions while omitting parameter signatures.
