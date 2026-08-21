@@ -36,20 +36,21 @@ class CliTests(unittest.TestCase):
 
         tree = stdout.getvalue()
         self.assertIn("chatevent", tree)
-        self.assertIn("--version", tree)
-        self.assertIn("paths [--json]", tree)
-        self.assertIn("serve", tree)
-        self.assertIn("schema event", tree)
-        self.assertIn("record-json", tree)
-        self.assertIn("platforms", tree)
-        self.assertIn("capture zulip-once", tree)
-        self.assertIn("api events [filters]", tree)
-        self.assertIn("api event DEDUPE_KEY", tree)
-        self.assertIn("api save-subscription FILE", tree)
-        self.assertIn("api delete-subscription ID", tree)
-        self.assertIn("api session", tree)
-        self.assertIn("api create-user USERNAME", tree)
-        self.assertIn("api create-token [USER_ID]", tree)
+        self.assertIn("├── --tree  # Print the registered CLI tree.", tree)
+        self.assertIn("├── --version  # Print package version.", tree)
+        self.assertIn("├── api  # Call a running ChatEvent REST API server.", tree)
+        self.assertIn("│   ├── events [--source SOURCE]", tree)
+        self.assertIn("│   ├── event <DEDUPE-KEY>", tree)
+        self.assertIn("│   ├── save-subscription <FILE>", tree)
+        self.assertIn("│   ├── session", tree)
+        self.assertIn("│   ├── create-user <USERNAME>", tree)
+        self.assertIn("│   ├── create-token [USER-ID]", tree)
+        self.assertIn("│   └── users", tree)
+        self.assertIn("├── capture", tree)
+        self.assertIn("│   └── zulip-once", tree)
+        self.assertIn("├── paths [--json]", tree)
+        self.assertIn("├── record-json <FILE> [--db DB]", tree)
+        self.assertIn("└── serve [--host HOST] [--port PORT] [--db DB]", tree)
 
     def test_version_outputs_package_version(self) -> None:
         stdout = io.StringIO()
@@ -57,7 +58,7 @@ class CliTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(captured.exception.code, 0)
-        self.assertIn("chatevent 0.1.5", stdout.getvalue())
+        self.assertIn("chatevent 0.2.0", stdout.getvalue())
 
     def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
         requests = []

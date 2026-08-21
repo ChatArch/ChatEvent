@@ -2,35 +2,21 @@
 
 ## CLI 树
 
-```text
-chatevent
-  --tree                         Print this command tree
-  --version                      Print package version
-  paths [--json]                 Show ChatArch-owned runtime paths
-  serve [--host HOST] [--port PORT] [--db DB]
-                                 Run the local Event Observatory
-  schema event|subscription      Print JSON Schema contracts
-  platforms [--json]             List supported platforms and action kinds
-  record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
-  api health                     GET /api/health from a running Event Hub
-  api stats                      GET /api/stats
-  api platforms                  GET /api/platforms
-  api schema event|subscription  GET /api/schema/{kind}
-  api subscriptions [--enabled]  GET /api/subscriptions
-  api subscription ID            GET /api/subscriptions/{id}
-  api events [filters]           GET /api/events
-  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
-  api record-json FILE           POST /api/events
-  api save-subscription FILE     POST /api/subscriptions
-  api delete-subscription ID     DELETE /api/subscriptions/{id}
-  capture zulip-once [options]   Official Zulip event-queue capture pass
-```
+完整 CLI 树由 ChatStyle 渲染，见 [CLI 树](cli-tree.md)。`chatevent --tree` 是文档和测试共同校对的命令表面。
 
 ## HTTP API
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | `GET` | `/api/health` | 健康检查，返回当前 SQLite DB 路径。 |
+| `POST` | `/api/login` | 账号密码网页登录，设置浏览器 cookie。 |
+| `POST` | `/api/logout` | 清除浏览器 cookie。 |
+| `GET` | `/api/session` | 返回当前 API token 或 cookie 身份。 |
+| `GET` | `/api/users` | 管理员列出用户。 |
+| `POST` | `/api/users` | 管理员创建账号密码用户。 |
+| `POST` | `/api/me/token` | 当前账号生成一次性 `arch_xxx` API token。 |
+| `POST` | `/api/users/{id}/token` | 管理员为指定用户生成一次性 API token。 |
+| `DELETE` | `/api/users/{id}` | 管理员删除用户。 |
 | `GET` | `/api/schema/event` | 返回 `ChatEvent` JSON Schema。 |
 | `GET` | `/api/schema/subscription` | 返回 `Subscription` JSON Schema。 |
 | `GET` | `/api/platforms` | 返回平台 action catalog。 |
@@ -119,14 +105,13 @@ source:id
 
 ## 存储与线上编辑
 
-订阅配置和事件账本都在 SQLite 中。默认数据库位于 ChatArch 内部：
+订阅配置和事件账本都在 SQLite 中。默认数据库位于 ChatEnv/ChatArch home 内部：
 
 ```text
-$CHATARCH_HOME/chatevent/events.db
-# 未设置 CHATARCH_HOME 时：~/.chatarch/chatevent/events.db
+<chatarch-home>/chatevent/events.db
 ```
 
-路径优先级是 `--db`、`CHATEVENT_DB`、`$CHATARCH_HOME/chatevent/events.db`、`~/.chatarch/chatevent/events.db`。第一次使用默认路径时，若旧版 `~/.chatevent/events.db` 存在且新数据库不存在，会复制旧库到 ChatArch 内部路径并保留旧文件。
+路径优先级是 `--db`、`CHATEVENT_DB`、ChatEnv `get_paths().home_dir/chatevent/events.db`、`$CHATARCH_HOME/chatevent/events.db`、`~/.chatarch/chatevent/events.db`。第一次使用默认路径时，若旧版 `~/.chatevent/events.db` 存在且新数据库不存在，会复制旧库到 ChatArch 内部路径并保留旧文件。
 
 `subscriptions.body` 保存完整 `Subscription` JSON，事件到达后 `last_cursor` / `last_event_at` 也会更新在订阅记录中；`events.body` 保存完整 `ChatEvent` JSON。
 

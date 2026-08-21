@@ -37,11 +37,11 @@ https://event.local.wzhecnu.cn/
 
 ## 确认默认目录
 
-默认不需要传 `--db`。ChatEvent 会把运行态放到 ChatArch home 内部：
+默认不需要传 `--db`。ChatEvent 会通过 ChatEnv 解析 ChatArch home，并把运行态放到该 home 的 `chatevent/` 目录下：
 
 ```text
-$CHATARCH_HOME/chatevent/events.db
-# 未设置 CHATARCH_HOME 时：~/.chatarch/chatevent/events.db
+<chatarch-home>/chatevent/events.db
+# 默认通常是 ~/.chatarch/chatevent/events.db
 ```
 
 用 `paths` 回读实际位置：

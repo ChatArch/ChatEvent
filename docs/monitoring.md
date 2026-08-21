@@ -54,13 +54,13 @@ Zulip 优先用官方 event queue：
 
 ```bash
 uv run --extra serve chatevent capture zulip-once \
-  --env-file /path/to/zulip.env \
+  --env-file ~/.chatarch/envs/Zulip/.env \
   --stream "chatevent-practice" \
   --topic "real-loop" \
   --subscription-id zulip-practice
 ```
 
-secret 文件只通过路径引用，不复制、不打印。长时间运行时应由后续 supervisor/cron/watchdog 管理，当前 CLI 是 bounded capture pass。
+平台 secret 由 ChatEnv profile 或服务 secret 文件管理；ChatEvent 只通过路径引用，不复制、不打印。长时间运行时应由后续 supervisor/cron/watchdog 管理，当前 CLI 是 bounded capture pass。
 
 ## Gitea webhook
 

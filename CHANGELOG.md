@@ -1,5 +1,13 @@
 # 更新日志
 
+## 0.2.0 - 2026-08-19
+
+- 对齐标准 Chat 系列包规范：新增 `click`、`chatstyle`、`chatenv` 依赖。
+- `chatevent --tree` 改为由 ChatStyle 渲染的标准 CLI 树，保留现有 argparse 执行路径，避免破坏已发布命令行为。
+- 新增 `chatevent.config:ChatEventConfig` 并注册到 ChatEnv `chatenv.configs` entry point；ChatEvent 运行态/API/登录 bootstrap ENV 交给 ChatEnv profile/secret 管理。
+- 默认 ChatArch home 解析优先使用 ChatEnv `get_paths().home_dir`，同时保留 `CHATARCH_HOME`、`CHATEVENT_DB` 和旧路径迁移兼容。
+- MkDocs 导航改为标准分组，新增 `CLI 树` 与 `接口树` 中英文页面，并同步 README/reference 的接口说明。
+
 ## 0.1.5 - 2026-08-19
 
 - 修正登录模型：Web 主页改为账号密码登录，`arch_xxx` token 不再作为网页登录凭据。

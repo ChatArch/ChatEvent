@@ -37,11 +37,11 @@ https://event.local.wzhecnu.cn/
 
 ## Confirm default paths
 
-You do not need to pass `--db` for normal use. ChatEvent keeps runtime state under ChatArch home:
+You do not need to pass `--db` for normal use. ChatEvent resolves ChatArch home through ChatEnv and stores runtime state under its `chatevent/` directory:
 
 ```text
-$CHATARCH_HOME/chatevent/events.db
-# when CHATARCH_HOME is unset: ~/.chatarch/chatevent/events.db
+<chatarch-home>/chatevent/events.db
+# usually ~/.chatarch/chatevent/events.db
 ```
 
 Read the effective paths:

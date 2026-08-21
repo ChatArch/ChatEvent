@@ -2,35 +2,21 @@
 
 ## CLI Tree
 
-```text
-chatevent
-  --tree                         Print this command tree
-  --version                      Print package version
-  paths [--json]                 Show ChatArch-owned runtime paths
-  serve [--host HOST] [--port PORT] [--db DB]
-                                 Run the local Event Observatory
-  schema event|subscription      Print JSON Schema contracts
-  platforms [--json]             List supported platforms and action kinds
-  record-json FILE [--db DB]     Validate and write one ChatEvent JSON file
-  api health                     GET /api/health from a running Event Hub
-  api stats                      GET /api/stats
-  api platforms                  GET /api/platforms
-  api schema event|subscription  GET /api/schema/{kind}
-  api subscriptions [--enabled]  GET /api/subscriptions
-  api subscription ID            GET /api/subscriptions/{id}
-  api events [filters]           GET /api/events
-  api event DEDUPE_KEY           GET /api/events/{dedupe_key}
-  api record-json FILE           POST /api/events
-  api save-subscription FILE     POST /api/subscriptions
-  api delete-subscription ID     DELETE /api/subscriptions/{id}
-  capture zulip-once [options]   Official Zulip event-queue capture pass
-```
+The complete CLI tree is rendered by ChatStyle. See [CLI Tree](cli-tree.md). `chatevent --tree` is the command surface shared by docs and tests.
 
 ## HTTP API
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Health check and current SQLite DB path. |
+| `POST` | `/api/login` | Username/password Web login; sets browser cookie. |
+| `POST` | `/api/logout` | Clear browser cookie. |
+| `GET` | `/api/session` | Return current API token or cookie identity. |
+| `GET` | `/api/users` | Admin-only user list. |
+| `POST` | `/api/users` | Admin creates a username/password user. |
+| `POST` | `/api/me/token` | Current account issues a one-time `arch_xxx` API token. |
+| `POST` | `/api/users/{id}/token` | Admin issues a one-time API token for a user. |
+| `DELETE` | `/api/users/{id}` | Admin deletes a user. |
 | `GET` | `/api/schema/event` | Return the `ChatEvent` JSON Schema. |
 | `GET` | `/api/schema/subscription` | Return the `Subscription` JSON Schema. |
 | `GET` | `/api/platforms` | Return the platform action catalog. |
@@ -119,14 +105,13 @@ Repeated delivery of the same event does not create a new row; it increments `se
 
 ## Storage and online editing
 
-Subscription configuration and the event ledger are stored in SQLite. The default database is ChatArch-internal:
+Subscription configuration and the event ledger are stored in SQLite. The default database is inside ChatEnv/ChatArch home:
 
 ```text
-$CHATARCH_HOME/chatevent/events.db
-# when CHATARCH_HOME is unset: ~/.chatarch/chatevent/events.db
+<chatarch-home>/chatevent/events.db
 ```
 
-Path precedence is `--db`, `CHATEVENT_DB`, `$CHATARCH_HOME/chatevent/events.db`, then `~/.chatarch/chatevent/events.db`. On first default-path use, if legacy `~/.chatevent/events.db` exists and the new database does not, ChatEvent copies it into the ChatArch-internal path and keeps the legacy file.
+Path precedence is `--db`, `CHATEVENT_DB`, ChatEnv `get_paths().home_dir/chatevent/events.db`, `$CHATARCH_HOME/chatevent/events.db`, then `~/.chatarch/chatevent/events.db`. On first default-path use, if legacy `~/.chatevent/events.db` exists and the new database does not, ChatEvent copies it into the ChatArch-internal path and keeps the legacy file.
 
 `subscriptions.body` stores the full `Subscription` JSON, including `last_cursor` and `last_event_at` updates after events arrive; `events.body` stores the full `ChatEvent` JSON.
 
