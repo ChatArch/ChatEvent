@@ -10,17 +10,19 @@
       
       
       
-        <link rel="canonical" href="https://arch.gh.wzhecnu.cn/ChatEvent/dev/changelog/">
+        <link rel="canonical" href="https://arch.gh.wzhecnu.cn/ChatEvent/interface-tree/">
       
       
-        <link rel="prev" href="../reference/">
+        <link rel="prev" href="../cli-tree/">
       
+      
+        <link rel="next" href="../reference/">
       
       
         
           <link rel="alternate" href="./" hreflang="zh">
         
-          <link rel="alternate" href="../en/changelog/" hreflang="en">
+          <link rel="alternate" href="../en/interface-tree/" hreflang="en">
         
       
       
@@ -29,7 +31,7 @@
     
     
       
-        <title>发行说明 - ChatEvent 文档</title>
+        <title>接口树 - ChatEvent 文档</title>
       
     
     
@@ -104,7 +106,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              发行说明
+              接口树
             
           </span>
         </div>
@@ -131,7 +133,7 @@
           </li>
         
           <li class="md-select__item">
-            <a href="../en/changelog/" hreflang="en" class="md-select__link">
+            <a href="../en/interface-tree/" hreflang="en" class="md-select__link">
               English
             </a>
           </li>
@@ -294,10 +296,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../cli-tree/" class="md-tabs__link">
           
   
@@ -314,11 +318,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
         
   
   
@@ -488,28 +490,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -527,7 +532,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -570,10 +575,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../interface-tree/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    接口树
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -589,6 +621,70 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python 包接口
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#http-api-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP API surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chatenv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ChatEnv 配置接口
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        安全和兼容边界
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -633,37 +729,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    发行说明
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
         
   
   
@@ -679,114 +748,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="目录">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      目录
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#020" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.2.0
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#015" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.5
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#014" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.4
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#013" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.3
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#012" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.2
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#011" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.1
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#010" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.0
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#001" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.0.1
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -818,10 +779,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#020" class="md-nav__link">
+  <a href="#python" class="md-nav__link">
     <span class="md-ellipsis">
       
-        0.2.0
+        Python 包接口
       
     </span>
   </a>
@@ -829,10 +790,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#015" class="md-nav__link">
+  <a href="#http-api-surface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        0.1.5
+        HTTP API surface
       
     </span>
   </a>
@@ -840,10 +801,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#014" class="md-nav__link">
+  <a href="#chatenv" class="md-nav__link">
     <span class="md-ellipsis">
       
-        0.1.4
+        ChatEnv 配置接口
       
     </span>
   </a>
@@ -851,54 +812,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#013" class="md-nav__link">
+  <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        0.1.3
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#012" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.2
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#011" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.1
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#010" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.1.0
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#001" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.0.1
+        安全和兼容边界
       
     </span>
   </a>
@@ -922,7 +839,7 @@
 
 
   
-    <a href="https://github.com/ChatArch/ChatEvent/edit/main/docs/changelog.md" title="编辑此页" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/ChatArch/ChatEvent/edit/main/docs/interface-tree.md" title="编辑此页" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -930,61 +847,157 @@
   
 
 
-<h1 id="_1">发行说明<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
-<h2 id="020">0.2.0<a class="headerlink" href="#020" title="Permanent link">&para;</a></h2>
+<h1 id="_1">接口树<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<p>这页把 ChatEvent 的 Python 模块、HTTP API、ChatEnv 配置和安全边界放在一张接口树里，方便和标准 Chat 系列项目对齐。</p>
+<h2 id="python">Python 包接口<a class="headerlink" href="#python" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>chatevent
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── catalog.py                  # 平台 action catalog
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── PlatformAction
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── PlatformSpec
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   ├── list_platform_specs()
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├── get_platform_spec(source)
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   └── action_kinds_for(source)
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── model.py                    # 标准事件 envelope
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── CaptureMode
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   ├── CarrierTarget
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   ├── ActionDescriptor
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├── ActorDescriptor
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   └── ChatEvent
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── subscription.py             # 订阅 contract
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   └── Subscription
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── auth.py                     # 账号、密码 hash、API token hash
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   ├── UserRecord
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├── generate_arch_token()
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   ├── token_digest(token)
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   └── password_digest(password)
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>├── config.py                   # ChatEnv 配置注册
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   └── ChatEventConfig
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>├── state.py                    # ChatEnv/ChatArch-owned runtime path
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   ├── ChatEventPaths
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   ├── state_paths()
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   ├── default_database_path()
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   ├── load_admin_token()
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   └── admin_token_source()
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>├── store.py                    # SQLite event/user/subscription store
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│   ├── StoredEvent
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│   └── EventStore
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│       ├── save_user() / list_users() / delete_user()
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│       ├── save_subscription() / list_subscriptions() / delete_subscription()
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>│       ├── record_event() / get_event() / list_events()
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>│       └── stats()
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>├── adapters.py                 # 官方平台 payload normalizer
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>│   ├── normalize_zulip_message_event()
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>│   ├── normalize_discourse_webhook()
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>│   ├── normalize_gitea_webhook()
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>│   └── normalize_github_webhook()
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>├── capture.py                  # bounded platform capture helpers
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>│   ├── load_env_file()
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>│   └── capture_zulip_once()
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>├── client.py                   # REST API client used by CLI
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>│   └── ChatEventApiClient
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>├── server.py                   # FastAPI app factory and REST/webhook endpoints
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>│   └── create_app()
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>├── dashboard.py                # Observatory HTML/CSS/JS
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>├── monitor.py                  # in-process event observer helper
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>└── cli.py                      # argparse runtime + ChatStyle-rendered CLI tree
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    ├── build_parser()
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    ├── render_cli_tree()
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    └── main()
+</code></pre></div>
+<p><code>__init__.py</code> re-exports the core domain objects and <code>ChatEventConfig</code> for downstream packages and ChatEnv discovery.</p>
+<h2 id="http-api-surface">HTTP API surface<a class="headerlink" href="#http-api-surface" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GET    /                         # Web Observatory; username/password login gate when auth is configured
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>POST   /api/login                # Browser username/password login; sets session cookie
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>POST   /api/logout               # Clear browser session cookie
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>GET    /api/health               # Health and runtime path summary
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>GET    /api/session              # Current API token/cookie identity
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>GET    /api/users                # Admin: list users
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>POST   /api/users                # Admin: create username/password user
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>POST   /api/me/token             # Current user: issue one-time arch_xxx API token
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>POST   /api/users/{id}/token     # Admin: issue one-time token for user
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>DELETE /api/users/{id}           # Admin: delete user
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>GET    /api/schema/event         # ChatEvent JSON Schema
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>GET    /api/schema/subscription  # Subscription JSON Schema
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>GET    /api/platforms            # Platform action catalog
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>GET    /api/subscriptions        # List subscriptions; member sees own subscriptions
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>POST   /api/subscriptions        # Create/update subscription; member-owned when not admin
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>GET    /api/subscriptions/{id}   # Read one subscription
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>DELETE /api/subscriptions/{id}   # Delete subscription, not historical events
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>POST   /api/events               # Write normalized ChatEvent
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>GET    /api/events               # Query events with filters and next_since checkpoint
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>GET    /api/events/{dedupe_key}  # Read one stored event
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>GET    /api/stats                # Event/source/kind/duplicate counters
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>POST   /webhooks/zulip           # Zulip webhook/event payload ingress
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>POST   /webhooks/discourse       # Discourse webhook ingress
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>POST   /webhooks/gitea           # Gitea webhook ingress
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>POST   /webhooks/github          # GitHub webhook ingress
+</code></pre></div>
+<h2 id="chatenv">ChatEnv 配置接口<a class="headerlink" href="#chatenv" title="Permanent link">&para;</a></h2>
+<p>ChatEvent 注册 <code>chatevent.config:ChatEventConfig</code> 到 <code>chatenv.configs</code> entry point。ENV/profile/secret 的职责边界是：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>用途</th>
+<th>敏感性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CHATARCH_HOME</code></td>
+<td>ChatArch runtime home；默认由 ChatEnv <code>get_paths().home_dir</code> 提供</td>
+<td>非敏感</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_DB</code></td>
+<td>显式 SQLite DB path override</td>
+<td>非敏感</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_API_URL</code></td>
+<td>CLI 默认 REST API base URL</td>
+<td>非敏感</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_ADMIN_TOKEN</code></td>
+<td>CLI/model/programmatic API token</td>
+<td>敏感</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_ADMIN_TOKEN_FILE</code></td>
+<td>API token 文件路径</td>
+<td>路径非敏感，内容敏感</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_API_USERNAME</code></td>
+<td>CLI password-login fallback 用户名</td>
+<td>非敏感</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_API_PASSWORD_FILE</code></td>
+<td>CLI password 文件路径</td>
+<td>路径非敏感，内容敏感</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_BOOTSTRAP_USERNAME</code></td>
+<td>首个管理员账号用户名</td>
+<td>非敏感</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code></td>
+<td>首个管理员密码文件路径</td>
+<td>路径非敏感，内容敏感</td>
+</tr>
+</tbody>
+</table>
+<p>平台凭据不归 ChatEvent 自己 invent：Zulip、Discourse、Gitea、GitHub 等平台 secret 应继续放在各自 ChatEnv profile 或服务 secret 文件里。<code>capture zulip-once</code> 的默认 env 文件来自 ChatEnv <code>envs_dir/Zulip/.env</code>。</p>
+<h2 id="_2">安全和兼容边界<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
 <ul>
-<li>对齐标准 Chat 系列包规范：新增 <code>click</code>、<code>chatstyle</code>、<code>chatenv</code> 依赖。</li>
-<li><code>chatevent --tree</code> 改为由 ChatStyle 渲染的标准 CLI 树，保留现有 argparse 命令执行路径。</li>
-<li>新增 <code>chatevent.config:ChatEventConfig</code> 并注册到 ChatEnv <code>chatenv.configs</code> entry point。</li>
-<li>默认运行态路径优先使用 ChatEnv <code>get_paths().home_dir</code>，同时保留 <code>CHATARCH_HOME</code>、<code>CHATEVENT_DB</code> 和旧库迁移兼容。</li>
-<li>MkDocs 改为标准分组导航，新增 <code>CLI 树</code> 与 <code>接口树</code> 中英文页面。</li>
+<li>Web 入口是账号密码登录；<code>arch_xxx</code> token 是账号 API 凭据，不是主页登录凭据。</li>
+<li>CLI 和模型优先用 API token；缺 token 时可用 <code>--username</code> + <code>--password-file</code> 登录，不在 argv 中传密码。</li>
+<li><code>CHATEVENT_ADMIN_TOKEN</code> 作为 bootstrap/恢复路径保留兼容，但新配置应由 ChatEnv/secret file 管理。</li>
+<li>FastAPI、SQLite schema、webhook endpoints 和 <code>chatevent api ...</code> 命令保持向后兼容；这次对齐不改变已发布事件 JSON contract。</li>
 </ul>
-<h2 id="015">0.1.5<a class="headerlink" href="#015" title="Permanent link">&para;</a></h2>
-<ul>
-<li>修正登录模型：Web 主页改为账号密码登录，<code>arch_xxx</code> token 不再作为网页登录凭据。</li>
-<li>新增 password hash 存储与 bootstrap 管理员账号初始化：<code>CHATEVENT_BOOTSTRAP_USERNAME</code> + <code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code>。</li>
-<li>新增 API Token 生成接口：<code>POST /api/me/token</code> 与 <code>POST /api/users/{id}/token</code>；token 仅用于 CLI、模型或程序代表账号调用 API。</li>
-<li>Web 登录后可直接编辑订阅；CLI/API 可用 token，也可通过用户名 + 密码文件先登录后操作。</li>
-</ul>
-<h2 id="014">0.1.4<a class="headerlink" href="#014" title="Permanent link">&para;</a></h2>
-<ul>
-<li>新增登录页 gate：配置管理员 token 或用户后，未登录访问 <code>/</code> 只显示登录页，不能直接进入 Observatory。</li>
-<li>新增 <code>/api/login</code> / <code>/api/logout</code> cookie 登录流程；读取型 API 在需要登录时会返回 401。</li>
-<li>主题切换按钮从“黑底/白底”改为“☾ 夜间 / ☀ 日间”。</li>
-</ul>
-<h2 id="013">0.1.3<a class="headerlink" href="#013" title="Permanent link">&para;</a></h2>
-<ul>
-<li>高级事件类型列表现在会合并平台 action catalog 与当前已观察到的来源事件类型。</li>
-<li>GitHub action catalog 补充 <code>workflow_run.requested</code> 与 <code>workflow_run.in_progress</code>。</li>
-<li>新增轻量登录与用户管理骨架（0.1.5 已修正为账号密码网页登录 + API Token 机制）：<code>/api/session</code>、<code>/api/users</code> 和 CLI <code>api create-user</code>。</li>
-<li><code>Subscription.owner_user_id</code> 为 member 用户订阅隔离打基础，管理员仍可管理全部订阅。</li>
-</ul>
-<h2 id="012">0.1.2<a class="headerlink" href="#012" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Observatory 顶层筛选收敛为来源和时间下拉框，其余筛选进入高级选项。</li>
-<li>高级选项支持按来源联动的事件类型多选、订阅/渠道多选、关键词和自定义时间范围。</li>
-<li>Platform actions 的 action chip 可点击打开详情，查看 action kind、target types、捕获方式、webhook events 和 API 大致含义。</li>
-<li>页面头部新增 GitHub / Docs 图标链接，并支持黑底/白底主题切换。</li>
-</ul>
-<h2 id="011">0.1.1<a class="headerlink" href="#011" title="Permanent link">&para;</a></h2>
-<ul>
-<li>新增开放式 <code>CarrierTarget</code> / <code>ActionDescriptor</code> / <code>ActorDescriptor</code>，记录动作、承载目标链和发起人角色。</li>
-<li>Observatory 显示 Target 列，事件详情显示 Action、Action target、Target chain 与 Actor role。</li>
-</ul>
-<h2 id="010">0.1.0<a class="headerlink" href="#010" title="Permanent link">&para;</a></h2>
-<p>第一个完整 Event Hub 版本，重点是把 ChatEvent 从事件模型骨架推进为可运行、可观察、可消费的 ChatArch 系列服务包。</p>
-<ul>
-<li>默认运行态归入 ChatArch 内部：<code>$CHATARCH_HOME/chatevent/</code> 或 <code>~/.chatarch/chatevent/</code>。</li>
-<li><code>events.db</code> 保存事件账本和订阅配置；<code>secrets/admin-token</code> 可作为管理员 token 文件。</li>
-<li><code>chatevent paths --json</code> 可回读默认目录和配置状态，不输出 token 值。</li>
-<li>旧版 <code>~/.chatevent/events.db</code> 会在首次默认启动时复制到新位置，旧文件保留。</li>
-<li>Web Observatory 支持 Event Stream / Subscriptions / Platform actions 三个标签页。</li>
-<li>Subscriptions 支持新建、编辑、启停和删除；可用管理员 token 保护写操作。</li>
-<li>REST API 与 <code>chatevent api ...</code> CLI 对齐，可写入事件、查询事件流、读取具体事件、管理订阅。</li>
-<li>支持 Discourse、Zulip、Gitea、GitHub 的官方事件捕获和 normalizer。</li>
-</ul>
-<h2 id="001">0.0.1<a class="headerlink" href="#001" title="Permanent link">&para;</a></h2>
-<p>初始事件 envelope 和 monitor protocol 占位版本。</p>
 
 
 
