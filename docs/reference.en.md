@@ -2,7 +2,7 @@
 
 ## CLI Tree
 
-The complete CLI tree is rendered by ChatStyle. See [CLI Tree](cli-tree.md). `chatevent --tree` is the command surface shared by docs and tests.
+The complete CLI tree is rendered by ChatStyle. See [CLI Tree](cli-tree.md). `chatevent --tree` is the full view with parameter signatures, while `chatevent --tree-brief` is the compact view without signatures; both are shared by docs and tests.
 
 ## HTTP API
 

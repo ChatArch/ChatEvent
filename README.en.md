@@ -2,7 +2,7 @@
 
 `chatevent` provides a typed event envelope, SQLite event store, platform normalizers, and a Web Observatory for collaboration-event demos.
 
-Current `0.2.0` scope aligns ChatEvent as a standard Chat-series package: ChatStyle renders the CLI tree, ChatEnv owns the configuration contract, and the package keeps focusing on explicit action catalogs for **Discourse, Zulip, Gitea, and GitHub**.
+Current `0.2.1` scope aligns ChatEvent as a standard Chat-series package: ChatStyle renders both full and brief CLI trees, ChatEnv owns the configuration contract, and the package keeps focusing on explicit action catalogs for **Discourse, Zulip, Gitea, and GitHub**.
 
 ```text
 platform official webhook/event queue/API cursor -> ChatEvent -> SQLite -> Observatory/API
@@ -32,16 +32,18 @@ https://arch.gh.wzhecnu.cn/ChatEvent/
 ```bash
 uv sync --extra serve --extra test --extra docs
 uv run --extra serve chatevent --tree
+uv run --extra serve chatevent --tree-brief
 ```
 
-`0.2.0` is the standard Chat-series alignment release: it keeps the Event Hub behavior while adding a ChatStyle-rendered CLI tree, ChatEnv config registration, and standard MkDocs command/interface navigation.
+`0.2.1` completes the standard ChatStyle brief-tree entry: it keeps the `0.2.0` Event Hub / ChatEnv alignment and adds `chatevent --tree-brief` as the compact command-tree view.
 
 ## CLI
 
-See [docs/cli-tree.en.md](docs/cli-tree.en.md) for the full CLI tree. You can also read it from the installed command:
+See [docs/cli-tree.en.md](docs/cli-tree.en.md) for the full CLI tree. You can read both detailed and brief views from the installed command:
 
 ```bash
 uv run chatevent --tree
+uv run chatevent --tree-brief
 ```
 
 Core command families:
@@ -112,7 +114,7 @@ The SQLite database mainly contains:
 
 ## ChatStyle And ChatEnv Alignment
 
-`chatevent --tree` is rendered by ChatStyle. `chatevent.config:ChatEventConfig` is registered under the ChatEnv `chatenv.configs` entry point. ChatEvent only declares Event Hub env keys: `CHATEVENT_API_URL`, `CHATEVENT_DB`, `CHATEVENT_ADMIN_TOKEN(_FILE)`, `CHATEVENT_API_USERNAME`, `CHATEVENT_API_PASSWORD_FILE`, `CHATEVENT_BOOTSTRAP_USERNAME`, and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE`.
+`chatevent --tree` and `chatevent --tree-brief` are rendered by ChatStyle. `chatevent.config:ChatEventConfig` is registered under the ChatEnv `chatenv.configs` entry point. ChatEvent only declares Event Hub env keys: `CHATEVENT_API_URL`, `CHATEVENT_DB`, `CHATEVENT_ADMIN_TOKEN(_FILE)`, `CHATEVENT_API_USERNAME`, `CHATEVENT_API_PASSWORD_FILE`, `CHATEVENT_BOOTSTRAP_USERNAME`, and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE`.
 
 Platform credentials belong to platform-specific ChatEnv profiles or service secret files. For example, `capture zulip-once` defaults to ChatEnv `envs_dir/Zulip/.env`; that file contains `ZULIP_SITE`, `BOT_EMAIL`, and `BOT_API_KEY`, and ChatEvent never prints those values.
 

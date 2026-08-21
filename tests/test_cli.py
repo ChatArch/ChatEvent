@@ -37,6 +37,10 @@ class CliTests(unittest.TestCase):
         tree = stdout.getvalue()
         self.assertIn("chatevent", tree)
         self.assertIn("├── --tree  # Print the registered CLI tree.", tree)
+        self.assertIn(
+            "├── --tree-brief  # Print the registered CLI tree without parameter signatures.",
+            tree,
+        )
         self.assertIn("├── --version  # Print package version.", tree)
         self.assertIn("├── api  # Call a running ChatEvent REST API server.", tree)
         self.assertIn("│   ├── events [--source SOURCE]", tree)
@@ -52,13 +56,28 @@ class CliTests(unittest.TestCase):
         self.assertIn("├── record-json <FILE> [--db DB]", tree)
         self.assertIn("└── serve [--host HOST] [--port PORT] [--db DB]", tree)
 
+    def test_tree_brief_omits_signatures_but_keeps_commands(self) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            main(["--tree-brief"])
+
+        tree = stdout.getvalue()
+        self.assertIn("├── --tree-brief", tree)
+        self.assertIn("│   ├── events  # GET /api/events.", tree)
+        self.assertIn("│   ├── event  # GET /api/events/{dedupe_key}.", tree)
+        self.assertIn("│   ├── create-user  # POST /api/users.", tree)
+        self.assertIn("└── serve  # Run the local Event Observatory and REST API.", tree)
+        self.assertNotIn("[--source SOURCE]", tree)
+        self.assertNotIn("<DEDUPE-KEY>", tree)
+        self.assertNotIn("[--host HOST]", tree)
+
     def test_version_outputs_package_version(self) -> None:
         stdout = io.StringIO()
         with self.assertRaises(SystemExit) as captured, contextlib.redirect_stdout(stdout):
             main(["--version"])
 
         self.assertEqual(captured.exception.code, 0)
-        self.assertIn("chatevent 0.2.0", stdout.getvalue())
+        self.assertIn("chatevent 0.2.1", stdout.getvalue())
 
     def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
         requests = []

@@ -5,6 +5,7 @@
 ```bash
 uv sync --extra serve --extra test --extra docs
 uv run chatevent --tree
+uv run chatevent --tree-brief
 ```
 
 If you only need the API/UI, install at least the `serve` extra:

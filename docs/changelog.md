@@ -1,5 +1,10 @@
 # 发行说明
 
+## 0.2.1
+
+- 补齐标准 ChatStyle brief tree 入口：新增 `chatevent --tree-brief`，保留命令节点和说明但省略参数签名。
+- 同步 CLI tree 文档、README、reference 和测试，确保 `--tree` / `--tree-brief` 都是可验收入口。
+
 ## 0.2.0
 
 - 对齐标准 Chat 系列包规范：新增 `click`、`chatstyle`、`chatenv` 依赖。

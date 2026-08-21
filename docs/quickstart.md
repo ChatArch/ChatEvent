@@ -5,6 +5,7 @@
 ```bash
 uv sync --extra serve --extra test --extra docs
 uv run chatevent --tree
+uv run chatevent --tree-brief
 ```
 
 如果只运行 API/UI，至少安装 `serve` extra：

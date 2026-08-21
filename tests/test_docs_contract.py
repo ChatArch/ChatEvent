@@ -10,6 +10,8 @@ DOC_PATHS = [
     Path("docs/quickstart.en.md"),
     Path("docs/reference.md"),
     Path("docs/reference.en.md"),
+    Path("docs/cli-tree.md"),
+    Path("docs/cli-tree.en.md"),
 ]
 
 
@@ -22,3 +24,5 @@ def test_docs_use_chatarch_internal_defaults() -> None:
     assert "$CHATARCH_HOME/chatevent/events.db" in combined
     assert "~/.chatarch/chatevent/events.db" in combined
     assert "chatevent paths --json" in combined
+    assert "chatevent --tree" in combined
+    assert "chatevent --tree-brief" in combined

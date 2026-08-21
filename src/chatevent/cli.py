@@ -35,6 +35,11 @@ def _build_tree_command() -> click.Group:
     root.params.extend(
         [
             _option("--tree", is_flag=True, help="Print the registered CLI tree."),
+            _option(
+                "--tree-brief",
+                is_flag=True,
+                help="Print the registered CLI tree without parameter signatures.",
+            ),
             _option("--version", is_flag=True, help="Print package version."),
         ]
     )
@@ -192,13 +197,14 @@ def _build_tree_command() -> click.Group:
     return root
 
 
-def render_cli_tree() -> str:
+def render_cli_tree(*, brief: bool = False) -> str:
     """Render the CLI tree with ChatStyle while preserving the argparse runtime."""
 
-    return render_click_tree(_build_tree_command(), root_name="chatevent")
+    return render_click_tree(_build_tree_command(), root_name="chatevent", brief=brief)
 
 
 TREE = render_cli_tree()
+TREE_BRIEF = render_cli_tree(brief=True)
 
 
 def _default_zulip_env_file() -> Path:
@@ -216,6 +222,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Capture and inspect normalized collaboration events.",
     )
     parser.add_argument("--tree", action="store_true", help="print the CLI command tree and exit")
+    parser.add_argument(
+        "--tree-brief",
+        action="store_true",
+        help="print the CLI command tree without parameter signatures and exit",
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -481,6 +492,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     if args.tree:
         print(TREE)
+        return
+    if args.tree_brief:
+        print(TREE_BRIEF)
         return
     if args.command is None:
         build_parser().print_help()
