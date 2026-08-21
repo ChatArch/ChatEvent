@@ -569,6 +569,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X 公开网页动作
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -819,6 +830,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        X 公开网页动作
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -845,7 +867,7 @@
 
 
 <h1 id="_1">平台与事件<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
-<p>ChatEvent 当前把四个平台作为明确支持范围。<code>push</code> / <code>pull</code> 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 <code>source + action/kind + target</code> 表达；target 是承载链，不只是一个标签。</p>
+<p>ChatEvent 当前把五个平台作为明确支持范围。<code>push</code> / <code>pull</code> 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 <code>source + action/kind + target</code> 表达；target 是承载链，不只是一个标签。</p>
 <h2 id="_2">支持矩阵<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -881,6 +903,12 @@
 <td><code>webhook</code>, <code>api_cursor</code></td>
 <td><code>push</code>, <code>commit.pushed</code>, <code>issue.opened</code>, <code>issue.closed</code>, <code>issue.commented</code>, <code>pull_request.opened</code>, <code>pull_request.synchronize</code>, <code>pull_request.closed</code>, <code>pull_request.merged</code>, <code>workflow_run.requested</code>, <code>workflow_run.in_progress</code>, <code>workflow_run.completed</code>, <code>release.published</code></td>
 </tr>
+<tr>
+<td>X</td>
+<td>公开用户页/status URL/oEmbed；后续可扩展官方 API 或浏览器 profile</td>
+<td><code>poll</code>, <code>manual_backfill</code></td>
+<td><code>post.created</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="_3">字段含义<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
@@ -894,7 +922,7 @@
 <tbody>
 <tr>
 <td><code>source</code></td>
-<td>平台 ID，例如 <code>discourse</code>。</td>
+<td>平台 ID，例如 <code>discourse</code>、<code>x</code>。</td>
 </tr>
 <tr>
 <td><code>target</code></td>
@@ -958,6 +986,8 @@
 </tbody>
 </table>
 <p>Observatory 的 Platform actions 面板会显示 <code>action kind → target types</code>，Event Stream 点开详情会显示真实 <code>Action target</code> 和 <code>Target chain</code>。</p>
+<h2 id="x">X 公开网页动作<a class="headerlink" href="#x" title="Permanent link">&para;</a></h2>
+<p>首版 X 事件使用 <code>source=x</code>、<code>kind=post.created</code>。<code>capture x-user --handle &lt;handle&gt; --limit &lt;N&gt; --days &lt;N&gt;</code> 从公开用户页发现最近 status URL，并通过 oEmbed/status 网页补充内容、作者、发布时间和来源 URL；重复运行按 <code>x:post:&lt;status-id&gt;</code> 去重，新发帖会成为新的 Event。当前 acquisition 写入 <code>metadata.acquisition = "x-web-url"</code>，后续可并列增加 <code>x-api</code> 或 <code>x-browser</code> backend。</p>
 
 
 
