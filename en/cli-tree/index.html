@@ -896,14 +896,16 @@
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   ├── subscriptions [--enabled ENABLED] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/subscriptions.
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   └── users [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/users.
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>├── capture  # Run bounded official platform capture passes.
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   ├── x-status [--db DB] [--url URL] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID] [--proxy-env-file PROXY-ENV-FILE]  # Capture one public X status URL through the web/oEmbed path.
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   ├── x-user [--db DB] [--handle HANDLE] [--limit LIMIT] [--days DAYS] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID] [--proxy-env-file PROXY-ENV-FILE]  # Capture recent public posts from one X user page.
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   └── zulip-once [--db DB] [--env-file ENV-FILE] [--stream STREAM] [--topic TOPIC] [--content CONTENT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Official Zulip event-queue capture pass.
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>├── paths [--json]  # Show ChatArch-owned runtime paths.
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>├── platforms [--json]  # List supported platforms and action kinds.
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>├── record-json &lt;FILE&gt; [--db DB]  # Validate and write one local ChatEvent JSON file.
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>├── schema &lt;EVENT|SUBSCRIPTION&gt;  # Print local JSON Schema contracts.
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>└── serve [--host HOST] [--port PORT] [--db DB]  # Run the local Event Observatory and REST API.
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   ├── voice-backfill [--db DB] [--env-file ENV-FILE] [--base-url BASE-URL] [--token-env TOKEN-ENV] [--all] [--limit LIMIT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Backfill Speakr/ChatVoice talk metadata through the read-only data API.
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   ├── voice-once [--db DB] [--env-file ENV-FILE] [--base-url BASE-URL] [--token-env TOKEN-ENV] [--since SINCE] [--limit LIMIT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Capture one incremental Speakr/ChatVoice metadata poll.
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   ├── x-status [--db DB] [--url URL] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID] [--proxy-env-file PROXY-ENV-FILE]  # Capture one public X status URL through the web/oEmbed path.
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   ├── x-user [--db DB] [--handle HANDLE] [--limit LIMIT] [--days DAYS] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID] [--proxy-env-file PROXY-ENV-FILE]  # Capture recent public posts from one X user page.
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   └── zulip-once [--db DB] [--env-file ENV-FILE] [--stream STREAM] [--topic TOPIC] [--content CONTENT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Official Zulip event-queue capture pass.
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>├── paths [--json]  # Show ChatArch-owned runtime paths.
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>├── platforms [--json]  # List supported platforms and action kinds.
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>├── record-json &lt;FILE&gt; [--db DB]  # Validate and write one local ChatEvent JSON file.
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>├── schema &lt;EVENT|SUBSCRIPTION&gt;  # Print local JSON Schema contracts.
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>└── serve [--host HOST] [--port PORT] [--db DB]  # Run the local Event Observatory and REST API.
 </code></pre></div>
 <h2 id="brief-command-tree">Brief Command Tree<a class="headerlink" href="#brief-command-tree" title="Permanent link">&para;</a></h2>
 <p><code>--tree-brief</code> keeps command nodes and descriptions while omitting parameter signatures, which is useful for README snippets, capability maps, and quick human checks:</p>
@@ -930,14 +932,16 @@
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>│   ├── subscriptions  # GET /api/subscriptions.
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>│   └── users  # GET /api/users.
 <a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>├── capture  # Run bounded official platform capture passes.
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│   ├── x-status  # Capture one public X status URL through the web/oEmbed path.
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>│   ├── x-user  # Capture recent public posts from one X user page.
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>│   └── zulip-once  # Official Zulip event-queue capture pass.
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>├── paths  # Show ChatArch-owned runtime paths.
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>├── platforms  # List supported platforms and action kinds.
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>├── record-json  # Validate and write one local ChatEvent JSON file.
-<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>├── schema  # Print local JSON Schema contracts.
-<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>└── serve  # Run the local Event Observatory and REST API.
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│   ├── voice-backfill  # Backfill Speakr/ChatVoice talk metadata through the read-only data API.
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>│   ├── voice-once  # Capture one incremental Speakr/ChatVoice metadata poll.
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>│   ├── x-status  # Capture one public X status URL through the web/oEmbed path.
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>│   ├── x-user  # Capture recent public posts from one X user page.
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>│   └── zulip-once  # Official Zulip event-queue capture pass.
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>├── paths  # Show ChatArch-owned runtime paths.
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>├── platforms  # List supported platforms and action kinds.
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>├── record-json  # Validate and write one local ChatEvent JSON file.
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>├── schema  # Print local JSON Schema contracts.
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>└── serve  # Run the local Event Observatory and REST API.
 </code></pre></div>
 <h2 id="local-runtime-and-contracts">Local Runtime And Contracts<a class="headerlink" href="#local-runtime-and-contracts" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chatevent<span class="w"> </span>paths<span class="w"> </span>--json
@@ -960,19 +964,27 @@
 </code></pre></div>
 <p>API tokens are for CLI/model/programmatic access. The Web Observatory homepage still uses username/password login.</p>
 <h2 id="platform-capture">Platform Capture<a class="headerlink" href="#platform-capture" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>x-user<span class="w"> </span>--handle<span class="w"> </span>thsottiaux<span class="w"> </span>--limit<span class="w"> </span><span class="m">20</span><span class="w"> </span>--days<span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--proxy-env-file<span class="w"> </span>/home/zhihong/Playground/.env
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>voice-backfill<span class="w"> </span>--all<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--env-file<span class="w"> </span>/home/zhihong/Playground/.env
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>x-status<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--url<span class="w"> </span>https://x.com/thsottiaux/status/2087423996115681767<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>--proxy-env-file<span class="w"> </span>/home/zhihong/Playground/.env
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>voice-once<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--since<span class="w"> </span><span class="m">2026</span>-08-25T16:26:37Z<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>--env-file<span class="w"> </span>/home/zhihong/Playground/.env
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>zulip-once<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span>--env-file<span class="w"> </span>~/.chatarch/envs/Zulip/.env<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span>--stream<span class="w"> </span>demo<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span>--topic<span class="w"> </span>loop<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span>--subscription-id<span class="w"> </span>zulip-demo
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>x-user<span class="w"> </span>--handle<span class="w"> </span>thsottiaux<span class="w"> </span>--limit<span class="w"> </span><span class="m">20</span><span class="w"> </span>--days<span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span>--proxy-env-file<span class="w"> </span>/home/zhihong/Playground/.env
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>x-status<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span>--url<span class="w"> </span>https://x.com/thsottiaux/status/2087423996115681767<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span>--proxy-env-file<span class="w"> </span>/home/zhihong/Playground/.env
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>zulip-once<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">  </span>--env-file<span class="w"> </span>~/.chatarch/envs/Zulip/.env<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">  </span>--stream<span class="w"> </span>demo<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">  </span>--topic<span class="w"> </span>loop<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">  </span>--subscription-id<span class="w"> </span>zulip-demo
 </code></pre></div>
+<p><code>voice-backfill</code> and <code>voice-once</code> read only the ChatVoice list metadata endpoint and write <code>source=voice</code> / <code>talk.created</code> or <code>talk.updated</code>. Event payloads keep <code>talk_id</code>, <code>title</code>, <code>tags</code>, <code>created_at</code>, <code>updated_at</code>, <code>duration_seconds</code>, and summary/transcript availability booleans; they do not store full summary text, transcript text, preview text, or token values.</p>
 <p>Platform secrets are managed by ChatEnv profiles or service secret files. ChatEvent references them by path and never prints credential values.</p>
 
 

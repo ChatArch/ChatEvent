@@ -696,6 +696,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#023" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2.3
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#022" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -840,6 +851,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#023" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2.3
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#022" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -975,6 +997,13 @@
 
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<h2 id="023">0.2.3<a class="headerlink" href="#023" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Added the Speakr/ChatVoice platform catalog with <code>source=voice</code> and <code>talk.created</code> / <code>talk.updated</code> actions.</li>
+<li>Added <code>capture voice-backfill</code> and <code>capture voice-once</code> to capture talk metadata through the read-only ChatVoice data API.</li>
+<li>Voice payloads keep only talk ID, title, tags, timestamps, duration, and summary/transcript availability booleans; summary, transcript, preview text, and tokens are not stored.</li>
+<li>Incremental capture compares the latest stored tag snapshot, so tag-only changes with unchanged <code>updated_at</code> produce <code>talk.updated</code> and dedupe through a metadata fingerprint.</li>
+</ul>
 <h2 id="022">0.2.2<a class="headerlink" href="#022" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Added the X/Twitter platform catalog with <code>source=x</code>, <code>post.created</code>, and the current public-web acquisition route <code>x-web-url</code>.</li>

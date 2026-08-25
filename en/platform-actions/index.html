@@ -569,6 +569,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#voice-metadata-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Voice metadata actions
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -819,6 +830,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#voice-metadata-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Voice metadata actions
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -845,7 +867,7 @@
 
 
 <h1 id="platforms-and-events">Platforms and Events<a class="headerlink" href="#platforms-and-events" title="Permanent link">&para;</a></h1>
-<p>ChatEvent currently treats four platforms as the explicit support scope. <code>push</code> / <code>pull</code> no longer carry product semantics; they may only appear as legacy coarse acquisition modes. Event meaning is expressed by <code>source + action/kind + target</code>; target is a carrier chain, not just a label.</p>
+<p>ChatEvent currently treats six platforms as the explicit support scope. <code>push</code> / <code>pull</code> no longer carry product semantics; they may only appear as legacy coarse acquisition modes. Event meaning is expressed by <code>source + action/kind + target</code>; target is a carrier chain, not just a label.</p>
 <h2 id="support-matrix">Support matrix<a class="headerlink" href="#support-matrix" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -880,6 +902,18 @@
 <td>Official REST/GraphQL API and webhooks</td>
 <td><code>webhook</code>, <code>api_cursor</code></td>
 <td><code>push</code>, <code>commit.pushed</code>, <code>issue.opened</code>, <code>issue.closed</code>, <code>issue.commented</code>, <code>pull_request.opened</code>, <code>pull_request.synchronize</code>, <code>pull_request.closed</code>, <code>pull_request.merged</code>, <code>workflow_run.requested</code>, <code>workflow_run.in_progress</code>, <code>workflow_run.completed</code>, <code>release.published</code></td>
+</tr>
+<tr>
+<td>Voice</td>
+<td>ChatVoice/Speakr read-only data API</td>
+<td><code>manual_backfill</code>, <code>poll</code>, <code>api_cursor</code></td>
+<td><code>talk.created</code>, <code>talk.updated</code></td>
+</tr>
+<tr>
+<td>X</td>
+<td>Public user pages/status URLs/oEmbed; future official API or browser profile backends can be added</td>
+<td><code>poll</code>, <code>manual_backfill</code></td>
+<td><code>post.created</code></td>
 </tr>
 </tbody>
 </table>
@@ -955,9 +989,16 @@
 <td><code>repo:ChatArch/ChatEvent</code></td>
 <td><code>repo:ChatArch/ChatEvent → pull_request:ChatArch/ChatEvent#4 → issue_comment:1234</code></td>
 </tr>
+<tr>
+<td>Voice</td>
+<td><code>account:default</code> or <code>talk:&lt;uuid&gt;</code></td>
+<td><code>voice_account:default → voice_talk:&lt;uuid&gt;</code></td>
+</tr>
 </tbody>
 </table>
 <p>The Observatory Platform actions panel shows <code>action kind → target types</code>; opening an Event Stream detail shows the concrete <code>Action target</code> and <code>Target chain</code>.</p>
+<h2 id="voice-metadata-actions">Voice metadata actions<a class="headerlink" href="#voice-metadata-actions" title="Permanent link">&para;</a></h2>
+<p>Voice events use <code>source=voice</code> and capture talk metadata through the ChatVoice/Speakr read-only data API. <code>capture voice-backfill --all</code> writes <code>talk.created</code> for existing talks on the current account; <code>capture voice-once --since &lt;timestamp&gt;</code> uses the <code>updated_at</code> cursor to write <code>talk.created</code> for new talks or <code>talk.updated</code> for existing talks. Payloads keep only talk ID, title, tags, timestamps, duration, and summary/transcript availability booleans; they do not store full summary text, transcript text, preview text, or token values.</p>
 
 
 

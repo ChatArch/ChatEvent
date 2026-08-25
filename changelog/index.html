@@ -696,6 +696,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#023" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2.3
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#022" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -840,6 +851,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#023" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2.3
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#022" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -975,6 +997,13 @@
 
 
 <h1 id="_1">发行说明<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<h2 id="023">0.2.3<a class="headerlink" href="#023" title="Permanent link">&para;</a></h2>
+<ul>
+<li>新增 Speakr/ChatVoice 平台目录：<code>source=voice</code>，支持 <code>talk.created</code> / <code>talk.updated</code> action。</li>
+<li>新增 <code>capture voice-backfill</code> 与 <code>capture voice-once</code>，通过 ChatVoice read-only data API 捕获 talk metadata。</li>
+<li>Voice payload 只保存 talk ID、标题、tags、时间、时长和摘要/转写可用性布尔值，不保存 summary/transcript/preview 正文或 token。</li>
+<li>Incremental capture 会比较上一条已存事件的 tag snapshot；即使 <code>updated_at</code> 不变，tag-only 更新也会生成 <code>talk.updated</code> 并通过 metadata fingerprint 去重。</li>
+</ul>
 <h2 id="022">0.2.2<a class="headerlink" href="#022" title="Permanent link">&para;</a></h2>
 <ul>
 <li>新增 X/Twitter 平台目录：<code>source=x</code>，支持 <code>post.created</code> action，并区分当前网页 URL 获取路径 <code>x-web-url</code>。</li>
