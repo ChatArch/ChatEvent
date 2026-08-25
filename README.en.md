@@ -2,10 +2,10 @@
 
 `chatevent` provides a typed event envelope, SQLite event store, platform normalizers, and a Web Observatory for collaboration-event demos.
 
-Current `0.2.2` scope adds **X/Twitter public web capture**: `source=x`, `post.created`, `capture x-user` / `capture x-status`, while keeping the ChatStyle CLI tree and ChatEnv configuration contract.
+Current `0.2.3` scope adds **Speakr/ChatVoice metadata capture**: `source=voice`, `talk.created` / `talk.updated`, `capture voice-backfill` / `capture voice-once`, while keeping X/Twitter public web capture, the ChatStyle CLI tree, and the ChatEnv configuration contract.
 
 ```text
-platform official webhook/event queue/API cursor/public web URL -> ChatEvent -> SQLite -> Observatory/API
+platform official webhook/event queue/API cursor/public web URL/metadata API -> ChatEvent -> SQLite -> Observatory/API
 ```
 
 Gateway routing and agent execution are intentionally outside this package's current phase.
@@ -35,7 +35,7 @@ uv run --extra serve chatevent --tree
 uv run --extra serve chatevent --tree-brief
 ```
 
-`0.2.2` adds the X/Twitter web URL acquisition path: public user pages or status URLs can be recorded as Event history, with `metadata.acquisition="x-web-url"` so future `x-api` or `x-browser` backends can coexist.
+`0.2.3` adds the Speakr/ChatVoice metadata acquisition path: ChatEvent reads only the ChatVoice list metadata endpoint and stores talk ID, title, tags, timestamps, duration, and summary/transcript availability booleans without summary, transcript, preview text, or token values.
 
 ## CLI
 
@@ -194,6 +194,7 @@ uv run chatevent platforms --json
 | Discourse | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
 | GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
+| Voice | `manual_backfill`, `poll`, `api_cursor` | `talk.created`, `talk.updated` |
 | X | `poll`, `manual_backfill` | `post.created` |
 
 
@@ -239,6 +240,7 @@ Gitea:     https://event.public.wzhecnu.cn/webhooks/gitea?subscription_id=gitea-
 GitHub:    https://event.public.wzhecnu.cn/webhooks/github?subscription_id=github-chatevent
 Zulip:     use `chatevent capture zulip-once` for the official event queue pass
 X:         use `chatevent capture x-user --handle <handle> --limit <N> --days <N>` to backfill/poll recent public posts
+Voice:     use `chatevent capture voice-backfill --all --env-file /home/zhihong/Playground/.env` to backfill ChatVoice talk metadata; use `chatevent capture voice-once --since <timestamp>` for incremental polling
 ```
 
 See `docs/monitoring.md` for detailed registration steps.

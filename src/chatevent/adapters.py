@@ -8,6 +8,8 @@ into the stable :class:`chatevent.model.ChatEvent` envelope.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote, urljoin
@@ -97,6 +99,143 @@ def _x_post_target(
         display=f"@{handle} status {status_id}",
         url=url,
         parent=_x_user_target(handle, display=author_name or f"@{handle}"),
+    )
+
+
+def _voice_talk_target(*, talk_id: str, title: str | None, url: str | None = None) -> CarrierTarget:
+    return CarrierTarget(
+        type="voice_talk",
+        key=talk_id,
+        display=title or f"talk:{talk_id}",
+        url=url,
+        parent=CarrierTarget(type="voice_account", key="default", display="default"),
+    )
+
+
+def _voice_tags(raw: dict[str, Any]) -> list[str]:
+    value = raw.get("tags")
+    if isinstance(value, list):
+        return list(dict.fromkeys(tag.strip() for tag in map(str, value) if tag.strip()))
+    if isinstance(value, str):
+        return list(dict.fromkeys(tag.strip() for tag in value.split(",") if tag.strip()))
+    return []
+
+
+def _presence_flag(raw: dict[str, Any], field: str, *fallback_fields: str) -> bool:
+    value = raw.get(field)
+    if isinstance(value, bool):
+        return value
+    for fallback in fallback_fields:
+        fallback_value = raw.get(fallback)
+        if isinstance(fallback_value, list):
+            if fallback_value:
+                return True
+        elif isinstance(fallback_value, str):
+            if fallback_value.strip():
+                return True
+        elif fallback_value is not None:
+            return True
+    return False
+
+
+def _voice_metadata_fingerprint(
+    *,
+    title: str,
+    tags: list[str],
+    duration_seconds: int | None,
+    summary_available: bool,
+    transcript_available: bool,
+) -> str:
+    payload = {
+        "duration_seconds": duration_seconds,
+        "summary_available": summary_available,
+        "tags": tags,
+        "title": title,
+        "transcript_available": transcript_available,
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:12]
+
+
+def normalize_voice_talk(
+    raw: dict[str, Any],
+    *,
+    kind: str = "talk.created",
+    subscription_id: str | None = None,
+    capture_mode: CaptureMode = CaptureMode.POLL,
+) -> ChatEvent:
+    """Normalize one ChatVoice/Speakr talk metadata record.
+
+    This adapter intentionally keeps only metadata. It does not copy previews,
+    transcript segments, summary content, summary-chat messages, cookies, tokens,
+    or any other conversational text into the ChatEvent payload or raw payload.
+    """
+
+    talk_id = _string(raw.get("talk_id") or raw.get("meeting_id") or raw.get("id"))
+    if not talk_id:
+        raise ValueError("voice talk payload requires id, meeting_id, or talk_id")
+    if kind not in {"talk.created", "talk.updated"}:
+        raise ValueError("voice talk kind must be talk.created or talk.updated")
+
+    title = _string(raw.get("title")) or "Untitled talk"
+    created_at = _parse_datetime(raw.get("created_at") or raw.get("occurred_at"))
+    updated_at = _parse_datetime(raw.get("updated_at") or raw.get("created_at") or raw.get("occurred_at"))
+    occurred_at = created_at if kind == "talk.created" else updated_at
+    duration = raw.get("duration_seconds")
+    try:
+        duration_seconds = int(duration) if duration is not None else None
+    except (TypeError, ValueError):
+        duration_seconds = None
+    tags = _voice_tags(raw)
+    summary_available = _presence_flag(raw, "summary_available", "summary_title", "summary_content")
+    transcript_available = _presence_flag(raw, "transcript_available", "transcript_segments", "preview")
+    if kind == "talk.created":
+        event_suffix = "created"
+    else:
+        fingerprint = _voice_metadata_fingerprint(
+            title=title,
+            tags=tags,
+            duration_seconds=duration_seconds,
+            summary_available=summary_available,
+            transcript_available=transcript_available,
+        )
+        event_suffix = f"updated:{updated_at.isoformat()}:{fingerprint}"
+
+    payload: dict[str, Any] = {
+        "talk_id": talk_id,
+        "title": title,
+        "tags": tags,
+        "created_at": created_at.isoformat(),
+        "updated_at": updated_at.isoformat(),
+        "summary_available": summary_available,
+        "transcript_available": transcript_available,
+    }
+    if duration_seconds is not None:
+        payload["duration_seconds"] = duration_seconds
+
+    return ChatEvent(
+        id=f"talk:{talk_id}:{event_suffix}",
+        source="voice",
+        kind=kind,
+        occurred_at=occurred_at,
+        capture_mode=capture_mode,
+        subscription_id=subscription_id,
+        action=_action(kind, "talk"),
+        target=_voice_talk_target(talk_id=talk_id, title=title, url=_string(raw.get("url"))),
+        conversation_id="account:default",
+        subject_id=f"talk:{talk_id}",
+        subject_type="talk",
+        url=_string(raw.get("url")),
+        cursor=updated_at.isoformat(),
+        payload=payload,
+        raw_payload=None,
+        metadata={"acquisition": "chatvoice-data-api", "content_policy": "metadata-only"},
+        tags=["voice", "talk", *tags],
     )
 
 

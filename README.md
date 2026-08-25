@@ -2,10 +2,10 @@
 
 `chatevent` 是 ChatArch 的协作事件观察包：提供类型化事件 envelope、SQLite 事件账本、平台 normalizer 和 Web Observatory，用于观察 Discourse、Zulip、Gitea、GitHub、X 等协作平台的真实动作。
 
-当前 `0.2.2` 范围加入 **X/Twitter public web capture**：`source=x`、`post.created`、`capture x-user` / `capture x-status`，并保留 ChatStyle CLI 树和 ChatEnv 配置接口。
+当前 `0.2.3` 范围加入 **Speakr/ChatVoice metadata capture**：`source=voice`、`talk.created` / `talk.updated`、`capture voice-backfill` / `capture voice-once`，并继续保留 X/Twitter public web capture、ChatStyle CLI 树和 ChatEnv 配置接口。
 
 ```text
-平台官方 webhook / event queue / API cursor / public web URL -> ChatEvent -> SQLite -> Observatory / API
+平台官方 webhook / event queue / API cursor / public web URL / metadata API -> ChatEvent -> SQLite -> Observatory / API
 ```
 
 Gateway 路由和 Agent 执行不在当前包的阶段范围内。
@@ -35,7 +35,7 @@ uv run --extra serve chatevent --tree
 uv run --extra serve chatevent --tree-brief
 ```
 
-`0.2.2` 新增 X/Twitter 网页 URL 获取路径：可用公开用户页或 status URL 把 X post 写入 Event 历史，`metadata.acquisition="x-web-url"` 便于以后并列接入 `x-api` 或 `x-browser`。
+`0.2.3` 新增 Speakr/ChatVoice metadata 获取路径：只读取 ChatVoice list metadata endpoint，把 talk ID、标题、tags、时间、时长和摘要/转写可用性布尔值写入 Event 历史，不保存 summary、transcript、preview 正文或 token。
 
 ## CLI
 
@@ -194,6 +194,7 @@ uv run chatevent platforms --json
 | Discourse | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
 | GitHub | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
+| Voice | `manual_backfill`, `poll`, `api_cursor` | `talk.created`, `talk.updated` |
 | X | `poll`, `manual_backfill` | `post.created` |
 
 
@@ -239,6 +240,7 @@ Gitea:     https://event.public.wzhecnu.cn/webhooks/gitea?subscription_id=gitea-
 GitHub:    https://event.public.wzhecnu.cn/webhooks/github?subscription_id=github-chatevent
 Zulip:     用 `chatevent capture zulip-once` 做官方 event queue bounded capture pass
 X:         用 `chatevent capture x-user --handle <handle> --limit <N> --days <N>` 从公开用户页回填/轮询最近 post
+Voice:     用 `chatevent capture voice-backfill --all --env-file /home/zhihong/Playground/.env` 回填 ChatVoice talk metadata；用 `chatevent capture voice-once --since <timestamp>` 增量轮询
 ```
 
 详细步骤见 `docs/monitoring.md`。

@@ -180,6 +180,38 @@ def _build_tree_command() -> click.Group:
     capture = click.Group("capture", help="Run bounded official platform capture passes.")
     capture.add_command(
         _command(
+            "voice-backfill",
+            "Backfill Speakr/ChatVoice talk metadata through the read-only data API.",
+            [
+                _option("--db", metavar="DB"),
+                _option("--env-file", metavar="FILE"),
+                _option("--base-url", metavar="URL"),
+                _option("--token-env", metavar="ENV"),
+                _option("--all", "all_talks", is_flag=True, help="Capture all talks returned by the current account list endpoint."),
+                _option("--limit", metavar="N"),
+                _option("--timeout", metavar="SECONDS"),
+                _option("--subscription-id", metavar="ID"),
+            ],
+        )
+    )
+    capture.add_command(
+        _command(
+            "voice-once",
+            "Capture one incremental Speakr/ChatVoice metadata poll.",
+            [
+                _option("--db", metavar="DB"),
+                _option("--env-file", metavar="FILE"),
+                _option("--base-url", metavar="URL"),
+                _option("--token-env", metavar="ENV"),
+                _option("--since", metavar="TIMESTAMP"),
+                _option("--limit", metavar="N"),
+                _option("--timeout", metavar="SECONDS"),
+                _option("--subscription-id", metavar="ID"),
+            ],
+        )
+    )
+    capture.add_command(
+        _command(
             "zulip-once",
             "Official Zulip event-queue capture pass.",
             [
@@ -407,6 +439,60 @@ def build_parser() -> argparse.ArgumentParser:
 
     capture = subparsers.add_parser("capture", help="run one bounded official capture pass")
     capture_subparsers = capture.add_subparsers(dest="capture_command", required=True)
+    voice_backfill = capture_subparsers.add_parser(
+        "voice-backfill",
+        help="backfill Speakr/ChatVoice talk metadata through the read-only data API",
+    )
+    voice_backfill.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
+    )
+    voice_backfill.add_argument(
+        "--env-file",
+        type=Path,
+        default=None,
+        help="env file containing CHATVOICE_BASE_URL and CHATVOICE_DATA_READ",
+    )
+    voice_backfill.add_argument("--base-url", default=None, help="ChatVoice service base URL")
+    voice_backfill.add_argument(
+        "--token-env",
+        default="CHATVOICE_DATA_READ",
+        help="environment variable containing the ChatVoice data API token",
+    )
+    voice_backfill.add_argument("--all", dest="all_talks", action="store_true")
+    voice_backfill.add_argument("--limit", type=int, default=None)
+    voice_backfill.add_argument("--timeout", type=float, default=10.0)
+    voice_backfill.add_argument("--subscription-id", default="voice-default")
+
+    voice_once = capture_subparsers.add_parser(
+        "voice-once",
+        help="capture one incremental Speakr/ChatVoice metadata poll",
+    )
+    voice_once.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
+    )
+    voice_once.add_argument(
+        "--env-file",
+        type=Path,
+        default=None,
+        help="env file containing CHATVOICE_BASE_URL and CHATVOICE_DATA_READ",
+    )
+    voice_once.add_argument("--base-url", default=None, help="ChatVoice service base URL")
+    voice_once.add_argument(
+        "--token-env",
+        default="CHATVOICE_DATA_READ",
+        help="environment variable containing the ChatVoice data API token",
+    )
+    voice_once.add_argument("--since", default=None, help="updated_at cursor timestamp")
+    voice_once.add_argument("--limit", type=int, default=None)
+    voice_once.add_argument("--timeout", type=float, default=10.0)
+    voice_once.add_argument("--subscription-id", default="voice-default")
+
     zulip = capture_subparsers.add_parser(
         "zulip-once",
         help="capture one Zulip official event-queue pass",
@@ -640,6 +726,38 @@ def main(argv: Sequence[str] | None = None) -> None:
         return
     if args.command == "api":
         _handle_api_command(args)
+        return
+    if args.command == "capture" and args.capture_command == "voice-backfill":
+        from .capture import capture_voice_backfill
+        from .state import default_database_path
+
+        summary = capture_voice_backfill(
+            db_path=args.db or default_database_path(),
+            env_file=args.env_file,
+            base_url=args.base_url,
+            token_env=args.token_env,
+            all_talks=args.all_talks,
+            limit=args.limit,
+            timeout_seconds=args.timeout,
+            subscription_id=args.subscription_id,
+        )
+        _print_json(summary.to_dict())
+        return
+    if args.command == "capture" and args.capture_command == "voice-once":
+        from .capture import capture_voice_once
+        from .state import default_database_path
+
+        summary = capture_voice_once(
+            db_path=args.db or default_database_path(),
+            env_file=args.env_file,
+            base_url=args.base_url,
+            token_env=args.token_env,
+            since=args.since,
+            limit=args.limit,
+            timeout_seconds=args.timeout,
+            subscription_id=args.subscription_id,
+        )
+        _print_json(summary.to_dict())
         return
     if args.command == "capture" and args.capture_command == "zulip-once":
         from .capture import capture_zulip_once

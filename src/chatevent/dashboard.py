@@ -455,7 +455,9 @@ DASHBOARD_HTML = r"""<!doctype html>
       applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
     }
     const api = async (path, options = {}) => {
-      const headers = {"Content-Type": "application/json", ...(options.headers || {})};
+      const token = sessionStorage.getItem("chateventApiToken") || "";
+      const authHeaders = token ? {"X-ChatEvent-Admin-Token": token} : {};
+      const headers = {"Content-Type": "application/json", ...authHeaders, ...(options.headers || {})};
       const response = await fetch(path, {...options, headers});
       if (!response.ok) {
         let detail = response.statusText;

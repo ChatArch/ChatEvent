@@ -59,6 +59,8 @@ class ServerTests(unittest.TestCase):
             self.assertIn('id="createUser"', dashboard.text)
             self.assertIn('id="userList"', dashboard.text)
             self.assertIn("API Token 用于 CLI", dashboard.text)
+            self.assertIn('sessionStorage.getItem("chateventApiToken")', dashboard.text)
+            self.assertIn('X-ChatEvent-Admin-Token', dashboard.text)
             self.assertIn("subscriptionScopeType", dashboard.text)
             self.assertIn("Action target", dashboard.text)
             self.assertIn("Actor role", dashboard.text)
@@ -143,7 +145,38 @@ class ServerTests(unittest.TestCase):
             platforms = client.get("/api/platforms")
             self.assertEqual(platforms.status_code, 200)
             platform_ids = [item["id"] for item in platforms.json()["items"]]
-            self.assertEqual(platform_ids, ["discourse", "gitea", "github", "x", "zulip"])
+            self.assertEqual(platform_ids, ["discourse", "gitea", "github", "voice", "x", "zulip"])
+            voice = next(item for item in platforms.json()["items"] if item["id"] == "voice")
+            self.assertEqual(
+                [action["kind"] for action in voice["actions"]],
+                ["talk.created", "talk.updated"],
+            )
+
+            voice_subscription = client.post(
+                "/api/subscriptions",
+                json={
+                    "id": "voice-default",
+                    "label": "Default ChatVoice talks",
+                    "source": "voice",
+                    "target": "account:default",
+                    "event_kinds": ["talk.created", "talk.updated"],
+                    "capture_modes": ["manual_backfill", "poll", "api_cursor"],
+                },
+            )
+            self.assertEqual(voice_subscription.status_code, 201)
+            self.assertEqual(voice_subscription.json()["scope"]["type"], "voice_account")
+            self.assertEqual(
+                [action["kind"] for action in voice_subscription.json()["actions"]],
+                ["talk.created", "talk.updated"],
+            )
+            subscriptions = client.get("/api/subscriptions").json()
+            voice_items = [item for item in subscriptions if item["source"] == "voice"]
+            self.assertEqual(len(voice_items), 1)
+            self.assertEqual(voice_items[0]["id"], "voice-default")
+            self.assertEqual(
+                [action["kind"] for action in voice_items[0]["actions"]],
+                ["talk.created", "talk.updated"],
+            )
 
     def test_subscription_mutations_can_require_admin_token(self) -> None:
         with TemporaryDirectory() as directory, patch.dict(

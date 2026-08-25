@@ -30,6 +30,8 @@ chatevent
 │   ├── subscriptions [--enabled ENABLED] [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/subscriptions.
 │   └── users [--base-url BASE-URL] [--timeout TIMEOUT] [--admin-token ADMIN-TOKEN] [--username USERNAME] [--password-file PASSWORD-FILE]  # GET /api/users.
 ├── capture  # Run bounded official platform capture passes.
+│   ├── voice-backfill [--db DB] [--env-file ENV-FILE] [--base-url BASE-URL] [--token-env TOKEN-ENV] [--all] [--limit LIMIT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Backfill Speakr/ChatVoice talk metadata through the read-only data API.
+│   ├── voice-once [--db DB] [--env-file ENV-FILE] [--base-url BASE-URL] [--token-env TOKEN-ENV] [--since SINCE] [--limit LIMIT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Capture one incremental Speakr/ChatVoice metadata poll.
 │   ├── x-status [--db DB] [--url URL] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID] [--proxy-env-file PROXY-ENV-FILE]  # Capture one public X status URL through the web/oEmbed path.
 │   ├── x-user [--db DB] [--handle HANDLE] [--limit LIMIT] [--days DAYS] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID] [--proxy-env-file PROXY-ENV-FILE]  # Capture recent public posts from one X user page.
 │   └── zulip-once [--db DB] [--env-file ENV-FILE] [--stream STREAM] [--topic TOPIC] [--content CONTENT] [--timeout TIMEOUT] [--subscription-id SUBSCRIPTION-ID]  # Official Zulip event-queue capture pass.
@@ -68,6 +70,8 @@ chatevent
 │   ├── subscriptions  # GET /api/subscriptions.
 │   └── users  # GET /api/users.
 ├── capture  # Run bounded official platform capture passes.
+│   ├── voice-backfill  # Backfill Speakr/ChatVoice talk metadata through the read-only data API.
+│   ├── voice-once  # Capture one incremental Speakr/ChatVoice metadata poll.
 │   ├── x-status  # Capture one public X status URL through the web/oEmbed path.
 │   ├── x-user  # Capture recent public posts from one X user page.
 │   └── zulip-once  # Official Zulip event-queue capture pass.
@@ -108,6 +112,13 @@ API tokens are for CLI/model/programmatic access. The Web Observatory homepage s
 ## Platform Capture
 
 ```bash
+chatevent capture voice-backfill --all \
+  --env-file /home/zhihong/Playground/.env
+
+chatevent capture voice-once \
+  --since 2026-08-25T16:26:37Z \
+  --env-file /home/zhihong/Playground/.env
+
 chatevent capture x-user --handle thsottiaux --limit 20 --days 7 \
   --proxy-env-file /home/zhihong/Playground/.env
 
@@ -121,5 +132,7 @@ chatevent capture zulip-once \
   --topic loop \
   --subscription-id zulip-demo
 ```
+
+`voice-backfill` and `voice-once` read only the ChatVoice list metadata endpoint and write `source=voice` / `talk.created` or `talk.updated`. Event payloads keep `talk_id`, `title`, `tags`, `created_at`, `updated_at`, `duration_seconds`, and summary/transcript availability booleans; they do not store full summary text, transcript text, preview text, or token values.
 
 Platform secrets are managed by ChatEnv profiles or service secret files. ChatEvent references them by path and never prints credential values.

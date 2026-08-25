@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
+from chatevent import __version__
 from chatevent.capture import _form_value, load_env_file
 from chatevent.cli import main
 from chatevent.store import EventStore
@@ -51,6 +52,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("│   ├── create-token [USER-ID]", tree)
         self.assertIn("│   └── users", tree)
         self.assertIn("├── capture", tree)
+        self.assertIn("│   ├── voice-backfill [--db DB]", tree)
+        self.assertIn("│   ├── voice-once [--db DB]", tree)
         self.assertIn("│   ├── x-status [--db DB] [--url URL]", tree)
         self.assertIn("│   ├── x-user [--db DB] [--handle HANDLE]", tree)
         self.assertIn("│   └── zulip-once", tree)
@@ -69,6 +72,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("│   ├── event  # GET /api/events/{dedupe_key}.", tree)
         self.assertIn("│   ├── stats  # GET /api/stats.", tree)
         self.assertIn("└── serve  # Run the local Event Observatory and REST API.", tree)
+        self.assertIn("│   ├── voice-backfill  # Backfill Speakr/ChatVoice talk metadata", tree)
+        self.assertIn("│   ├── voice-once  # Capture one incremental Speakr/ChatVoice metadata poll.", tree)
         self.assertIn("│   ├── x-status  # Capture one public X status URL", tree)
         self.assertIn("│   ├── x-user  # Capture recent public posts from one X user page.", tree)
         self.assertNotIn("[--source SOURCE]", tree)
@@ -81,7 +86,7 @@ class CliTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(captured.exception.code, 0)
-        self.assertIn("chatevent 0.2.2", stdout.getvalue())
+        self.assertIn(f"chatevent {__version__}", stdout.getvalue())
 
     def test_api_events_cli_queries_rest_endpoint_with_filters(self) -> None:
         requests = []
@@ -272,13 +277,16 @@ class CliTests(unittest.TestCase):
             main(["platforms", "--json"])
 
         result = json.loads(stdout.getvalue())
-        self.assertEqual(result["count"], 5)
+        self.assertEqual(result["count"], 6)
         github = next(item for item in result["items"] if item["id"] == "github")
         self.assertIn("repo:ChatArch/ChatEvent", github["scope_examples"])
         self.assertIn("commit.pushed", {action["kind"] for action in github["actions"]})
         x = next(item for item in result["items"] if item["id"] == "x")
         self.assertIn("user:<handle>", x["scope_examples"])
         self.assertIn("post.created", {action["kind"] for action in x["actions"]})
+        voice = next(item for item in result["items"] if item["id"] == "voice")
+        self.assertIn("account:default", voice["scope_examples"])
+        self.assertIn("talk.created", {action["kind"] for action in voice["actions"]})
 
     def test_schema_event_outputs_json_schema(self) -> None:
         stdout = io.StringIO()
