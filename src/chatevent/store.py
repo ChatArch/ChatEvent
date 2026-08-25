@@ -415,6 +415,29 @@ class EventStore:
             ).fetchone()
         return None if row is None else self._stored_event(row)
 
+    def latest_event_for_subject(
+        self,
+        *,
+        source: str,
+        subject_id: str,
+        kind: str | None = None,
+    ) -> StoredEvent | None:
+        clauses = ["source = ?", "json_extract(body, '$.subject_id') = ?"]
+        parameters: list[Any] = [source, subject_id]
+        if kind:
+            clauses.append("kind = ?")
+            parameters.append(kind)
+        sql = f"""
+            SELECT body, first_captured_at, last_captured_at, seen_count
+            FROM events
+            WHERE {' AND '.join(clauses)}
+            ORDER BY occurred_at DESC, captured_at DESC
+            LIMIT 1
+        """
+        with self._connect() as connection:
+            row = connection.execute(sql, parameters).fetchone()
+        return None if row is None else self._stored_event(row)
+
     def list_events(
         self,
         *,

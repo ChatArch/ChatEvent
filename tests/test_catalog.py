@@ -8,7 +8,7 @@ class PlatformCatalogTests(unittest.TestCase):
     def test_v1_catalog_lists_supported_platforms(self) -> None:
         self.assertEqual(
             SUPPORTED_PLATFORM_IDS,
-            ("discourse", "gitea", "github", "x", "zulip"),
+            ("discourse", "gitea", "github", "voice", "x", "zulip"),
         )
 
     def test_each_platform_registers_supported_actions(self) -> None:
@@ -17,6 +17,7 @@ class PlatformCatalogTests(unittest.TestCase):
             "discourse": {"topic.created", "post.created", "post.edited", "reply.created", "mention.created"},
             "gitea": {"push", "issue.opened", "issue.commented", "pull_request.opened", "pull_request.merged", "release.published"},
             "github": {"push", "commit.pushed", "issue.opened", "issue.commented", "pull_request.opened", "pull_request.merged", "workflow_run.requested", "workflow_run.in_progress", "workflow_run.completed", "release.published"},
+            "voice": {"talk.created", "talk.updated"},
             "x": {"post.created"},
         }
         for platform, kinds in expectations.items():
@@ -43,6 +44,11 @@ class PlatformCatalogTests(unittest.TestCase):
         post = {action.kind: action for action in x.actions}["post.created"]
         self.assertIn("x_user", post.target_types)
         self.assertIn("x_post", post.target_types)
+
+        voice = get_platform_spec("voice")
+        talk = {action.kind: action for action in voice.actions}["talk.created"]
+        self.assertIn("voice_account", talk.target_types)
+        self.assertIn("voice_talk", talk.target_types)
 
     def test_acquisition_modes_are_not_only_push_pull(self) -> None:
         self.assertEqual(CaptureMode.WEBHOOK.value, "webhook")

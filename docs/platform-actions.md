@@ -1,6 +1,6 @@
 # 平台与事件
 
-ChatEvent 当前把五个平台作为明确支持范围。`push` / `pull` 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 `source + action/kind + target` 表达；target 是承载链，不只是一个标签。
+ChatEvent 当前把六个平台作为明确支持范围。`push` / `pull` 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 `source + action/kind + target` 表达；target 是承载链，不只是一个标签。
 
 ## 支持矩阵
 
@@ -10,6 +10,7 @@ ChatEvent 当前把五个平台作为明确支持范围。`push` / `pull` 不再
 | Discourse | 官方 REST API、webhook | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
 | Gitea | 官方 REST API、repository/org webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
 | GitHub | 官方 REST/GraphQL API、webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
+| Voice | ChatVoice/Speakr read-only data API | `manual_backfill`, `poll`, `api_cursor` | `talk.created`, `talk.updated` |
 | X | 公开用户页/status URL/oEmbed；后续可扩展官方 API 或浏览器 profile | `poll`, `manual_backfill` | `post.created` |
 
 ## 字段含义
@@ -41,9 +42,14 @@ Discourse 官方 webhook 对 topic 首帖和回复都可能发送 `post_created`
 | Zulip | `stream:team/topic:release` | `zulip_stream:team → zulip_topic:team/release → message:123` |
 | Discourse | `category:agent-runs` 或 `topic:22` | `discourse_topic:22 → discourse_post:35` |
 | GitHub/Gitea | `repo:ChatArch/ChatEvent` | `repo:ChatArch/ChatEvent → pull_request:ChatArch/ChatEvent#4 → issue_comment:1234` |
+| Voice | `account:default` 或 `talk:<uuid>` | `voice_account:default → voice_talk:<uuid>` |
 
 Observatory 的 Platform actions 面板会显示 `action kind → target types`，Event Stream 点开详情会显示真实 `Action target` 和 `Target chain`。
 
 ## X 公开网页动作
 
 首版 X 事件使用 `source=x`、`kind=post.created`。`capture x-user --handle <handle> --limit <N> --days <N>` 从公开用户页发现最近 status URL，并通过 oEmbed/status 网页补充内容、作者、发布时间和来源 URL；重复运行按 `x:post:<status-id>` 去重，新发帖会成为新的 Event。当前 acquisition 写入 `metadata.acquisition = "x-web-url"`，后续可并列增加 `x-api` 或 `x-browser` backend。
+
+## Voice metadata 动作
+
+Voice 事件使用 `source=voice`，通过 ChatVoice/Speakr read-only data API 捕获 talk metadata。`capture voice-backfill --all` 写入当前账号已有 talk 的 `talk.created` 事件；`capture voice-once --since <timestamp>` 根据 `updated_at` cursor 写入新增 talk 的 `talk.created` 或已存在 talk 的 `talk.updated`。payload 只保留 talk ID、标题、tags、时间、时长和摘要/转写可用性布尔值，不保存完整 summary、transcript、preview 或 token。

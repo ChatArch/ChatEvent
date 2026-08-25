@@ -1,5 +1,12 @@
 # 发行说明
 
+## 0.2.3
+
+- 新增 Speakr/ChatVoice 平台目录：`source=voice`，支持 `talk.created` / `talk.updated` action。
+- 新增 `capture voice-backfill` 与 `capture voice-once`，通过 ChatVoice read-only data API 捕获 talk metadata。
+- Voice payload 只保存 talk ID、标题、tags、时间、时长和摘要/转写可用性布尔值，不保存 summary/transcript/preview 正文或 token。
+- Incremental capture 会比较上一条已存事件的 tag snapshot；即使 `updated_at` 不变，tag-only 更新也会生成 `talk.updated` 并通过 metadata fingerprint 去重。
+
 ## 0.2.2
 
 - 新增 X/Twitter 平台目录：`source=x`，支持 `post.created` action，并区分当前网页 URL 获取路径 `x-web-url`。

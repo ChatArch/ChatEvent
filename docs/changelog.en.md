@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3
+
+- Added the Speakr/ChatVoice platform catalog with `source=voice` and `talk.created` / `talk.updated` actions.
+- Added `capture voice-backfill` and `capture voice-once` to capture talk metadata through the read-only ChatVoice data API.
+- Voice payloads keep only talk ID, title, tags, timestamps, duration, and summary/transcript availability booleans; summary, transcript, preview text, and tokens are not stored.
+- Incremental capture compares the latest stored tag snapshot, so tag-only changes with unchanged `updated_at` produce `talk.updated` and dedupe through a metadata fingerprint.
+
 ## 0.2.2
 
 - Added the X/Twitter platform catalog with `source=x`, `post.created`, and the current public-web acquisition route `x-web-url`.

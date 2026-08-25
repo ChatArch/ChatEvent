@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .model import CaptureMode
 
-PlatformId = Literal["discourse", "gitea", "github", "x", "zulip"]
+PlatformId = Literal["discourse", "gitea", "github", "voice", "x", "zulip"]
 
 
 class PlatformAction(BaseModel):
@@ -135,6 +135,31 @@ PLATFORM_SPECS: tuple[PlatformSpec, ...] = (
                 "A watched X user publishes a public post discovered through the web URL acquisition path.",
                 (CaptureMode.POLL, CaptureMode.MANUAL_BACKFILL),
                 target_types=("x_user", "x_post"),
+            ),
+        ),
+    ),
+    PlatformSpec(
+        id="voice",
+        display_name="Voice",
+        description="Speakr/ChatVoice talk metadata captured through the read-only ChatVoice data API without transcript or summary text.",
+        primary_acquisition_modes=(CaptureMode.MANUAL_BACKFILL, CaptureMode.POLL, CaptureMode.API_CURSOR),
+        scope_examples=("account:default", "talk:<uuid>", "tag:<name>"),
+        actions=(
+            action(
+                "talk.created",
+                "talk",
+                "created",
+                "A Speakr/ChatVoice talk exists or is newly discovered during a metadata capture pass.",
+                (CaptureMode.MANUAL_BACKFILL, CaptureMode.POLL, CaptureMode.API_CURSOR),
+                target_types=("voice_account", "voice_talk"),
+            ),
+            action(
+                "talk.updated",
+                "talk",
+                "updated",
+                "A Speakr/ChatVoice talk metadata record changed by updated_at cursor or tag metadata snapshot.",
+                (CaptureMode.POLL, CaptureMode.API_CURSOR),
+                target_types=("voice_account", "voice_talk"),
             ),
         ),
     ),

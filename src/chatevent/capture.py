@@ -15,9 +15,10 @@ from typing import Any
 from urllib.parse import quote, urlencode, urljoin
 from urllib.request import Request, urlopen
 
-from .adapters import normalize_x_post, normalize_zulip_message_event
+from .adapters import normalize_voice_talk, normalize_x_post, normalize_zulip_message_event
 from .model import CaptureMode, ChatEvent
 from .store import EventStore
+from .subscription import Subscription
 
 
 @dataclass(frozen=True)
@@ -82,11 +83,266 @@ def apply_proxy_env_file(path: str | Path | None) -> None:
         os.environ[key] = value
 
 
+def _default_voice_env_file() -> Path | None:
+    configured = os.environ.get("CHATEVENT_VOICE_ENV_FILE") or os.environ.get("CHATVOICE_ENV_FILE")
+    if configured:
+        return Path(configured).expanduser()
+    for directory in (Path.cwd(), *Path.cwd().parents):
+        env_path = directory / ".env"
+        if env_path.exists():
+            return env_path
+    return None
+
+
+def load_voice_env_file(path: str | Path | None = None) -> dict[str, str]:
+    """Load ChatVoice connection settings from an env file plus process env."""
+
+    loaded: dict[str, str] = {}
+    env_path = Path(path).expanduser() if path is not None else _default_voice_env_file()
+    if env_path is not None and env_path.exists():
+        loaded.update(load_env_file(env_path))
+    for key in ("CHATVOICE_BASE_URL", "CHATVOICE_DATA_READ"):
+        if os.environ.get(key):
+            loaded[key] = os.environ[key]
+    return loaded
+
+
 def _api_url(base_url: str, path: str, query: dict[str, Any] | None = None) -> str:
     url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
     if query:
         url += "?" + urlencode(query, doseq=True)
     return url
+
+
+def _read_json_api(
+    base_url: str,
+    path: str,
+    *,
+    bearer_token: str,
+    timeout: float = 10,
+) -> dict[str, Any]:
+    request = Request(
+        _api_url(base_url, path),
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
+            "User-Agent": "ChatEvent/0.2 voice metadata capture",
+        },
+        method="GET",
+    )
+    with urlopen(request, timeout=timeout) as response:  # noqa: S310 - user-configured service URL
+        return json.loads(response.read().decode("utf-8"))
+
+
+def fetch_voice_talks(
+    *,
+    env_file: str | Path | None = None,
+    base_url: str | None = None,
+    token_env: str = "CHATVOICE_DATA_READ",
+    timeout_seconds: float = 10,
+) -> list[dict[str, Any]]:
+    """Fetch metadata-only ChatVoice talks from the authorized list endpoint."""
+
+    env = load_voice_env_file(env_file)
+    resolved_base_url = base_url or env.get("CHATVOICE_BASE_URL") or "http://127.0.0.1:18087"
+    token = os.environ.get(token_env) or env.get(token_env)
+    if not token:
+        raise RuntimeError(f"missing ChatVoice API token env {token_env}")
+    payload = _read_json_api(
+        resolved_base_url,
+        "/api/data/meetings",
+        bearer_token=token,
+        timeout=timeout_seconds,
+    )
+    meetings = payload.get("meetings")
+    if not isinstance(meetings, list):
+        raise RuntimeError("ChatVoice meetings response did not include a meetings list")
+    return [meeting for meeting in meetings if isinstance(meeting, dict)]
+
+
+def _parse_since_cursor(value: str | None) -> datetime | None:
+    if value is None or not value.strip():
+        return None
+    parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("--since must include timezone information")
+    return parsed.astimezone(timezone.utc)
+
+
+def _voice_timestamp(raw: dict[str, Any], key: str) -> datetime | None:
+    value = raw.get(key)
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def _voice_talk_id(raw: dict[str, Any]) -> str | None:
+    value = raw.get("talk_id") or raw.get("meeting_id") or raw.get("id")
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _voice_tag_snapshot(value: Any) -> tuple[str, ...]:
+    if isinstance(value, list):
+        tags = [str(tag).strip() for tag in value]
+    elif isinstance(value, str):
+        tags = [tag.strip() for tag in value.split(",")]
+    else:
+        tags = []
+    return tuple(sorted(dict.fromkeys(tag for tag in tags if tag)))
+
+
+def _voice_tags_changed(store: EventStore, talk: dict[str, Any]) -> bool:
+    talk_id = _voice_talk_id(talk)
+    if talk_id is None:
+        return False
+    previous = store.latest_event_for_subject(
+        source="voice",
+        subject_id=f"talk:{talk_id}",
+    )
+    if previous is None:
+        return False
+    return _voice_tag_snapshot(talk.get("tags")) != _voice_tag_snapshot(
+        previous.event.payload.get("tags")
+    )
+
+
+def _record_voice_talks(
+    *,
+    db_path: str | Path,
+    talks: list[dict[str, Any]],
+    subscription_id: str | None,
+    capture_mode: CaptureMode,
+    since: datetime | None = None,
+    backfill: bool = False,
+    limit: int | None = None,
+) -> CaptureSummary:
+    store = EventStore(db_path)
+    if subscription_id:
+        _ensure_voice_subscription(store, subscription_id)
+    captured: list[ChatEvent] = []
+    created = 0
+    max_items = len(talks) if limit is None else max(0, limit)
+    for talk in talks[:max_items]:
+        created_at = _voice_timestamp(talk, "created_at")
+        updated_at = _voice_timestamp(talk, "updated_at") or created_at
+        if backfill:
+            kind = "talk.created"
+        else:
+            tags_changed = _voice_tags_changed(store, talk)
+            if since is not None and updated_at is not None and updated_at <= since and not tags_changed:
+                continue
+            kind = "talk.created" if since is not None and created_at is not None and created_at > since else "talk.updated"
+        event = normalize_voice_talk(
+            talk,
+            kind=kind,
+            subscription_id=subscription_id,
+            capture_mode=capture_mode,
+        )
+        _, was_created = store.record_event(event)
+        created += int(was_created)
+        captured.append(event)
+    return CaptureSummary(
+        source="voice",
+        captured=len(captured),
+        created=created,
+        events=[event.dedupe_key for event in captured],
+        database=str(store.path),
+    )
+
+
+def _ensure_voice_subscription(store: EventStore, subscription_id: str) -> Subscription:
+    """Ensure voice captures with a subscription id have a visible subscription row."""
+
+    existing = store.get_subscription(subscription_id)
+    if existing is not None:
+        if existing.source != "voice":
+            raise RuntimeError(
+                f"subscription {subscription_id!r} exists for source {existing.source!r}, not 'voice'"
+            )
+        return existing
+    subscription = Subscription(
+        id=subscription_id,
+        source="voice",
+        target="account:default",
+        label="Default ChatVoice talks",
+        event_kinds=["talk.created", "talk.updated"],
+        capture_modes=[
+            CaptureMode.MANUAL_BACKFILL,
+            CaptureMode.POLL,
+            CaptureMode.API_CURSOR,
+        ],
+        filters={"account": "default"},
+        labels=["voice", "chatvoice"],
+        metadata={"integration": "chatvoice", "content_policy": "metadata-only"},
+    )
+    return store.save_subscription(subscription)
+
+
+def capture_voice_backfill(
+    *,
+    db_path: str | Path,
+    env_file: str | Path | None = None,
+    base_url: str | None = None,
+    token_env: str = "CHATVOICE_DATA_READ",
+    all_talks: bool = False,
+    limit: int | None = None,
+    timeout_seconds: float = 10,
+    subscription_id: str | None = "voice-default",
+) -> CaptureSummary:
+    """Backfill current/default ChatVoice talks as metadata-only created events."""
+
+    if not all_talks and limit is None:
+        raise RuntimeError("voice-backfill requires --all or --limit")
+    talks = fetch_voice_talks(
+        env_file=env_file,
+        base_url=base_url,
+        token_env=token_env,
+        timeout_seconds=timeout_seconds,
+    )
+    return _record_voice_talks(
+        db_path=db_path,
+        talks=talks,
+        subscription_id=subscription_id,
+        capture_mode=CaptureMode.MANUAL_BACKFILL,
+        backfill=True,
+        limit=None if all_talks else limit,
+    )
+
+
+def capture_voice_once(
+    *,
+    db_path: str | Path,
+    env_file: str | Path | None = None,
+    base_url: str | None = None,
+    token_env: str = "CHATVOICE_DATA_READ",
+    since: str | None = None,
+    limit: int | None = None,
+    timeout_seconds: float = 10,
+    subscription_id: str | None = "voice-default",
+) -> CaptureSummary:
+    """Capture one incremental ChatVoice metadata poll using an optional cursor."""
+
+    talks = fetch_voice_talks(
+        env_file=env_file,
+        base_url=base_url,
+        token_env=token_env,
+        timeout_seconds=timeout_seconds,
+    )
+    return _record_voice_talks(
+        db_path=db_path,
+        talks=talks,
+        subscription_id=subscription_id,
+        capture_mode=CaptureMode.POLL if since is None else CaptureMode.API_CURSOR,
+        since=_parse_since_cursor(since),
+        backfill=False,
+        limit=limit,
+    )
 
 
 _X_HANDLE = re.compile(r"^[A-Za-z0-9_]{1,15}$")
