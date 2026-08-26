@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.2.4 - 2026-08-26
+
+- 新增 temporary Zulip topic watch：可用普通 `Subscription` 记录短期监听指定 stream/topic，metadata 包含 `temporary`、`assignment_id`、`interval_seconds`、`expires_at`、`hot_until`、`content_policy` 和 policy boundary。
+- 新增 `capture watch-zulip-topic` 与 `capture subscription-once`，支持为保存的 Zulip topic subscription 执行一次 bounded poll，并用 Zulip message id 推进 durable cursor。
+- Zulip normalizer 补充 sender identity 字段和 actor metadata，便于 ChatAssign 在消费端执行 Rex/demo/bot/self 过滤；ChatEvent 仍只负责平台 scope capture，不嵌入 assignment policy。
+- Reference/monitoring/CLI tree 文档与 focused Zulip watch、adapter、CLI 测试同步覆盖临时 watch contract。
+
 ## 0.2.3 - 2026-08-26
 
 - 新增 Speakr/ChatVoice metadata capture：注册 `source=voice`，支持 `talk.created` / `talk.updated` action，以及 `capture voice-backfill` / `capture voice-once`。

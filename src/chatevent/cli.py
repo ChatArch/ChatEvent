@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -222,6 +223,37 @@ def _build_tree_command() -> click.Group:
                 _option("--content", metavar="TEXT"),
                 _option("--timeout", metavar="SECONDS"),
                 _option("--subscription-id", metavar="ID"),
+            ],
+        )
+    )
+    capture.add_command(
+        _command(
+            "watch-zulip-topic",
+            "Create a temporary Zulip stream/topic watch subscription.",
+            [
+                _option("--db", metavar="DB"),
+                _option("--stream", metavar="STREAM", required=True),
+                _option("--topic", metavar="TOPIC", required=True),
+                _option("--assignment-id", metavar="ID", required=True),
+                _option("--interval-seconds", metavar="N", required=True),
+                _option("--expires-at", metavar="TIMESTAMP"),
+                _option("--ttl-seconds", metavar="N"),
+                _option("--hot-until", metavar="TIMESTAMP"),
+                _option("--reason", metavar="TEXT", required=True),
+                _option("--subscription-id", metavar="ID"),
+            ],
+        )
+    )
+    capture.add_command(
+        _command(
+            "subscription-once",
+            "Run one capture pass for a saved subscription.",
+            [
+                _option("--db", metavar="DB"),
+                _option("--env-file", metavar="FILE"),
+                _option("--subscription-id", metavar="ID", required=True),
+                _option("--limit", metavar="N"),
+                _option("--timeout", metavar="SECONDS"),
             ],
         )
     )
@@ -519,6 +551,64 @@ def build_parser() -> argparse.ArgumentParser:
     zulip.add_argument("--timeout", type=float, default=10.0)
     zulip.add_argument("--subscription-id", default="zulip-practice")
 
+    watch_zulip_topic = capture_subparsers.add_parser(
+        "watch-zulip-topic",
+        help="create a temporary Zulip stream/topic watch subscription",
+    )
+    watch_zulip_topic.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
+    )
+    watch_zulip_topic.add_argument("--stream", required=True, help="Zulip stream name")
+    watch_zulip_topic.add_argument("--topic", required=True, help="Zulip topic")
+    watch_zulip_topic.add_argument("--assignment-id", required=True, help="owning assignment id")
+    watch_zulip_topic.add_argument(
+        "--interval-seconds",
+        type=int,
+        required=True,
+        help="recommended polling interval while the watch is hot",
+    )
+    watch_zulip_topic.add_argument(
+        "--expires-at",
+        default=None,
+        help="watch expiry timestamp with timezone, for example 2026-08-26T12:30:00Z",
+    )
+    watch_zulip_topic.add_argument(
+        "--ttl-seconds",
+        type=int,
+        default=None,
+        help="expiry duration from now; used when --expires-at is omitted",
+    )
+    watch_zulip_topic.add_argument(
+        "--hot-until",
+        default=None,
+        help="timestamp until which the short interval should be used",
+    )
+    watch_zulip_topic.add_argument("--reason", required=True, help="why the watch exists")
+    watch_zulip_topic.add_argument("--subscription-id", default=None)
+
+    subscription_once = capture_subparsers.add_parser(
+        "subscription-once",
+        help="run one capture pass for a saved subscription",
+    )
+    subscription_once.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
+    )
+    subscription_once.add_argument(
+        "--env-file",
+        type=Path,
+        default=_default_zulip_env_file(),
+        help="platform env file for the saved subscription",
+    )
+    subscription_once.add_argument("--subscription-id", required=True)
+    subscription_once.add_argument("--limit", type=int, default=50)
+    subscription_once.add_argument("--timeout", type=float, default=10.0)
+
     x_status = capture_subparsers.add_parser(
         "x-status",
         help="capture one public X status URL through the web/oEmbed path",
@@ -577,6 +667,15 @@ def _read_secret_file(path: Path | None) -> str | None:
     if path is None:
         return None
     return path.expanduser().read_text(encoding="utf-8").strip()
+
+
+def _parse_cli_datetime(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise SystemExit(f"timestamp must include timezone information: {value}")
+    return parsed
 
 
 def _handle_api_command(args: argparse.Namespace) -> None:
@@ -771,6 +870,37 @@ def main(argv: Sequence[str] | None = None) -> None:
             content=args.content,
             timeout_seconds=args.timeout,
             subscription_id=args.subscription_id,
+        )
+        _print_json(summary.to_dict())
+        return
+    if args.command == "capture" and args.capture_command == "watch-zulip-topic":
+        from .capture import create_temporary_zulip_topic_watch
+        from .state import default_database_path
+
+        subscription = create_temporary_zulip_topic_watch(
+            db_path=args.db or default_database_path(),
+            stream=args.stream,
+            topic=args.topic,
+            assignment_id=args.assignment_id,
+            interval_seconds=args.interval_seconds,
+            expires_at=_parse_cli_datetime(args.expires_at),
+            ttl_seconds=args.ttl_seconds,
+            hot_until=_parse_cli_datetime(args.hot_until),
+            reason=args.reason,
+            subscription_id=args.subscription_id,
+        )
+        _print_json(subscription.model_dump(mode="json"))
+        return
+    if args.command == "capture" and args.capture_command == "subscription-once":
+        from .capture import capture_subscription_once
+        from .state import default_database_path
+
+        summary = capture_subscription_once(
+            db_path=args.db or default_database_path(),
+            env_file=args.env_file,
+            subscription_id=args.subscription_id,
+            limit=args.limit,
+            timeout_seconds=args.timeout,
         )
         _print_json(summary.to_dict())
         return

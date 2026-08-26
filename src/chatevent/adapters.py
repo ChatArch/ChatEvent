@@ -415,6 +415,7 @@ def normalize_zulip_message_event(
     subscription_id: str | None = None,
     site_url: str | None = None,
     capture_mode: CaptureMode = CaptureMode.EVENT_QUEUE,
+    acquisition: str = "zulip-event-queue",
 ) -> ChatEvent:
     """Normalize a Zulip ``message`` event-queue payload into ``ChatEvent``.
 
@@ -439,8 +440,21 @@ def normalize_zulip_message_event(
 
     raw_event_id = _string(raw.get("id")) if raw is not message else None
     sender_id = _string(message.get("sender_id") or message.get("sender_email"))
+    sender_email = _string(message.get("sender_email"))
+    sender_full_name = _string(message.get("sender_full_name"))
+    sender_realm_str = _string(message.get("sender_realm_str"))
+    sender_is_bot = message.get("sender_is_bot")
+    if not isinstance(sender_is_bot, bool):
+        sender_is_bot = None
     occurred_at = _parse_datetime(message.get("timestamp") or message.get("date_sent"))
     url = _zulip_message_url(site_url, message)
+    actor_metadata: dict[str, Any] = {}
+    if sender_email:
+        actor_metadata["email"] = sender_email
+    if sender_realm_str:
+        actor_metadata["realm"] = sender_realm_str
+    if sender_is_bot is not None:
+        actor_metadata["is_bot"] = sender_is_bot
 
     return ChatEvent(
         id=f"message:{message_id}",
@@ -457,6 +471,15 @@ def normalize_zulip_message_event(
             topic=topic,
             url=url,
         ),
+        actor=ActorDescriptor(
+            id=f"user:{sender_id}" if sender_id else None,
+            type="user" if sender_id or sender_email or sender_full_name else None,
+            display=sender_full_name or sender_email,
+            role="bot" if sender_is_bot is True else "sender",
+            metadata=actor_metadata,
+        )
+        if sender_id or sender_email or sender_full_name or sender_is_bot is not None
+        else None,
         actor_id=f"user:{sender_id}" if sender_id else None,
         conversation_id=conversation_id,
         subject_id=f"message:{message_id}",
@@ -466,12 +489,19 @@ def normalize_zulip_message_event(
         payload={
             "title": topic or stream_name or "Zulip message",
             "content": message.get("content") or "",
-            "sender": message.get("sender_full_name") or message.get("sender_email") or "",
+            "sender": sender_full_name or sender_email or "",
+            "sender_id": sender_id or "",
+            "sender_email": sender_email or "",
+            "sender_full_name": sender_full_name or "",
+            "sender_is_bot": sender_is_bot if sender_is_bot is not None else False,
             "stream": stream_name or "",
             "topic": topic or "",
         },
         raw_payload=raw,
-        metadata={"acquisition": "zulip-event-queue"},
+        metadata={
+            "acquisition": acquisition,
+            "content_policy": "topic-scoped-message-content",
+        },
         tags=["zulip", "message"],
     )
 

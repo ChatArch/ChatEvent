@@ -117,6 +117,32 @@ source:id
 
 Web Observatory 的 `Subscriptions` 标签页可以新建、编辑、启停和删除订阅。生产或公网环境应配置用户登录，并可以保留 bootstrap API token：优先读取 `CHATEVENT_ADMIN_TOKEN`，其次读取 `CHATEVENT_ADMIN_TOKEN_FILE`，再读取默认文件 `$CHATARCH_HOME/chatevent/secrets/admin-token` 或 `~/.chatarch/chatevent/secrets/admin-token`。bootstrap token 只用于 API/CLI 初始化或恢复管理权限，不是 Web 登录凭据。
 
+## Temporary Zulip topic watches
+
+Temporary topic watches are ordinary `Subscription` records with a documented contract:
+
+```json
+{
+  "source": "zulip",
+  "target": "stream:voice note/topic:assignment-123",
+  "event_kinds": ["message.created"],
+  "capture_modes": ["api_cursor", "poll"],
+  "filters": {"stream": "voice note", "topic": "assignment-123"},
+  "metadata": {
+    "temporary": true,
+    "assignment_id": "assign-123",
+    "interval_seconds": 5,
+    "expires_at": "2026-08-26T12:30:00+00:00",
+    "hot_until": "2026-08-26T12:15:00+00:00",
+    "reason": "active assignment clarification",
+    "content_policy": "topic-scoped-message-content",
+    "policy_boundary": "platform-scope-only; consumer filters sender/assignment policy"
+  }
+}
+```
+
+`chatevent capture subscription-once` currently supports Zulip topic subscriptions through the `/messages` API and stores the newest message id in `last_cursor`. Normalized Zulip events include `payload.sender_id`, `payload.sender_email`, `payload.sender_full_name`, `payload.sender_is_bot`, `actor.id`, `actor.display`, and `actor.metadata.email`. ChatEvent does not filter for Rex, assignment tags, confirmation words, or bot/self policy; consumers such as ChatAssign apply those predicates when they query Event.
+
 ## 登录、用户管理与隔离
 
 ChatEvent 的最小登录模型是账号密码 + API token：

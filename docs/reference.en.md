@@ -117,6 +117,32 @@ Path precedence is `--db`, `CHATEVENT_DB`, ChatEnv `get_paths().home_dir/chateve
 
 The Web Observatory `Subscriptions` tab can create, edit, enable/disable, and delete subscriptions. Production or public deployments should configure user login and may keep a bootstrap API token: `CHATEVENT_ADMIN_TOKEN` first, then `CHATEVENT_ADMIN_TOKEN_FILE`, then the default file `$CHATARCH_HOME/chatevent/secrets/admin-token` or `~/.chatarch/chatevent/secrets/admin-token`. The bootstrap token is for API/CLI initialization or recovery only; it is not a Web login credential.
 
+## Temporary Zulip Topic Watches
+
+Temporary topic watches are ordinary `Subscription` records with a documented contract:
+
+```json
+{
+  "source": "zulip",
+  "target": "stream:voice note/topic:assignment-123",
+  "event_kinds": ["message.created"],
+  "capture_modes": ["api_cursor", "poll"],
+  "filters": {"stream": "voice note", "topic": "assignment-123"},
+  "metadata": {
+    "temporary": true,
+    "assignment_id": "assign-123",
+    "interval_seconds": 5,
+    "expires_at": "2026-08-26T12:30:00+00:00",
+    "hot_until": "2026-08-26T12:15:00+00:00",
+    "reason": "active assignment clarification",
+    "content_policy": "topic-scoped-message-content",
+    "policy_boundary": "platform-scope-only; consumer filters sender/assignment policy"
+  }
+}
+```
+
+`chatevent capture subscription-once` currently supports Zulip topic subscriptions through the `/messages` API and stores the newest message id in `last_cursor`. Normalized Zulip events include `payload.sender_id`, `payload.sender_email`, `payload.sender_full_name`, `payload.sender_is_bot`, `actor.id`, `actor.display`, and `actor.metadata.email`. ChatEvent does not filter for Rex, assignment tags, confirmation words, or bot/self policy; consumers such as ChatAssign apply those predicates when they query Event.
+
 ## Login, User Management, And Isolation
 
 ChatEvent now uses a minimal username/password + API token model:
