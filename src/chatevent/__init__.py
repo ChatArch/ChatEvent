@@ -12,7 +12,7 @@ from .model import ActionDescriptor, ActorDescriptor, CaptureMode, CarrierTarget
 from .monitor import EventMonitor
 from .state import ChatEventPaths, default_database_path, load_admin_token, state_paths
 from .store import EventStore, StoredEvent
-from .subscription import Subscription
+from .subscription import Subscription, temporary_zulip_topic_watch, zulip_topic_target
 
 __all__ = [
     "ActionDescriptor",
@@ -31,5 +31,7 @@ __all__ = [
     "action_kinds_for",
     "get_platform_spec",
     "list_platform_specs",
+    "temporary_zulip_topic_watch",
+    "zulip_topic_target",
 ]
-__version__ = "0.2.3"
+__version__ = "0.2.4"

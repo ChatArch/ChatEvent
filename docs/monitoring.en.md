@@ -62,6 +62,36 @@ uv run --extra serve chatevent capture zulip-once \
 
 Platform secrets are managed by ChatEnv profiles or service secret files; ChatEvent references them by path only and does not copy or print secrets. A long-running capture should later be supervised by a proper service/cron/watchdog; the current CLI is a bounded capture pass.
 
+## Zulip temporary topic watch
+
+Active assignments can register short-lived topic watches:
+
+```bash
+uv run chatevent capture watch-zulip-topic \
+  --stream "voice note" \
+  --topic "assignment-123" \
+  --assignment-id assign-123 \
+  --interval-seconds 5 \
+  --ttl-seconds 3600 \
+  --reason "active assignment clarification" \
+  --subscription-id zulip-topic-assign-123
+
+uv run chatevent capture subscription-once \
+  --env-file ~/.chatarch/envs/Zulip/.env \
+  --subscription-id zulip-topic-assign-123
+```
+
+Watch contract:
+
+- `source`: `zulip`
+- `target`: `stream:<stream>/topic:<topic>`
+- `event_kinds`: `["message.created"]`
+- `capture_modes`: `["api_cursor", "poll"]`
+- `filters`: platform scope only, currently `stream` and `topic`
+- `metadata`: `temporary`, `assignment_id`, `interval_seconds`, `expires_at`, `hot_until`, `reason`, `content_policy=topic-scoped-message-content`, and `policy_boundary`
+
+`subscription-once` reads Zulip `/messages` with a stream/topic narrow and uses the latest captured message id as `last_cursor`. ChatEvent captures topic-scoped message content plus sender identity fields; ChatAssign or another consumer must filter Rex/user/bot/self policy after reading normalized events.
+
 ## Gitea webhook
 
 Gitea repository/org webhook payload URL:

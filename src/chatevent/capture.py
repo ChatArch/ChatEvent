@@ -18,7 +18,7 @@ from urllib.request import Request, urlopen
 from .adapters import normalize_voice_talk, normalize_x_post, normalize_zulip_message_event
 from .model import CaptureMode, ChatEvent
 from .store import EventStore
-from .subscription import Subscription
+from .subscription import Subscription, temporary_zulip_topic_watch
 
 
 @dataclass(frozen=True)
@@ -110,7 +110,7 @@ def load_voice_env_file(path: str | Path | None = None) -> dict[str, str]:
 def _api_url(base_url: str, path: str, query: dict[str, Any] | None = None) -> str:
     url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
     if query:
-        url += "?" + urlencode(query, doseq=True)
+        url += "?" + urlencode({key: _form_value(value) for key, value in query.items()})
     return url
 
 
@@ -637,6 +637,104 @@ def _matches_zulip_message(
     return True
 
 
+def _zulip_topic_scope(subscription: Subscription) -> tuple[str, str]:
+    if subscription.source != "zulip":
+        raise RuntimeError(
+            f"subscription {subscription.id!r} exists for source {subscription.source!r}, not 'zulip'"
+        )
+    stream = subscription.filters.get("stream")
+    topic = subscription.filters.get("topic")
+    if isinstance(stream, str) and isinstance(topic, str) and stream.strip() and topic.strip():
+        return stream.strip(), topic.strip()
+    scope = subscription.scope
+    if scope is not None and scope.type == "zulip_topic":
+        parent = scope.parent
+        if parent is not None and parent.type == "zulip_stream":
+            return parent.key, scope.display or scope.key.rsplit("/", 1)[-1]
+    raise RuntimeError(
+        f"subscription {subscription.id!r} must define Zulip stream/topic platform filters"
+    )
+
+
+def create_temporary_zulip_topic_watch(
+    *,
+    db_path: str | Path,
+    stream: str,
+    topic: str,
+    assignment_id: str,
+    interval_seconds: int,
+    expires_at: datetime | None = None,
+    ttl_seconds: int | None = None,
+    hot_until: datetime | None = None,
+    reason: str,
+    subscription_id: str | None = None,
+    owner_user_id: str | None = None,
+) -> Subscription:
+    """Create or update a temporary Zulip topic watch in the event store."""
+
+    store = EventStore(db_path)
+    return store.save_subscription(
+        temporary_zulip_topic_watch(
+            stream=stream,
+            topic=topic,
+            assignment_id=assignment_id,
+            interval_seconds=interval_seconds,
+            expires_at=expires_at,
+            ttl_seconds=ttl_seconds,
+            hot_until=hot_until,
+            reason=reason,
+            subscription_id=subscription_id,
+            owner_user_id=owner_user_id,
+        )
+    )
+
+
+def _fetch_zulip_topic_messages(
+    env: dict[str, str],
+    *,
+    stream: str,
+    topic: str,
+    last_cursor: str | None,
+    limit: int,
+    timeout: float,
+) -> list[dict[str, Any]]:
+    narrow = [
+        {"operator": "stream", "operand": stream},
+        {"operator": "topic", "operand": topic},
+    ]
+    query: dict[str, Any] = {
+        "anchor": last_cursor or "oldest",
+        "num_before": 0,
+        "num_after": max(1, limit),
+        "narrow": narrow,
+        "apply_markdown": False,
+    }
+    payload = _zulip_request(
+        env,
+        "GET",
+        "/api/v1/messages",
+        query=query,
+        timeout=timeout,
+    )
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        raise RuntimeError("Zulip messages response did not include a messages list")
+    result: list[dict[str, Any]] = []
+    cursor_id = int(last_cursor) if last_cursor and last_cursor.isdigit() else None
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        message_id = message.get("id")
+        if cursor_id is not None:
+            try:
+                if int(message_id) <= cursor_id:
+                    continue
+            except (TypeError, ValueError):
+                pass
+        result.append(message)
+    return result
+
+
 def capture_zulip_once(
     *,
     db_path: str | Path,
@@ -740,3 +838,93 @@ def capture_zulip_once(
         events=[event.dedupe_key for event in captured],
         database=str(EventStore(db_path).path),
     )
+
+
+def capture_zulip_subscription_once(
+    *,
+    db_path: str | Path,
+    env_file: str | Path,
+    subscription_id: str,
+    limit: int = 50,
+    timeout_seconds: float = 10,
+) -> CaptureSummary:
+    """Poll one Zulip topic subscription with a durable message-id cursor."""
+
+    store = EventStore(db_path)
+    subscription = store.get_subscription(subscription_id)
+    if subscription is None:
+        raise RuntimeError(f"subscription {subscription_id!r} not found")
+    if not subscription.enabled:
+        return CaptureSummary(
+            source=subscription.source,
+            captured=0,
+            created=0,
+            events=[],
+            database=str(store.path),
+        )
+    if subscription.is_expired():
+        store.save_subscription(subscription.model_copy(update={"enabled": False}))
+        return CaptureSummary(
+            source=subscription.source,
+            captured=0,
+            created=0,
+            events=[],
+            database=str(store.path),
+        )
+    stream, topic = _zulip_topic_scope(subscription)
+    env = load_env_file(env_file)
+    messages = _fetch_zulip_topic_messages(
+        env,
+        stream=stream,
+        topic=topic,
+        last_cursor=subscription.last_cursor,
+        limit=limit,
+        timeout=timeout_seconds,
+    )
+    captured: list[ChatEvent] = []
+    created = 0
+    for message in messages:
+        event = normalize_zulip_message_event(
+            message,
+            subscription_id=subscription.id,
+            site_url=env.get("ZULIP_SITE") or env.get("ZULIP_BASE_URL"),
+            capture_mode=CaptureMode.API_CURSOR,
+            acquisition="zulip-messages-api",
+        )
+        _, was_created = store.record_event(event)
+        created += int(was_created)
+        captured.append(event)
+    if not captured:
+        store.save_subscription(subscription.model_copy(update={"last_error": None}))
+    return CaptureSummary(
+        source="zulip",
+        captured=len(captured),
+        created=created,
+        events=[event.dedupe_key for event in captured],
+        database=str(store.path),
+    )
+
+
+def capture_subscription_once(
+    *,
+    db_path: str | Path,
+    env_file: str | Path,
+    subscription_id: str,
+    limit: int = 50,
+    timeout_seconds: float = 10,
+) -> CaptureSummary:
+    """Run one bounded capture pass for a saved subscription."""
+
+    store = EventStore(db_path)
+    subscription = store.get_subscription(subscription_id)
+    if subscription is None:
+        raise RuntimeError(f"subscription {subscription_id!r} not found")
+    if subscription.source == "zulip":
+        return capture_zulip_subscription_once(
+            db_path=db_path,
+            env_file=env_file,
+            subscription_id=subscription_id,
+            limit=limit,
+            timeout_seconds=timeout_seconds,
+        )
+    raise RuntimeError(f"subscription source {subscription.source!r} is not supported by this runner")
