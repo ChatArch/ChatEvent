@@ -64,6 +64,26 @@ class ChatEventConfig(BaseEnvConfig):
         desc="File containing the first-run bootstrap administrator password.",
         is_sensitive=False,
     )
+    CHATEVENT_PUBLIC_ORIGIN = EnvField(
+        "CHATEVENT_PUBLIC_ORIGIN",
+        desc="Canonical public http(s) origin for secure cookie policy; forwarded headers are not trusted.",
+        is_sensitive=False,
+    )
+    CHATEVENT_COOKIE_SECURE = EnvField(
+        "CHATEVENT_COOKIE_SECURE",
+        desc="Override session cookie Secure flag; defaults to true for HTTPS public origin and false otherwise.",
+        is_sensitive=False,
+    )
+    CHATEVENT_SESSION_TTL_SECONDS = EnvField(
+        "CHATEVENT_SESSION_TTL_SECONDS",
+        desc="Positive browser session TTL in seconds for ChatLogin SessionManager.",
+        is_sensitive=False,
+    )
+    CHATEVENT_MAX_SESSIONS = EnvField(
+        "CHATEVENT_MAX_SESSIONS",
+        desc="Positive maximum number of in-memory browser sessions for this process.",
+        is_sensitive=False,
+    )
 
 
 __all__ = ["ChatEventConfig"]

@@ -114,7 +114,7 @@ SQLite 内部主要有两张表：
 
 ## ChatStyle 与 ChatEnv 对齐
 
-`chatevent --tree` 与 `chatevent --tree-brief` 均由 ChatStyle 渲染；`chatevent.config:ChatEventConfig` 注册到 ChatEnv 的 `chatenv.configs` entry point。ChatEvent 自身只声明 Event Hub 相关 ENV：`CHATEVENT_API_URL`、`CHATEVENT_DB`、`CHATEVENT_ADMIN_TOKEN(_FILE)`、`CHATEVENT_API_USERNAME`、`CHATEVENT_API_PASSWORD_FILE`、`CHATEVENT_BOOTSTRAP_USERNAME`、`CHATEVENT_BOOTSTRAP_PASSWORD_FILE`。
+`chatevent --tree` 与 `chatevent --tree-brief` 均由 ChatStyle 渲染；`chatevent.config:ChatEventConfig` 注册到 ChatEnv 的 `chatenv.configs` entry point。ChatEvent 自身只声明 Event Hub 相关 ENV：`CHATEVENT_API_URL`、`CHATEVENT_DB`、`CHATEVENT_ADMIN_TOKEN(_FILE)`、`CHATEVENT_API_USERNAME`、`CHATEVENT_API_PASSWORD_FILE`、`CHATEVENT_BOOTSTRAP_USERNAME`、`CHATEVENT_BOOTSTRAP_PASSWORD_FILE`、`CHATEVENT_PUBLIC_ORIGIN`、`CHATEVENT_COOKIE_SECURE`、`CHATEVENT_SESSION_TTL_SECONDS`、`CHATEVENT_MAX_SESSIONS`。
 
 平台凭据交给各平台 ChatEnv profile 或服务 secret 文件管理。比如 `capture zulip-once` 默认读取 ChatEnv `envs_dir/Zulip/.env`，文件内容需要包含 `ZULIP_SITE`、`BOT_EMAIL`、`BOT_API_KEY`，ChatEvent 不在 CLI 输出里打印这些值。
 
@@ -303,7 +303,7 @@ uv run chatevent api event \
 
 ## 线上编辑与安全设定
 
-Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若配置了用户或 bootstrap 管理凭据，访问 `/` 会先进入账号密码登录页，登录后才显示 Observatory；事件流、统计、平台目录、schema、订阅等读取 API 也需要登录。网页端登录后可以直接编辑；CLI、模型或其他程序可以使用 `X-ChatEvent-Admin-Token` 携带账号的 `arch_xxx` API token，也可以通过 CLI 的账号密码参数先登录后操作。
+Web Observatory 的 `Subscriptions` 标签页支持新建、编辑、启停和删除订阅；这些操作调用同一套 REST API。若配置了用户或 bootstrap 管理凭据，访问 `/` 会进入 ChatLogin 默认账号密码登录页，登录后才显示 Observatory；事件流、统计、平台目录、schema、订阅等读取 API 也需要登录。浏览器 session 使用 ChatLogin `SessionManager`，带 TTL、容量上限、登录轮换和登出撤销；每个受保护请求都会从 EventStore 回查当前用户启用状态和角色。网页端 cookie 写操作会携带 CSRF；CLI、模型或其他程序可以使用 `X-ChatEvent-Admin-Token` 携带账号的 `arch_xxx` API token 或 legacy bootstrap admin token，这两类验证成功的 API 请求免 CSRF，伪造 token header 不会绕过 cookie CSRF。
 
 `CHATEVENT_ADMIN_TOKEN` 仅是 bootstrap 管理员 API 凭据，不是 Web 登录方式；生产部署应配置 `CHATEVENT_BOOTSTRAP_USERNAME` 与 `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` 来初始化管理员账号密码。管理员登录后可以通过 `POST /api/users` 或 `chatevent api create-user <username> --new-password-file pass.txt` 创建账号密码用户；用户登录后在“账号 / API Token”里主动生成自己的 `arch_xxx` token，服务端只保存 token hash。`Subscription.owner_user_id` 是数据隔离基础：member 创建/读取/删除订阅时只作用于自己的 owner；admin 可管理全部订阅。密码和 token 都不应写入源码、文档或 Git 历史。
 

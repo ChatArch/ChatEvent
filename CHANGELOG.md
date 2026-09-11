@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.2.5 - 2026-09-11
+
+- Web 登录接入 ChatLogin 共享核心：账号密码校验保留 EventStore 用户、角色、启用状态和既有 PBKDF2 字符串格式，密码哈希/校验委托 ChatLogin，启动迁移不会重写已有用户密码。
+- 浏览器 session 改用 ChatLogin `SessionManager` + `MemorySessionStore`，支持 TTL、容量上限、登录轮换和登出撤销；每个受保护请求仍从 EventStore 回查当前用户启用状态和角色。
+- Cookie 认证的用户、token、订阅写操作现在要求 `X-CSRF-Token`；验证成功的 `arch_xxx` API token 和 legacy bootstrap admin token 继续免 CSRF，伪造 token header 不会绕过 cookie CSRF。
+- 默认登录页改为 ChatLogin `LoginUI` 与其公共 assets，保留 `/api/login`、`/api/session` 的兼容响应字段，并为 dashboard/CLI username-password 模式补齐 CSRF。
+
 ## 0.2.4 - 2026-08-26
 
 - 新增 temporary Zulip topic watch：可用普通 `Subscription` 记录短期监听指定 stream/topic，metadata 包含 `temporary`、`assignment_id`、`interval_seconds`、`expires_at`、`hot_until`、`content_policy` 和 policy boundary。

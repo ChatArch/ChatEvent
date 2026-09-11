@@ -12,6 +12,8 @@ The complete CLI tree is rendered by ChatStyle. See [CLI Tree](cli-tree.md). `ch
 | `POST` | `/api/login` | Username/password Web login; sets browser cookie. |
 | `POST` | `/api/logout` | Clear browser cookie. |
 | `GET` | `/api/session` | Return current API token or cookie identity. |
+| `GET` | `/login` | Default ChatLogin login page. |
+| `GET` | `/login/assets/{name}` | Public ChatLogin login JS/CSS assets. |
 | `GET` | `/api/users` | Admin-only user list. |
 | `POST` | `/api/users` | Admin creates a username/password user. |
 | `POST` | `/api/me/token` | Current account issues a one-time `arch_xxx` API token. |
@@ -145,18 +147,21 @@ Temporary topic watches are ordinary `Subscription` records with a documented co
 
 ## Login, User Management, And Isolation
 
-ChatEvent now uses a minimal username/password + API token model:
+ChatEvent uses a minimal username/password + API token model. EventStore remains authoritative for accounts, roles, enabled state, and tokens:
 
-- `GET /`: when users or bootstrap credentials are configured, unauthenticated callers receive only the username/password login page; authenticated callers receive the Observatory.
-- `POST /api/login`: validate `username` / `password` and set a browser cookie.
-- `POST /api/logout`: clear the browser cookie.
-- `GET /api/session`: validate the current `X-ChatEvent-Admin-Token` or cookie and return `admin_required`, `authenticated`, `user`, and whether the caller is the bootstrap admin.
+- `GET /`: when users or bootstrap credentials are configured, unauthenticated callers receive the default ChatLogin page; authenticated callers receive the Observatory.
+- `GET /login`: returns ChatLogin `LoginUI`; `next` accepts only safe local absolute paths, and mounted/root_path deployments get prefixed form and asset URLs.
+- `POST /api/login`: validate `username` / `password` and set a browser cookie. The response keeps the old `SessionStatus` fields and additionally returns canonical `csrf_token` and a safe `next`.
+- `POST /api/logout`: clear the browser cookie. Cookie-session calls must include `X-CSRF-Token`.
+- `GET /api/session`: validate the current `X-ChatEvent-Admin-Token` or cookie and return `admin_required`, `authenticated`, `user`, whether the caller is the bootstrap admin, and the cookie session CSRF token. Anonymous callers still receive 200.
 - `GET /api/users`: list users as an administrator.
-- `POST /api/users`: create a username/password user; the server stores only the password hash.
-- `POST /api/me/token`: issue a one-time `arch_xxx` API token for the current logged-in account.
-- `POST /api/users/{id}/token`: issue a one-time API token for a target user as an administrator.
-- `DELETE /api/users/{id}`: delete a user as an administrator.
+- `POST /api/users`: create a username/password user; the server stores only the password hash. Cookie sessions must include CSRF; successfully validated API tokens and the legacy admin token are CSRF-exempt.
+- `POST /api/me/token`: issue a one-time `arch_xxx` API token for the current logged-in account. Cookie sessions must include CSRF.
+- `POST /api/users/{id}/token`: issue a one-time API token for a target user as an administrator. Cookie sessions must include CSRF.
+- `DELETE /api/users/{id}`: delete a user as an administrator. Cookie sessions must include CSRF.
 
-After an admin token or users exist, read APIs such as `/api/stats`, `/api/events`, `/api/events/{dedupe_key}`, schema, platforms, and subscriptions require login. Event-write and webhook endpoints remain reachable so platform events can still arrive.
+After an admin token or users exist, read APIs such as `/api/stats`, `/api/events`, `/api/events/{dedupe_key}`, schema, platforms, and subscriptions require login. Cookie-authenticated subscription writes and deletes also require CSRF. Only truly validated `arch_xxx` API tokens or the legacy admin token are CSRF-exempt; a forged token header does not bypass cookie CSRF. Event-write and webhook endpoints remain reachable so platform events can still arrive.
 
-`CHATEVENT_BOOTSTRAP_USERNAME` and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` can initialize the first administrator account. `CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` is the bootstrap administrator API credential for CLI/model/API user creation or recovery. `Subscription.owner_user_id` is the current isolation boundary: subscriptions created by member accounts are automatically owned by that user; members can only read, update, and delete their own subscriptions; admins can manage all subscriptions. The event stream remains an Observatory debugging view for now and can be tightened by tenant/user owner later.
+`CHATEVENT_BOOTSTRAP_USERNAME` and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` can initialize the first administrator account. Password storage keeps the `pbkdf2_sha256$iterations$salt_hex$digest_hex` string format. ChatEvent delegates new password hashing and existing password verification to ChatLogin PBKDF2 helpers, but it does not rewrite existing users merely for migration. Browser sessions use ChatLogin `SessionManager` with a bounded in-memory store; every protected request re-reads the current EventStore user enabled state and role instead of authorizing from the session snapshot. `CHATEVENT_SESSION_TTL_SECONDS` and `CHATEVENT_MAX_SESSIONS` tune TTL and capacity.
+
+`CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` is the bootstrap administrator API credential for CLI/model/API user creation or recovery. `Subscription.owner_user_id` is the current isolation boundary: subscriptions created by member accounts are automatically owned by that user; members can only read, update, and delete their own subscriptions; admins can manage all subscriptions. The event stream remains an Observatory debugging view for now and can be tightened by tenant/user owner later.

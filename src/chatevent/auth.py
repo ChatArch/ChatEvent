@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-import hmac
 import secrets
 from typing import Literal
 from uuid import uuid4
 
+from chatlogin import hash_password, verify_pbkdf2
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from .model import utc_now
@@ -60,12 +60,19 @@ def token_digest(token: str) -> str:
 def password_digest(password: str, *, salt: bytes | None = None) -> str:
     """Hash a human login password for storage."""
 
-    if salt is None:
-        salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), salt, _PASSWORD_ITERATIONS
+    if salt is not None:
+        # Compatibility test hook for deterministic legacy-format records.
+        import hashlib
+
+        digest = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), salt, _PASSWORD_ITERATIONS
+        )
+        return f"{_PASSWORD_PREFIX}${_PASSWORD_ITERATIONS}${salt.hex()}${digest.hex()}"
+    password_hash = hash_password(password)
+    return (
+        f"{_PASSWORD_PREFIX}${password_hash.iterations}$"
+        f"{password_hash.salt.hex()}${password_hash.digest.hex()}"
     )
-    return f"{_PASSWORD_PREFIX}${_PASSWORD_ITERATIONS}${salt.hex()}${digest.hex()}"
 
 
 def verify_password(password: str, stored_digest: str | None) -> bool:
@@ -77,12 +84,12 @@ def verify_password(password: str, stored_digest: str | None) -> bool:
         prefix, iterations, salt_hex, digest_hex = stored_digest.split("$", 3)
         if prefix != _PASSWORD_PREFIX:
             return False
-        digest = hashlib.pbkdf2_hmac(
-            "sha256",
-            password.encode("utf-8"),
-            bytes.fromhex(salt_hex),
-            int(iterations),
-        )
+        iteration_count = int(iterations)
+        salt = bytes.fromhex(salt_hex)
+        digest = bytes.fromhex(digest_hex)
     except (TypeError, ValueError):
         return False
-    return hmac.compare_digest(digest.hex(), digest_hex)
+    try:
+        return verify_pbkdf2(password, salt, digest, iterations=iteration_count)
+    except ValueError:
+        return False

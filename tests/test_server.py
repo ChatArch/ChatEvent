@@ -1,12 +1,21 @@
+import json
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+from urllib.parse import urlparse
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 test dependency
+    import tomli as tomllib
+
+from chatlogin.ui import LoginUI
 from fastapi.testclient import TestClient
 
 from chatevent.server import create_app
+from chatevent.store import EventStore
 
 
 class ServerTests(unittest.TestCase):
@@ -230,10 +239,11 @@ class ServerTests(unittest.TestCase):
 
             login_page = client.get("/")
             self.assertEqual(login_page.status_code, 200)
-            self.assertIn("登录 Observatory", login_page.text)
-            self.assertIn('id="loginForm"', login_page.text)
-            self.assertIn('id="usernameInput"', login_page.text)
-            self.assertIn('id="passwordInput"', login_page.text)
+            self.assertIn("<h1>ChatEvent</h1>", login_page.text)
+            self.assertIn("chatlogin", login_page.text)
+            self.assertIn('name="username"', login_page.text)
+            self.assertIn('name="password"', login_page.text)
+            self.assertIn("/login/assets/login.js", login_page.text)
             self.assertNotIn('id="tokenInput"', login_page.text)
             self.assertNotIn('role="tablist"', login_page.text)
             self.assertEqual(client.get("/api/stats").status_code, 401)
@@ -262,9 +272,13 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(client.get("/api/platforms").status_code, 200)
 
             logout = client.post("/api/logout")
+            self.assertEqual(logout.status_code, 403)
+            logout = client.post(
+                "/api/logout", headers={"X-CSRF-Token": good_login.json()["csrf_token"]}
+            )
             self.assertEqual(logout.status_code, 200)
             self.assertFalse(logout.json()["authenticated"])
-            self.assertIn("登录 Observatory", client.get("/").text)
+            self.assertIn("chatlogin", client.get("/").text)
 
     def test_webhook_endpoints_normalize_platform_payloads(self) -> None:
         with TemporaryDirectory() as directory:
@@ -567,9 +581,11 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(good_login.status_code, 200)
             self.assertTrue(good_login.json()["authenticated"])
             self.assertEqual(good_login.json()["user"]["username"], "rexwzh@lookeng.cn")
+            csrf = good_login.json()["csrf_token"]
 
             web_subscription = client.post(
                 "/api/subscriptions",
+                headers={"X-CSRF-Token": csrf},
                 json={
                     "id": "member-discourse",
                     "source": "discourse",
@@ -581,13 +597,13 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(web_subscription.status_code, 201)
             self.assertEqual(web_subscription.json()["owner_user_id"], member["id"])
 
-            issued = client.post("/api/me/token")
+            issued = client.post("/api/me/token", headers={"X-CSRF-Token": csrf})
             self.assertEqual(issued.status_code, 200)
             member_token = issued.json()["token"]
             self.assertTrue(member_token.startswith("arch_"))
             self.assertNotIn("token_hash", issued.text)
 
-            logout = client.post("/api/logout")
+            logout = client.post("/api/logout", headers={"X-CSRF-Token": csrf})
             self.assertEqual(logout.status_code, 200)
             anonymous_subscriptions = client.get("/api/subscriptions")
             self.assertEqual(anonymous_subscriptions.status_code, 401)
@@ -623,6 +639,221 @@ class ServerTests(unittest.TestCase):
                 1,
             )
 
+    def test_password_hash_uses_chatlogin_pbkdf2_compatibility(self) -> None:
+        from chatevent.auth import password_digest, verify_password
+
+        digest = password_digest("member-password")
+
+        self.assertRegex(digest, r"^pbkdf2_sha256\$[0-9]+\$[0-9a-f]+\$[0-9a-f]+$")
+        self.assertTrue(verify_password("member-password", digest))
+        self.assertFalse(verify_password("wrong", digest))
+        self.assertTrue(
+            verify_password(
+                "legacy-password",
+                "pbkdf2_sha256$260000$00112233445566778899aabbccddeeff$"
+                "37d91c594aee7e04fd769c377f76c1f16c8f36230c5813be58f6af04d14fae25",
+            )
+        )
+
+    def test_cookie_session_rechecks_role_and_enabled_state(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ", {"CHATEVENT_ADMIN_TOKEN": "bootstrap-token"}
+        ):
+            db_path = Path(directory) / "events.db"
+            client = TestClient(create_app(db_path=db_path))
+            created = client.post(
+                "/api/users",
+                headers={"X-ChatEvent-Admin-Token": "bootstrap-token"},
+                json={"username": "member@example.test", "password": "pw", "role": "member"},
+            ).json()["user"]
+            login = client.post(
+                "/api/login",
+                json={"username": "member@example.test", "password": "pw"},
+            )
+            csrf = login.json()["csrf_token"]
+
+            store = EventStore(db_path)
+            user = store.get_user(created["id"], enabled_only=False)
+            assert user is not None
+            store.save_user(user.model_copy(update={"role": "admin"}))
+            self.assertEqual(
+                client.post(
+                    "/api/users",
+                    headers={"X-CSRF-Token": csrf},
+                    json={"username": "new-admin-action@example.test", "password": "pw"},
+                ).status_code,
+                201,
+            )
+
+            user = store.get_user(created["id"], enabled_only=False)
+            assert user is not None
+            store.save_user(user.model_copy(update={"enabled": False}))
+            self.assertEqual(client.get("/api/stats").status_code, 401)
+
+    def test_cookie_writes_require_csrf_and_bogus_api_header_does_not_bypass(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ", {"CHATEVENT_ADMIN_TOKEN": "bootstrap-token"}
+        ):
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+            client.post(
+                "/api/users",
+                headers={"X-ChatEvent-Admin-Token": "bootstrap-token"},
+                json={"username": "admin@example.test", "password": "pw", "role": "admin"},
+            )
+            login = client.post(
+                "/api/login",
+                json={"username": "admin@example.test", "password": "pw"},
+            )
+            csrf = login.json()["csrf_token"]
+
+            body = {
+                "id": "csrf-sub",
+                "source": "discourse",
+                "target": "topic:csrf",
+                "capture_modes": ["webhook"],
+            }
+            self.assertEqual(client.post("/api/subscriptions", json=body).status_code, 403)
+            self.assertEqual(
+                client.post(
+                    "/api/subscriptions",
+                    headers={"X-ChatEvent-Admin-Token": "bogus"},
+                    json=body,
+                ).status_code,
+                403,
+            )
+            self.assertEqual(
+                client.post(
+                    "/api/subscriptions",
+                    headers={"X-CSRF-Token": "wrong"},
+                    json=body,
+                ).status_code,
+                403,
+            )
+            self.assertEqual(
+                client.post(
+                    "/api/subscriptions",
+                    headers={"X-CSRF-Token": csrf},
+                    json=body,
+                ).status_code,
+                201,
+            )
+            self.assertEqual(client.post("/api/logout").status_code, 403)
+            self.assertEqual(
+                client.post("/api/logout", headers={"X-CSRF-Token": csrf}).status_code,
+                200,
+            )
+
+    def test_api_tokens_remain_csrf_exempt_and_separate_from_cookie_csrf(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ", {"CHATEVENT_ADMIN_TOKEN": "bootstrap-token"}
+        ):
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"))
+            created = client.post(
+                "/api/users",
+                headers={"X-ChatEvent-Admin-Token": "bootstrap-token"},
+                json={"username": "member@example.test", "password": "pw", "role": "member"},
+            ).json()["user"]
+            token = client.post(
+                f"/api/users/{created['id']}/token",
+                headers={"X-ChatEvent-Admin-Token": "bootstrap-token"},
+            ).json()["token"]
+
+            response = client.post(
+                "/api/subscriptions",
+                headers={"X-ChatEvent-Admin-Token": token},
+                json={
+                    "id": "token-sub",
+                    "source": "discourse",
+                    "target": "topic:token",
+                    "capture_modes": ["webhook"],
+                },
+            )
+
+            self.assertEqual(response.status_code, 201)
+            self.assertEqual(response.json()["owner_user_id"], created["id"])
+
+    def test_session_rotation_logout_ttl_and_capacity(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "CHATEVENT_BOOTSTRAP_USERNAME": "admin@example.test",
+                "CHATEVENT_BOOTSTRAP_PASSWORD": "pw",
+                "CHATEVENT_SESSION_TTL_SECONDS": "1",
+                "CHATEVENT_MAX_SESSIONS": "1",
+            },
+        ):
+            now = [1000.0]
+            app = create_app(db_path=Path(directory) / "events.db", clock=lambda: now[0])
+            first = TestClient(app)
+            second = TestClient(app)
+
+            first_login = first.post(
+                "/api/login",
+                json={"username": "admin@example.test", "password": "pw"},
+            )
+            self.assertEqual(first_login.status_code, 200)
+            self.assertIn("csrf_token", first_login.json())
+            rotated = first.post(
+                "/api/login",
+                headers={"X-CSRF-Token": first_login.json()["csrf_token"]},
+                json={"username": "admin@example.test", "password": "pw"},
+            )
+            self.assertEqual(rotated.status_code, 200)
+            self.assertNotEqual(first_login.cookies.get("chatevent_session"), rotated.cookies.get("chatevent_session"))
+            self.assertEqual(
+                first.post(
+                    "/api/logout",
+                    headers={"X-CSRF-Token": rotated.json()["csrf_token"]},
+                ).status_code,
+                200,
+            )
+            self.assertEqual(first.get("/api/stats").status_code, 401)
+
+            capacity_holder = first.post(
+                "/api/login",
+                json={"username": "admin@example.test", "password": "pw"},
+            )
+            self.assertEqual(capacity_holder.status_code, 200)
+            self.assertEqual(
+                second.post(
+                    "/api/login",
+                    json={"username": "admin@example.test", "password": "pw"},
+                ).status_code,
+                503,
+            )
+            now[0] = 1002.0
+            self.assertEqual(first.get("/api/stats").status_code, 401)
+            self.assertEqual(
+                second.post(
+                    "/api/login",
+                    json={"username": "admin@example.test", "password": "pw"},
+                ).status_code,
+                200,
+            )
+
+    def test_shared_login_ui_assets_and_mounted_next_are_public(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "CHATEVENT_BOOTSTRAP_USERNAME": "admin@example.test",
+                "CHATEVENT_BOOTSTRAP_PASSWORD": "pw",
+                "CHATEVENT_PUBLIC_ORIGIN": "http://testserver",
+            },
+        ):
+            client = TestClient(create_app(db_path=Path(directory) / "events.db"), root_path="/mounted")
+
+            root = client.get("/")
+            self.assertEqual(root.status_code, 200)
+            self.assertIn("chatlogin", root.text)
+            self.assertIn("/mounted/login", root.text)
+            self.assertIn("/mounted/login/assets/login.js", root.text)
+            self.assertIn('data-next="/mounted/"', root.text)
+            self.assertNotIn("window.location.reload()", root.text)
+            self.assertEqual(client.get("/login/assets/login.js").headers["content-type"], "application/javascript; charset=utf-8")
+            self.assertEqual(client.get("/login/assets/login.css").headers["content-type"], "text/css; charset=utf-8")
+            self.assertIn('data-next="/mounted/"', client.get("/login?next=https://evil.test/").text)
+            self.assertIn('data-next="/api/stats"', client.get("/login?next=/api/stats").text)
+
     def test_api_rejects_naive_time_and_unknown_fields(self) -> None:
         with TemporaryDirectory() as directory:
             client = TestClient(create_app(db_path=Path(directory) / "events.db"))
@@ -639,6 +870,215 @@ class ServerTests(unittest.TestCase):
             )
 
             self.assertEqual(response.status_code, 422)
+
+    def test_metadata_declares_core_and_serve_chatlogin_bounds(self) -> None:
+        metadata = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+
+        self.assertIn("ChatLogin>=0.1.3,<0.2.0", metadata["project"]["dependencies"])
+        self.assertIn(
+            "ChatLogin[ui]>=0.1.3,<0.2.0",
+            metadata["project"]["optional-dependencies"]["serve"],
+        )
+
+    def test_password_verify_rejects_malformed_iterations_without_hashing(self) -> None:
+        from chatevent.auth import verify_password
+
+        zero_salt = "00" * 16
+        zero_digest = "00" * 32
+
+        self.assertFalse(
+            verify_password(
+                "probe", f"pbkdf2_sha256$bad${zero_salt}${zero_digest}"
+            )
+        )
+        self.assertFalse(
+            verify_password(
+                "probe", f"pbkdf2_sha256$0${zero_salt}${zero_digest}"
+            )
+        )
+        self.assertFalse(
+            verify_password(
+                "probe", f"pbkdf2_sha256$10000001${zero_salt}${zero_digest}"
+            )
+        )
+
+    def test_secure_cookie_env_defaults_and_overrides(self) -> None:
+        from chatevent.server import _secure_cookie
+
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertFalse(_secure_cookie())
+        with patch.dict("os.environ", {"CHATEVENT_PUBLIC_ORIGIN": "https://event.example.test"}, clear=True):
+            self.assertTrue(_secure_cookie())
+        with patch.dict(
+            "os.environ",
+            {
+                "CHATEVENT_PUBLIC_ORIGIN": "https://event.example.test",
+                "CHATEVENT_COOKIE_SECURE": "false",
+            },
+            clear=True,
+        ):
+            self.assertFalse(_secure_cookie())
+        with patch.dict(
+            "os.environ",
+            {"CHATEVENT_PUBLIC_ORIGIN": "http://127.0.0.1:8765", "CHATEVENT_COOKIE_SECURE": "true"},
+            clear=True,
+        ):
+            self.assertTrue(_secure_cookie())
+
+    def test_custom_login_ui_and_mounted_next_semantics(self) -> None:
+        def renderer(context: dict[str, object]) -> str:
+            return (
+                "<html><body>"
+                f"<main data-login='{context['login_url']}' "
+                f"data-session='{context['session_url']}' "
+                f"data-assets='{context['assets_path']}' "
+                f"data-next='{context['next']}'>custom-login</main>"
+                "</body></html>"
+            )
+
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "CHATEVENT_BOOTSTRAP_USERNAME": "admin@example.test",
+                "CHATEVENT_BOOTSTRAP_PASSWORD": "pw",
+            },
+        ):
+            app = create_app(
+                db_path=Path(directory) / "events.db",
+                login_ui=LoginUI(renderer=renderer),
+            )
+            client = TestClient(app, root_path="/mounted")
+
+            root = client.get("/")
+            self.assertIn("custom-login", root.text)
+            self.assertIn("data-login='/mounted/api/login'", root.text)
+            self.assertIn("data-assets='/mounted/login/assets'", root.text)
+            self.assertIn("data-next='/mounted/'", root.text)
+            self.assertIn(
+                "data-next='/outside'",
+                client.get("/login?next=/outside").text,
+            )
+            self.assertIn(
+                "data-next='/mounted/'",
+                client.get("/login?next=https://evil.test/").text,
+            )
+
+            explicit_login = TestClient(app, root_path="/mounted").post(
+                "/api/login",
+                json={"username": "admin@example.test", "password": "pw", "next": "/outside"},
+            )
+            self.assertEqual(explicit_login.status_code, 200)
+            self.assertEqual(explicit_login.json()["next"], "/outside")
+
+            login = client.post(
+                "/api/login",
+                json={"username": "admin@example.test", "password": "pw"},
+            )
+            self.assertEqual(login.status_code, 200)
+            self.assertEqual(login.json()["next"], "/mounted/")
+            self.assertIn("csrf_token", login.json())
+            self.assertEqual(client.get("/api/stats").status_code, 200)
+
+    def test_password_mode_client_releases_temporary_sessions(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(
+            "os.environ",
+            {
+                "CHATEVENT_BOOTSTRAP_USERNAME": "admin@example.test",
+                "CHATEVENT_BOOTSTRAP_PASSWORD": "pw",
+                "CHATEVENT_MAX_SESSIONS": "2",
+            },
+        ):
+            from chatevent.client import ChatEventApiClient
+
+            app = create_app(db_path=Path(directory) / "events.db")
+            client = TestClient(app)
+            api_client = ChatEventApiClient(
+                username="admin@example.test",
+                password="pw",
+            )
+
+            class UrlopenResponse:
+                def __init__(self, response) -> None:  # type: ignore[no-untyped-def]
+                    self._response = response
+                    self.headers = response.headers
+
+                def __enter__(self):  # type: ignore[no-untyped-def]
+                    return self
+
+                def __exit__(self, *_exc: object) -> None:
+                    return None
+
+                def read(self) -> bytes:
+                    return self._response.content
+
+            def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+                method = request.get_method()
+                parsed = request.full_url.removeprefix(api_client.base_url)
+                return UrlopenResponse(
+                    client.request(
+                        method,
+                        parsed,
+                        content=request.data,
+                        headers=dict(request.header_items()),
+                    )
+                )
+
+            with patch("urllib.request.urlopen", fake_urlopen):
+                self.assertEqual(api_client.stats()["event_count"], 0)
+                self.assertEqual(api_client.stats()["event_count"], 0)
+                self.assertEqual(api_client.stats()["event_count"], 0)
+
+    def test_password_mode_client_logs_out_without_retrying_write(self) -> None:
+        from chatevent.client import ChatEventApiClient
+
+        calls: list[tuple[str, str, bytes | None]] = []
+
+        class UrlopenResponse:
+            def __init__(self, payload: object, *, set_cookie: str = "") -> None:
+                self._payload = payload
+                self.headers = {"Set-Cookie": set_cookie}
+
+            def __enter__(self):  # type: ignore[no-untyped-def]
+                return self
+
+            def __exit__(self, *_exc: object) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return json.dumps(self._payload).encode("utf-8")
+
+        def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+            calls.append((request.get_method(), urlparse(request.full_url).path, request.data))
+            if request.full_url.endswith("/api/login"):
+                return UrlopenResponse(
+                    {"authenticated": True, "csrf_token": "csrf-one"},
+                    set_cookie="chatevent_session=session-one; HttpOnly",
+                )
+            if request.full_url.endswith("/api/logout"):
+                return UrlopenResponse({"authenticated": False})
+            return UrlopenResponse({"created": True, "dedupe_key": "gitea:1", "seen_count": 1})
+
+        with TemporaryDirectory() as directory:
+            event_file = Path(directory) / "event.json"
+            event_file.write_text('{"id":"1","source":"gitea","kind":"issue.opened","occurred_at":"2026-08-18T00:00:00Z","capture_mode":"webhook"}', encoding="utf-8")
+            api_client = ChatEventApiClient(username="admin@example.test", password="pw")
+
+            with patch("urllib.request.urlopen", fake_urlopen):
+                result = api_client.record_json(event_file)
+
+        self.assertTrue(result["created"])
+        self.assertEqual(
+            [(method, path) for method, path, _body in calls],
+            [
+                ("POST", "/api/login"),
+                ("POST", "/api/events"),
+                ("POST", "/api/logout"),
+            ],
+        )
+        self.assertEqual(
+            [path for _method, path, _body in calls].count("/api/events"),
+            1,
+        )
 
 
 if __name__ == "__main__":

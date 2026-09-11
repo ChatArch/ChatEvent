@@ -1,5 +1,12 @@
 # 发行说明
 
+## 0.2.5
+
+- Web 登录接入 ChatLogin 共享核心，保留 EventStore 用户、角色、启用状态、API token 和既有 PBKDF2 字符串格式。
+- 浏览器 session 改用 ChatLogin `SessionManager` + `MemorySessionStore`，支持 TTL、容量上限、登录轮换和登出撤销。
+- Cookie 认证的用户、token、订阅写操作现在要求 `X-CSRF-Token`；验证成功的 `arch_xxx` API token 和 legacy bootstrap admin token 继续免 CSRF。
+- 默认登录页改为 ChatLogin `LoginUI` 与公共 assets，dashboard 和 CLI username-password 模式会携带 CSRF。
+
 ## 0.2.3
 
 - 新增 Speakr/ChatVoice 平台目录：`source=voice`，支持 `talk.created` / `talk.updated` action。

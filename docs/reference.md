@@ -12,6 +12,8 @@
 | `POST` | `/api/login` | 账号密码网页登录，设置浏览器 cookie。 |
 | `POST` | `/api/logout` | 清除浏览器 cookie。 |
 | `GET` | `/api/session` | 返回当前 API token 或 cookie 身份。 |
+| `GET` | `/login` | ChatLogin 默认登录页。 |
+| `GET` | `/login/assets/{name}` | ChatLogin 登录页公共 JS/CSS assets。 |
 | `GET` | `/api/users` | 管理员列出用户。 |
 | `POST` | `/api/users` | 管理员创建账号密码用户。 |
 | `POST` | `/api/me/token` | 当前账号生成一次性 `arch_xxx` API token。 |
@@ -145,18 +147,21 @@ Temporary topic watches are ordinary `Subscription` records with a documented co
 
 ## 登录、用户管理与隔离
 
-ChatEvent 的最小登录模型是账号密码 + API token：
+ChatEvent 的最小登录模型是账号密码 + API token；账号、角色、启用状态和 token 仍由 EventStore 持久化并作为授权权威：
 
-- `GET /`：配置用户或 bootstrap 凭据后，未登录只返回账号密码登录页；登录后才返回 Observatory。
-- `POST /api/login`：校验 `username` / `password` 并设置浏览器 cookie。
-- `POST /api/logout`：清除浏览器 cookie。
-- `GET /api/session`：校验当前 `X-ChatEvent-Admin-Token` 或 cookie，返回 `admin_required`、`authenticated`、`user` 与是否为 bootstrap admin。
+- `GET /`：配置用户或 bootstrap 凭据后，未登录返回 ChatLogin 默认登录页；登录后才返回 Observatory。
+- `GET /login`：直接返回 ChatLogin `LoginUI`，`next` 只接受本地绝对路径，mounted/root_path 部署会把表单和 asset URL 指到正确前缀。
+- `POST /api/login`：校验 `username` / `password` 并设置浏览器 cookie；响应保留旧 `SessionStatus` 字段，并额外返回 canonical `csrf_token` 和安全 `next`。
+- `POST /api/logout`：清除浏览器 cookie；cookie session 调用必须带 `X-CSRF-Token`。
+- `GET /api/session`：校验当前 `X-ChatEvent-Admin-Token` 或 cookie，返回 `admin_required`、`authenticated`、`user`、是否为 bootstrap admin，以及 cookie session 的 CSRF token；匿名时仍返回 200。
 - `GET /api/users`：管理员列出用户。
-- `POST /api/users`：管理员创建账号密码用户；服务端只保存 password hash。
-- `POST /api/me/token`：当前登录用户为自己的账号生成一次性 `arch_xxx` API token。
-- `POST /api/users/{id}/token`：管理员为指定用户生成一次性 API token。
-- `DELETE /api/users/{id}`：管理员删除用户。
+- `POST /api/users`：管理员创建账号密码用户；服务端只保存 password hash。cookie session 必须带 CSRF，验证成功的 API token / legacy admin token 免 CSRF。
+- `POST /api/me/token`：当前登录用户为自己的账号生成一次性 `arch_xxx` API token。cookie session 必须带 CSRF。
+- `POST /api/users/{id}/token`：管理员为指定用户生成一次性 API token。cookie session 必须带 CSRF。
+- `DELETE /api/users/{id}`：管理员删除用户。cookie session 必须带 CSRF。
 
-配置管理员 token 或用户后，`/api/stats`、`/api/events`、`/api/events/{dedupe_key}`、schema、platforms、subscriptions 等读取 API 都需要登录。事件写入接口和 webhook 接口保持可达，用于接收平台事件。
+配置管理员 token 或用户后，`/api/stats`、`/api/events`、`/api/events/{dedupe_key}`、schema、platforms、subscriptions 等读取 API 都需要登录。cookie 认证的订阅写入和删除也必须带 CSRF；只有真正验证成功的 `arch_xxx` API token 或 legacy admin token 请求免 CSRF，伪造 token header 不会绕过 cookie CSRF。事件写入接口和 webhook 接口保持可达，用于接收平台事件。
 
-`CHATEVENT_BOOTSTRAP_USERNAME` 与 `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` 可初始化第一个管理员账号。`CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` 是 bootstrap 管理员 API 凭据，用于 CLI/模型/API 创建用户或恢复管理权限。`Subscription.owner_user_id` 是当前数据隔离边界：member 账号创建的订阅自动归属该用户；member 只能读取、修改、删除自己的订阅；admin 可管理全部订阅。事件流仍保留 Observatory 调试视图，后续可进一步按 tenant/user owner 收敛事件读取范围。
+`CHATEVENT_BOOTSTRAP_USERNAME` 与 `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` 可初始化第一个管理员账号。密码存储继续使用 `pbkdf2_sha256$iterations$salt_hex$digest_hex` 字符串，创建新密码和校验已有密码时委托 ChatLogin PBKDF2 工具，但不会为了迁移重写既有用户密码。浏览器 session 使用 ChatLogin `SessionManager` 与 bounded in-memory store；每次受保护请求都会从 EventStore 回查当前用户启用状态和角色，不从旧 session 快照授权。`CHATEVENT_SESSION_TTL_SECONDS` 和 `CHATEVENT_MAX_SESSIONS` 可调整 TTL 和容量。
+
+`CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` 是 bootstrap 管理员 API 凭据，用于 CLI/模型/API 创建用户或恢复管理权限。`Subscription.owner_user_id` 是当前数据隔离边界：member 账号创建的订阅自动归属该用户；member 只能读取、修改、删除自己的订阅；admin 可管理全部订阅。事件流仍保留 Observatory 调试视图，后续可进一步按 tenant/user owner 收敛事件读取范围。
