@@ -1,62 +1,5 @@
 """Self-contained local dashboard for the ChatEvent Observatory."""
 
-LOGIN_HTML = r"""<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ChatEvent Login</title>
-  <style>
-    :root { color-scheme: dark; --bg: #080a0d; --card: rgba(18,22,29,.86); --line: rgba(255,255,255,.1); --text: #f6f8fb; --muted: #9aa4b4; --accent: #b9ff66; --danger: #ff7272; font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; color: var(--text); background: radial-gradient(circle at 15% 10%, rgba(185,255,102,.14), transparent 30%), radial-gradient(circle at 90% 20%, rgba(119,184,255,.13), transparent 34%), var(--bg); }
-    .login-card { width: min(440px, 100%); padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: var(--card); box-shadow: 0 40px 100px rgba(0,0,0,.45); }
-    .eyebrow { color: var(--accent); font: 700 12px/1.2 ui-monospace, SFMono-Regular, monospace; letter-spacing: .14em; text-transform: uppercase; }
-    h1 { margin: 10px 0 8px; font-size: clamp(30px, 8vw, 46px); letter-spacing: -.05em; }
-    p { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
-    label { display: block; color: var(--muted); font-size: 12px; }
-    input { width: 100%; height: 44px; margin-top: 7px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: #10151d; outline: none; font: 13px ui-monospace, SFMono-Regular, monospace; }
-    input:focus { border-color: rgba(185,255,102,.6); box-shadow: 0 0 0 3px rgba(185,255,102,.1); }
-    button { width: 100%; height: 44px; margin-top: 14px; border: 0; border-radius: 12px; color: #10150b; background: var(--accent); font-weight: 760; cursor: pointer; }
-    .links { display: flex; gap: 10px; margin-top: 16px; }
-    a { color: var(--muted); text-decoration: none; font-size: 12px; }
-    a:hover { color: var(--accent); }
-    .error { min-height: 18px; margin-top: 10px; color: var(--danger); font-size: 12px; }
-  </style>
-</head>
-<body>
-  <main class="login-card">
-    <div class="eyebrow">ChatEvent / Login</div>
-    <h1>登录 Observatory</h1>
-    <p>登录后才能查看事件流、订阅和用户管理。Token 不是网页登录凭据，只用于 CLI、模型或程序代表你的账号调用 API。</p>
-    <form id="loginForm">
-      <label>账号<input id="usernameInput" name="username" placeholder="you@example.com" autocomplete="username" spellcheck="false" autofocus /></label>
-      <label>密码<input id="passwordInput" name="password" type="password" autocomplete="current-password" /></label>
-      <button type="submit">进入 Observatory</button>
-      <div class="error" id="loginError"></div>
-    </form>
-    <div class="links">
-      <a href="https://github.com/ChatArch/ChatEvent" target="_blank" rel="noreferrer">GitHub</a>
-      <a href="https://arch.gh.wzhecnu.cn/ChatEvent/" target="_blank" rel="noreferrer">Docs</a>
-    </div>
-  </main>
-  <script>
-    document.getElementById("loginForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const username = document.getElementById("usernameInput").value.trim();
-      const password = document.getElementById("passwordInput").value;
-      const error = document.getElementById("loginError");
-      if (!username || !password) { error.textContent = "请输入账号和密码。"; return; }
-      try {
-        const response = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username, password})});
-        if (!response.ok) throw new Error((await response.json()).detail || "login failed");
-        window.location.reload();
-      } catch (err) { error.textContent = `登录失败：${err.message}`; }
-    });
-  </script>
-</body>
-</html>"""
-
 DASHBOARD_HTML = r"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -423,7 +366,7 @@ DASHBOARD_HTML = r"""<!doctype html>
   </dialog>
 
   <script>
-    const state = { events: [], subscriptions: [], stats: {}, platforms: [], detail: null, editingSubscription: null, selectedKinds: new Set(), selectedSubscriptions: new Set() };
+    const state = { events: [], subscriptions: [], stats: {}, platforms: [], detail: null, editingSubscription: null, selectedKinds: new Set(), selectedSubscriptions: new Set(), csrf: "" };
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
     const formatTime = (value) => value ? new Intl.DateTimeFormat("zh-CN", {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date(value)) : "—";
@@ -458,6 +401,10 @@ DASHBOARD_HTML = r"""<!doctype html>
       const token = sessionStorage.getItem("chateventApiToken") || "";
       const authHeaders = token ? {"X-ChatEvent-Admin-Token": token} : {};
       const headers = {"Content-Type": "application/json", ...authHeaders, ...(options.headers || {})};
+      const method = (options.method || "GET").toUpperCase();
+      if (state.csrf && !["GET", "HEAD", "OPTIONS"].includes(method) && !headers["X-CSRF-Token"]) {
+        headers["X-CSRF-Token"] = state.csrf;
+      }
       const response = await fetch(path, {...options, headers});
       if (!response.ok) {
         let detail = response.statusText;
@@ -496,6 +443,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       $("adminTokenStatus").textContent = "已复制 API Token；CLI/模型可用它作为 X-ChatEvent-Admin-Token。";
     }
     function renderSessionStatus(session) {
+      state.csrf = session?.csrf_token || state.csrf || "";
       const status = $("sessionStatus");
       if (!session?.admin_required) {
         status.textContent = "本地免登录";
@@ -508,11 +456,13 @@ DASHBOARD_HTML = r"""<!doctype html>
       status.textContent = "未登录";
     }
     async function logoutAdminToken() {
+      await refreshSessionCsrf();
       const session = await api("/api/logout", {method: "POST"});
       renderSessionStatus(session);
       return session;
     }
     async function generateMyApiToken() {
+      await refreshSessionCsrf();
       const result = await api("/api/me/token", {method: "POST"});
       $("generatedAdminToken").value = result.token;
       setAdminToken(result.token);
@@ -553,6 +503,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       }
     }
     async function createManagedUser() {
+      await refreshSessionCsrf();
       const username = $("newUserName").value.trim();
       const password = $("newUserPassword").value;
       if (!username || !password) {
@@ -578,6 +529,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       const token = getAdminToken();
       const headers = {...(options.headers || {})};
       if (token) headers["X-ChatEvent-Admin-Token"] = token;
+      if (!state.csrf) await refreshSessionCsrf();
       try { return await api(path, {...options, headers}); }
       catch (error) {
         if (error.status === 401 && retry) {
@@ -917,6 +869,13 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     let debounce;
+    async function refreshSessionCsrf() {
+      if (state.csrf) return;
+      try {
+        const session = await api("/api/session", {headers: adminAuthHeaders()});
+        renderSessionStatus(session);
+      } catch (_error) {}
+    }
     const debouncedLoad = () => { clearTimeout(debounce); debounce = setTimeout(loadAll, 260); };
     document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => activateTab(tab.dataset.tabTarget)));
     $("search").addEventListener("input", () => { updateAdvancedCount(); debouncedLoad(); });

@@ -67,21 +67,23 @@ chatevent
 ```text
 GET    /                         # Web Observatory; username/password login gate when auth is configured
 POST   /api/login                # Browser username/password login; sets session cookie
-POST   /api/logout               # Clear browser session cookie
+GET    /login                    # ChatLogin default login UI
+GET    /login/assets/{name}      # Public ChatLogin login JS/CSS
+POST   /api/logout               # Clear browser session cookie; cookie auth requires CSRF
 GET    /api/health               # Health and runtime path summary
 GET    /api/session              # Current API token/cookie identity
 GET    /api/users                # Admin: list users
-POST   /api/users                # Admin: create username/password user
-POST   /api/me/token             # Current user: issue one-time arch_xxx API token
-POST   /api/users/{id}/token     # Admin: issue one-time token for user
-DELETE /api/users/{id}           # Admin: delete user
+POST   /api/users                # Admin: create username/password user; cookie auth requires CSRF
+POST   /api/me/token             # Current user: issue one-time arch_xxx API token; cookie auth requires CSRF
+POST   /api/users/{id}/token     # Admin: issue one-time token for user; cookie auth requires CSRF
+DELETE /api/users/{id}           # Admin: delete user; cookie auth requires CSRF
 GET    /api/schema/event         # ChatEvent JSON Schema
 GET    /api/schema/subscription  # Subscription JSON Schema
 GET    /api/platforms            # Platform action catalog
 GET    /api/subscriptions        # List subscriptions; member sees own subscriptions
-POST   /api/subscriptions        # Create/update subscription; member-owned when not admin
+POST   /api/subscriptions        # Create/update subscription; member-owned when not admin; cookie auth requires CSRF
 GET    /api/subscriptions/{id}   # Read one subscription
-DELETE /api/subscriptions/{id}   # Delete subscription, not historical events
+DELETE /api/subscriptions/{id}   # Delete subscription, not historical events; cookie auth requires CSRF
 POST   /api/events               # Write normalized ChatEvent
 GET    /api/events               # Query events with filters and next_since checkpoint
 GET    /api/events/{dedupe_key}  # Read one stored event
@@ -107,6 +109,10 @@ ChatEvent 注册 `chatevent.config:ChatEventConfig` 到 `chatenv.configs` entry 
 | `CHATEVENT_API_PASSWORD_FILE` | CLI password 文件路径 | 路径非敏感，内容敏感 |
 | `CHATEVENT_BOOTSTRAP_USERNAME` | 首个管理员账号用户名 | 非敏感 |
 | `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` | 首个管理员密码文件路径 | 路径非敏感，内容敏感 |
+| `CHATEVENT_PUBLIC_ORIGIN` | 明确配置的 http(s) 公网 origin，用于 cookie Secure 策略；不读取任意 Forwarded header | 非敏感 |
+| `CHATEVENT_COOKIE_SECURE` | 覆盖 session cookie Secure flag；未设置时 HTTPS public origin 为 true，其余保持本地兼容 | 非敏感 |
+| `CHATEVENT_SESSION_TTL_SECONDS` | ChatLogin 浏览器 session TTL 秒数，必须为正整数 | 非敏感 |
+| `CHATEVENT_MAX_SESSIONS` | 当前进程内存 session 容量上限，必须为正整数 | 非敏感 |
 
 平台凭据不归 ChatEvent 自己 invent：Zulip、Discourse、Gitea、GitHub 等平台 secret 应继续放在各自 ChatEnv profile 或服务 secret 文件里。`capture zulip-once` 的默认 env 文件来自 ChatEnv `envs_dir/Zulip/.env`。
 

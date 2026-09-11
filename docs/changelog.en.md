@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.5
+
+- Web login now uses the shared ChatLogin core while keeping EventStore users, roles, enabled state, API tokens, and existing PBKDF2 string formats authoritative.
+- Browser sessions now use ChatLogin `SessionManager` + `MemorySessionStore` with TTL, bounded capacity, login rotation, and logout revocation.
+- Cookie-authenticated user, token, and subscription writes now require `X-CSRF-Token`; successfully validated `arch_xxx` API tokens and the legacy bootstrap admin token remain CSRF-exempt.
+- The default login page now uses ChatLogin `LoginUI` and public assets, and the dashboard plus CLI username-password mode carry CSRF for cookie writes.
+
 ## 0.2.3
 
 - Added the Speakr/ChatVoice platform catalog with `source=voice` and `talk.created` / `talk.updated` actions.

@@ -11,6 +11,10 @@ def test_chatevent_config_declares_sensitive_api_token() -> None:
     assert "chatevent" in ChatEventConfig._aliases
     assert ChatEventConfig.CHATEVENT_ADMIN_TOKEN.is_sensitive
     assert not ChatEventConfig.CHATEVENT_API_URL.is_sensitive
+    assert not ChatEventConfig.CHATEVENT_PUBLIC_ORIGIN.is_sensitive
+    assert not ChatEventConfig.CHATEVENT_COOKIE_SECURE.is_sensitive
+    assert not ChatEventConfig.CHATEVENT_SESSION_TTL_SECONDS.is_sensitive
+    assert not ChatEventConfig.CHATEVENT_MAX_SESSIONS.is_sensitive
 
 
 def test_chatenv_entry_point_registers_chatevent_config() -> None:
