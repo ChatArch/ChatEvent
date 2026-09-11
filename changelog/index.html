@@ -696,6 +696,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#025" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2.5
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#023" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -851,6 +862,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#025" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2.5
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#023" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -997,6 +1019,13 @@
 
 
 <h1 id="_1">发行说明<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
+<h2 id="025">0.2.5<a class="headerlink" href="#025" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Web 登录接入 ChatLogin 共享核心，保留 EventStore 用户、角色、启用状态、API token 和既有 PBKDF2 字符串格式。</li>
+<li>浏览器 session 改用 ChatLogin <code>SessionManager</code> + <code>MemorySessionStore</code>，支持 TTL、容量上限、登录轮换和登出撤销。</li>
+<li>Cookie 认证的用户、token、订阅写操作现在要求 <code>X-CSRF-Token</code>；验证成功的 <code>arch_xxx</code> API token 和 legacy bootstrap admin token 继续免 CSRF。</li>
+<li>默认登录页改为 ChatLogin <code>LoginUI</code> 与公共 assets，dashboard 和 CLI username-password 模式会携带 CSRF。</li>
+</ul>
 <h2 id="023">0.2.3<a class="headerlink" href="#023" title="Permanent link">&para;</a></h2>
 <ul>
 <li>新增 Speakr/ChatVoice 平台目录：<code>source=voice</code>，支持 <code>talk.created</code> / <code>talk.updated</code> action。</li>

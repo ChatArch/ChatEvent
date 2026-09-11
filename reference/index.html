@@ -992,6 +992,16 @@
 </tr>
 <tr>
 <td><code>GET</code></td>
+<td><code>/login</code></td>
+<td>ChatLogin 默认登录页。</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/login/assets/{name}</code></td>
+<td>ChatLogin 登录页公共 JS/CSS assets。</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
 <td><code>/api/users</code></td>
 <td>管理员列出用户。</td>
 </tr>
@@ -1242,20 +1252,22 @@
 </code></pre></div>
 <p><code>chatevent capture subscription-once</code> currently supports Zulip topic subscriptions through the <code>/messages</code> API and stores the newest message id in <code>last_cursor</code>. Normalized Zulip events include <code>payload.sender_id</code>, <code>payload.sender_email</code>, <code>payload.sender_full_name</code>, <code>payload.sender_is_bot</code>, <code>actor.id</code>, <code>actor.display</code>, and <code>actor.metadata.email</code>. ChatEvent does not filter for Rex, assignment tags, confirmation words, or bot/self policy; consumers such as ChatAssign apply those predicates when they query Event.</p>
 <h2 id="_6">登录、用户管理与隔离<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
-<p>ChatEvent 的最小登录模型是账号密码 + API token：</p>
+<p>ChatEvent 的最小登录模型是账号密码 + API token；账号、角色、启用状态和 token 仍由 EventStore 持久化并作为授权权威：</p>
 <ul>
-<li><code>GET /</code>：配置用户或 bootstrap 凭据后，未登录只返回账号密码登录页；登录后才返回 Observatory。</li>
-<li><code>POST /api/login</code>：校验 <code>username</code> / <code>password</code> 并设置浏览器 cookie。</li>
-<li><code>POST /api/logout</code>：清除浏览器 cookie。</li>
-<li><code>GET /api/session</code>：校验当前 <code>X-ChatEvent-Admin-Token</code> 或 cookie，返回 <code>admin_required</code>、<code>authenticated</code>、<code>user</code> 与是否为 bootstrap admin。</li>
+<li><code>GET /</code>：配置用户或 bootstrap 凭据后，未登录返回 ChatLogin 默认登录页；登录后才返回 Observatory。</li>
+<li><code>GET /login</code>：直接返回 ChatLogin <code>LoginUI</code>，<code>next</code> 只接受本地绝对路径，mounted/root_path 部署会把表单和 asset URL 指到正确前缀。</li>
+<li><code>POST /api/login</code>：校验 <code>username</code> / <code>password</code> 并设置浏览器 cookie；响应保留旧 <code>SessionStatus</code> 字段，并额外返回 canonical <code>csrf_token</code> 和安全 <code>next</code>。</li>
+<li><code>POST /api/logout</code>：清除浏览器 cookie；cookie session 调用必须带 <code>X-CSRF-Token</code>。</li>
+<li><code>GET /api/session</code>：校验当前 <code>X-ChatEvent-Admin-Token</code> 或 cookie，返回 <code>admin_required</code>、<code>authenticated</code>、<code>user</code>、是否为 bootstrap admin，以及 cookie session 的 CSRF token；匿名时仍返回 200。</li>
 <li><code>GET /api/users</code>：管理员列出用户。</li>
-<li><code>POST /api/users</code>：管理员创建账号密码用户；服务端只保存 password hash。</li>
-<li><code>POST /api/me/token</code>：当前登录用户为自己的账号生成一次性 <code>arch_xxx</code> API token。</li>
-<li><code>POST /api/users/{id}/token</code>：管理员为指定用户生成一次性 API token。</li>
-<li><code>DELETE /api/users/{id}</code>：管理员删除用户。</li>
+<li><code>POST /api/users</code>：管理员创建账号密码用户；服务端只保存 password hash。cookie session 必须带 CSRF，验证成功的 API token / legacy admin token 免 CSRF。</li>
+<li><code>POST /api/me/token</code>：当前登录用户为自己的账号生成一次性 <code>arch_xxx</code> API token。cookie session 必须带 CSRF。</li>
+<li><code>POST /api/users/{id}/token</code>：管理员为指定用户生成一次性 API token。cookie session 必须带 CSRF。</li>
+<li><code>DELETE /api/users/{id}</code>：管理员删除用户。cookie session 必须带 CSRF。</li>
 </ul>
-<p>配置管理员 token 或用户后，<code>/api/stats</code>、<code>/api/events</code>、<code>/api/events/{dedupe_key}</code>、schema、platforms、subscriptions 等读取 API 都需要登录。事件写入接口和 webhook 接口保持可达，用于接收平台事件。</p>
-<p><code>CHATEVENT_BOOTSTRAP_USERNAME</code> 与 <code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code> 可初始化第一个管理员账号。<code>CHATEVENT_ADMIN_TOKEN</code> / <code>secrets/admin-token</code> 是 bootstrap 管理员 API 凭据，用于 CLI/模型/API 创建用户或恢复管理权限。<code>Subscription.owner_user_id</code> 是当前数据隔离边界：member 账号创建的订阅自动归属该用户；member 只能读取、修改、删除自己的订阅；admin 可管理全部订阅。事件流仍保留 Observatory 调试视图，后续可进一步按 tenant/user owner 收敛事件读取范围。</p>
+<p>配置管理员 token 或用户后，<code>/api/stats</code>、<code>/api/events</code>、<code>/api/events/{dedupe_key}</code>、schema、platforms、subscriptions 等读取 API 都需要登录。cookie 认证的订阅写入和删除也必须带 CSRF；只有真正验证成功的 <code>arch_xxx</code> API token 或 legacy admin token 请求免 CSRF，伪造 token header 不会绕过 cookie CSRF。事件写入接口和 webhook 接口保持可达，用于接收平台事件。</p>
+<p><code>CHATEVENT_BOOTSTRAP_USERNAME</code> 与 <code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code> 可初始化第一个管理员账号。密码存储继续使用 <code>pbkdf2_sha256$iterations$salt_hex$digest_hex</code> 字符串，创建新密码和校验已有密码时委托 ChatLogin PBKDF2 工具，但不会为了迁移重写既有用户密码。浏览器 session 使用 ChatLogin <code>SessionManager</code> 与 bounded in-memory store；每次受保护请求都会从 EventStore 回查当前用户启用状态和角色，不从旧 session 快照授权。<code>CHATEVENT_SESSION_TTL_SECONDS</code> 和 <code>CHATEVENT_MAX_SESSIONS</code> 可调整 TTL 和容量。</p>
+<p><code>CHATEVENT_ADMIN_TOKEN</code> / <code>secrets/admin-token</code> 是 bootstrap 管理员 API 凭据，用于 CLI/模型/API 创建用户或恢复管理权限。<code>Subscription.owner_user_id</code> 是当前数据隔离边界：member 账号创建的订阅自动归属该用户；member 只能读取、修改、删除自己的订阅；admin 可管理全部订阅。事件流仍保留 Observatory 调试视图，后续可进一步按 tenant/user owner 收敛事件读取范围。</p>
 
 
 

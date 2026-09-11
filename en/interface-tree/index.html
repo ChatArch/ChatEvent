@@ -908,29 +908,31 @@
 <h2 id="http-api-surface">HTTP API Surface<a class="headerlink" href="#http-api-surface" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GET    /                         # Web Observatory; username/password login gate when auth is configured
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>POST   /api/login                # Browser username/password login; sets session cookie
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>POST   /api/logout               # Clear browser session cookie
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>GET    /api/health               # Health and runtime path summary
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>GET    /api/session              # Current API token/cookie identity
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>GET    /api/users                # Admin: list users
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>POST   /api/users                # Admin: create username/password user
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>POST   /api/me/token             # Current user: issue one-time arch_xxx API token
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>POST   /api/users/{id}/token     # Admin: issue one-time token for user
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>DELETE /api/users/{id}           # Admin: delete user
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>GET    /api/schema/event         # ChatEvent JSON Schema
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>GET    /api/schema/subscription  # Subscription JSON Schema
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>GET    /api/platforms            # Platform action catalog
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>GET    /api/subscriptions        # List subscriptions; members see their own subscriptions
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>POST   /api/subscriptions        # Create/update subscription; member-owned when not admin
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>GET    /api/subscriptions/{id}   # Read one subscription
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>DELETE /api/subscriptions/{id}   # Delete subscription, not historical events
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>POST   /api/events               # Write normalized ChatEvent
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>GET    /api/events               # Query events with filters and next_since checkpoint
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>GET    /api/events/{dedupe_key}  # Read one stored event
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>GET    /api/stats                # Event/source/kind/duplicate counters
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>POST   /webhooks/zulip           # Zulip webhook/event payload ingress
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>POST   /webhooks/discourse       # Discourse webhook ingress
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>POST   /webhooks/gitea           # Gitea webhook ingress
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>POST   /webhooks/github          # GitHub webhook ingress
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>GET    /login                    # ChatLogin default login UI
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>GET    /login/assets/{name}      # Public ChatLogin login JS/CSS
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>POST   /api/logout               # Clear browser session cookie; cookie auth requires CSRF
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>GET    /api/health               # Health and runtime path summary
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>GET    /api/session              # Current API token/cookie identity
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>GET    /api/users                # Admin: list users
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>POST   /api/users                # Admin: create username/password user; cookie auth requires CSRF
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>POST   /api/me/token             # Current user: issue one-time arch_xxx API token; cookie auth requires CSRF
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>POST   /api/users/{id}/token     # Admin: issue one-time token for user; cookie auth requires CSRF
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>DELETE /api/users/{id}           # Admin: delete user; cookie auth requires CSRF
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>GET    /api/schema/event         # ChatEvent JSON Schema
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>GET    /api/schema/subscription  # Subscription JSON Schema
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>GET    /api/platforms            # Platform action catalog
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>GET    /api/subscriptions        # List subscriptions; members see their own subscriptions
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>POST   /api/subscriptions        # Create/update subscription; member-owned when not admin; cookie auth requires CSRF
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>GET    /api/subscriptions/{id}   # Read one subscription
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>DELETE /api/subscriptions/{id}   # Delete subscription, not historical events; cookie auth requires CSRF
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>POST   /api/events               # Write normalized ChatEvent
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>GET    /api/events               # Query events with filters and next_since checkpoint
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>GET    /api/events/{dedupe_key}  # Read one stored event
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>GET    /api/stats                # Event/source/kind/duplicate counters
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>POST   /webhooks/zulip           # Zulip webhook/event payload ingress
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>POST   /webhooks/discourse       # Discourse webhook ingress
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>POST   /webhooks/gitea           # Gitea webhook ingress
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>POST   /webhooks/github          # GitHub webhook ingress
 </code></pre></div>
 <h2 id="chatenv-configuration-interface">ChatEnv Configuration Interface<a class="headerlink" href="#chatenv-configuration-interface" title="Permanent link">&para;</a></h2>
 <p>ChatEvent registers <code>chatevent.config:ChatEventConfig</code> under the <code>chatenv.configs</code> entry point. ENV/profile/secret boundaries are:</p>
@@ -987,6 +989,26 @@
 <td><code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code></td>
 <td>First administrator password file path</td>
 <td>Path is not sensitive; contents are sensitive</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_PUBLIC_ORIGIN</code></td>
+<td>Explicit configured http(s) public origin for cookie Secure policy; arbitrary Forwarded headers are not trusted</td>
+<td>Not sensitive</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_COOKIE_SECURE</code></td>
+<td>Override session cookie Secure flag; by default HTTPS public origin enables it and other origins keep localhost compatibility</td>
+<td>Not sensitive</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_SESSION_TTL_SECONDS</code></td>
+<td>ChatLogin browser session TTL in seconds; must be a positive integer</td>
+<td>Not sensitive</td>
+</tr>
+<tr>
+<td><code>CHATEVENT_MAX_SESSIONS</code></td>
+<td>Current-process in-memory session capacity; must be a positive integer</td>
+<td>Not sensitive</td>
 </tr>
 </tbody>
 </table>

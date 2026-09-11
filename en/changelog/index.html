@@ -696,6 +696,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#025" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2.5
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#023" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -851,6 +862,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#025" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2.5
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#023" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -997,6 +1019,13 @@
 
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<h2 id="025">0.2.5<a class="headerlink" href="#025" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Web login now uses the shared ChatLogin core while keeping EventStore users, roles, enabled state, API tokens, and existing PBKDF2 string formats authoritative.</li>
+<li>Browser sessions now use ChatLogin <code>SessionManager</code> + <code>MemorySessionStore</code> with TTL, bounded capacity, login rotation, and logout revocation.</li>
+<li>Cookie-authenticated user, token, and subscription writes now require <code>X-CSRF-Token</code>; successfully validated <code>arch_xxx</code> API tokens and the legacy bootstrap admin token remain CSRF-exempt.</li>
+<li>The default login page now uses ChatLogin <code>LoginUI</code> and public assets, and the dashboard plus CLI username-password mode carry CSRF for cookie writes.</li>
+</ul>
 <h2 id="023">0.2.3<a class="headerlink" href="#023" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Added the Speakr/ChatVoice platform catalog with <code>source=voice</code> and <code>talk.created</code> / <code>talk.updated</code> actions.</li>
