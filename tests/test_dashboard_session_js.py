@@ -9,7 +9,7 @@ def run_dashboard_script(assertion: str) -> dict:
     script = DASHBOARD_HTML.split("<script>", 1)[1].split("</script>", 1)[0]
     script = script.replace(
         'applyTheme(localStorage.getItem("chateventTheme") || "dark");\n    loadAll(); setInterval(loadAll, 5000);',
-        'globalThis.__chateventTest = {api, refreshSessionCsrf, logoutAdminToken, state, getAdminToken, setAdminToken};',
+        'globalThis.__chateventTest = {api, adminApi, refreshSessionCsrf, logoutAdminToken, state, getAdminToken, setAdminToken};',
     )
     harness = f"""
     const vm = require("node:vm");
@@ -115,6 +115,60 @@ def test_cached_stale_token_does_not_block_cookie_csrf_for_writes() -> None:
     write_headers = result["captured"][1]["headers"]
     assert write_headers["X-ChatEvent-Admin-Token"] == "stale-token"
     assert write_headers["X-CSRF-Token"] == "cookie-csrf"
+
+
+def test_admin_api_initializes_cookie_csrf_with_cached_stale_token() -> None:
+    result = run_dashboard_script(
+        """
+        const captured = [];
+        context.sessionStorage.setItem("chateventApiToken", "stale-token");
+        context.fetch = async (path, options = {}) => {
+          captured.push({path, method: options.method || "GET", headers: options.headers || {}});
+          if (path === "/api/session") {
+            return {ok: true, json: async () => ({authenticated: true, csrf_token: "cookie-csrf"})};
+          }
+          return {ok: true, json: async () => ({ok: true})};
+        };
+        await context.__chateventTest.adminApi("/api/subscriptions", {method: "POST", body: "{}"});
+        return {csrf: context.__chateventTest.state.csrf, captured};
+        """
+    )
+
+    assert result["csrf"] == "cookie-csrf"
+    assert [call["path"] for call in result["captured"]] == [
+        "/api/session",
+        "/api/subscriptions",
+    ]
+    write_headers = result["captured"][1]["headers"]
+    assert write_headers["X-ChatEvent-Admin-Token"] == "stale-token"
+    assert write_headers["X-CSRF-Token"] == "cookie-csrf"
+
+
+def test_admin_api_valid_token_write_stays_bounded_without_cookie_csrf() -> None:
+    result = run_dashboard_script(
+        """
+        const captured = [];
+        context.sessionStorage.setItem("chateventApiToken", "valid-token");
+        context.fetch = async (path, options = {}) => {
+          captured.push({path, method: options.method || "GET", headers: options.headers || {}});
+          if (path === "/api/session") {
+            return {ok: true, json: async () => ({authenticated: false})};
+          }
+          return {ok: true, json: async () => ({ok: true})};
+        };
+        await context.__chateventTest.adminApi("/api/subscriptions", {method: "POST", body: "{}"});
+        return {csrf: context.__chateventTest.state.csrf, captured};
+        """
+    )
+
+    assert result["csrf"] == ""
+    assert [call["path"] for call in result["captured"]] == [
+        "/api/session",
+        "/api/subscriptions",
+    ]
+    write_headers = result["captured"][1]["headers"]
+    assert write_headers["X-ChatEvent-Admin-Token"] == "valid-token"
+    assert "X-CSRF-Token" not in write_headers
 
 
 def test_cookie_logout_carries_csrf_even_when_cached_token_exists() -> None:

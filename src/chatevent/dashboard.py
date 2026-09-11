@@ -529,7 +529,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       const token = getAdminToken();
       const headers = {...(options.headers || {})};
       if (token) headers["X-ChatEvent-Admin-Token"] = token;
-      else await refreshSessionCsrf();
+      if (!state.csrf) await refreshSessionCsrf();
       try { return await api(path, {...options, headers}); }
       catch (error) {
         if (error.status === 401 && retry) {
