@@ -1,4 +1,5 @@
 import json
+import http.client
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1047,6 +1048,9 @@ class ServerTests(unittest.TestCase):
             def read(self) -> bytes:
                 return json.dumps(self._payload).encode("utf-8")
 
+            def close(self) -> None:
+                return None
+
         def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
             calls.append((request.get_method(), urlparse(request.full_url).path, request.data))
             if request.full_url.endswith("/api/login"):
@@ -1067,6 +1071,130 @@ class ServerTests(unittest.TestCase):
                 result = api_client.record_json(event_file)
 
         self.assertTrue(result["created"])
+        self.assertEqual(
+            [(method, path) for method, path, _body in calls],
+            [
+                ("POST", "/api/login"),
+                ("POST", "/api/events"),
+                ("POST", "/api/logout"),
+            ],
+        )
+        self.assertEqual(
+            [path for _method, path, _body in calls].count("/api/events"),
+            1,
+        )
+
+    def test_password_mode_client_ignores_logout_read_timeout_after_success(self) -> None:
+        from chatevent.client import ChatEventApiClient
+
+        calls: list[tuple[str, str, bytes | None]] = []
+
+        class UrlopenResponse:
+            def __init__(
+                self,
+                payload: object,
+                *,
+                set_cookie: str = "",
+                read_error: BaseException | None = None,
+            ) -> None:
+                self._payload = payload
+                self._read_error = read_error
+                self.headers = {"Set-Cookie": set_cookie}
+
+            def __enter__(self):  # type: ignore[no-untyped-def]
+                return self
+
+            def __exit__(self, *_exc: object) -> None:
+                return None
+
+            def read(self) -> bytes:
+                if self._read_error is not None:
+                    raise self._read_error
+                return json.dumps(self._payload).encode("utf-8")
+
+        def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+            calls.append((request.get_method(), urlparse(request.full_url).path, request.data))
+            if request.full_url.endswith("/api/login"):
+                return UrlopenResponse(
+                    {"authenticated": True, "csrf_token": "csrf-one"},
+                    set_cookie="chatevent_session=session-one; HttpOnly",
+                )
+            if request.full_url.endswith("/api/logout"):
+                return UrlopenResponse({"authenticated": False}, read_error=TimeoutError("timed out"))
+            return UrlopenResponse({"created": True, "dedupe_key": "gitea:1", "seen_count": 1})
+
+        with TemporaryDirectory() as directory:
+            event_file = Path(directory) / "event.json"
+            event_file.write_text('{"id":"1","source":"gitea","kind":"issue.opened","occurred_at":"2026-08-18T00:00:00Z","capture_mode":"webhook"}', encoding="utf-8")
+            api_client = ChatEventApiClient(username="admin@example.test", password="pw")
+
+            with patch("urllib.request.urlopen", fake_urlopen):
+                result = api_client.record_json(event_file)
+
+        self.assertTrue(result["created"])
+        self.assertEqual(
+            [(method, path) for method, path, _body in calls],
+            [
+                ("POST", "/api/login"),
+                ("POST", "/api/events"),
+                ("POST", "/api/logout"),
+            ],
+        )
+        self.assertEqual(
+            [path for _method, path, _body in calls].count("/api/events"),
+            1,
+        )
+
+    def test_password_mode_client_preserves_business_error_when_logout_truncates(self) -> None:
+        import urllib.error
+
+        from chatevent.client import ChatEventApiClient, ChatEventApiError
+
+        calls: list[tuple[str, str, bytes | None]] = []
+
+        class UrlopenResponse:
+            def __init__(self, payload: object, *, set_cookie: str = "") -> None:
+                self._payload = payload
+                self.headers = {"Set-Cookie": set_cookie}
+
+            def __enter__(self):  # type: ignore[no-untyped-def]
+                return self
+
+            def __exit__(self, *_exc: object) -> None:
+                return None
+
+            def read(self) -> bytes:
+                return json.dumps(self._payload).encode("utf-8")
+
+            def close(self) -> None:
+                return None
+
+        def fake_urlopen(request, timeout: float = 0):  # type: ignore[no-untyped-def]
+            calls.append((request.get_method(), urlparse(request.full_url).path, request.data))
+            if request.full_url.endswith("/api/login"):
+                return UrlopenResponse(
+                    {"authenticated": True, "csrf_token": "csrf-one"},
+                    set_cookie="chatevent_session=session-one; HttpOnly",
+                )
+            if request.full_url.endswith("/api/logout"):
+                raise http.client.IncompleteRead(b'{"authenticated"', 4)
+            raise urllib.error.HTTPError(
+                request.full_url,
+                500,
+                "Internal Server Error",
+                hdrs={},
+                fp=UrlopenResponse({"detail": "business failed"}),
+            )
+
+        with TemporaryDirectory() as directory:
+            event_file = Path(directory) / "event.json"
+            event_file.write_text('{"id":"1","source":"gitea","kind":"issue.opened","occurred_at":"2026-08-18T00:00:00Z","capture_mode":"webhook"}', encoding="utf-8")
+            api_client = ChatEventApiClient(username="admin@example.test", password="pw")
+
+            with patch("urllib.request.urlopen", fake_urlopen):
+                with self.assertRaisesRegex(ChatEventApiError, "500 Internal Server Error"):
+                    api_client.record_json(event_file)
+
         self.assertEqual(
             [(method, path) for method, path, _body in calls],
             [

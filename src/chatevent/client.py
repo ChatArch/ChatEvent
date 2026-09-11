@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import urllib.error
@@ -221,7 +222,12 @@ class ChatEventApiClient:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 response.read()
-        except (urllib.error.HTTPError, urllib.error.URLError):
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            http.client.HTTPException,
+            OSError,
+        ):
             return
 
 def _build_url(

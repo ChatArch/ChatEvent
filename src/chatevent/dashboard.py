@@ -402,7 +402,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       const authHeaders = token ? {"X-ChatEvent-Admin-Token": token} : {};
       const headers = {"Content-Type": "application/json", ...authHeaders, ...(options.headers || {})};
       const method = (options.method || "GET").toUpperCase();
-      if (!token && state.csrf && !["GET", "HEAD", "OPTIONS"].includes(method) && !headers["X-CSRF-Token"]) {
+      if (state.csrf && !["GET", "HEAD", "OPTIONS"].includes(method) && !headers["X-CSRF-Token"]) {
         headers["X-CSRF-Token"] = state.csrf;
       }
       const response = await fetch(path, {...options, headers});
@@ -870,7 +870,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     let debounce;
     async function refreshSessionCsrf() {
-      if (getAdminToken() || state.csrf) return;
+      if (state.csrf) return;
       try {
         const session = await api("/api/session", {headers: adminAuthHeaders()});
         renderSessionStatus(session);
