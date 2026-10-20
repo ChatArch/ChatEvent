@@ -325,7 +325,7 @@ def create_app(
     def authorize_ingest(
         token: str | None, cookie: str | None, csrf: str | None,
         subscription_id: str | None, *, platform: str, signed: bool = False,
-    ) -> None:
+    ) -> str | None:
         identity = None
         if not signed:
             identity, source = require_authenticated(token, cookie)
@@ -336,11 +336,13 @@ def create_app(
         if signed:
             if subscription_id and subscription is None:
                 raise HTTPException(status_code=403, detail="signed webhook subscription not found")
-            return
+            return subscription.owner_user_id if subscription else None
         assert identity is not None
         if identity.role != "admin":
             if subscription is None or subscription.owner_user_id != identity.id:
                 raise HTTPException(status_code=403, detail="owned subscription required")
+            return identity.id
+        return None
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def dashboard(
@@ -598,7 +600,10 @@ def create_app(
             if existing is not None and existing.owner_user_id != identity.id:
                 raise HTTPException(status_code=403, detail="subscription belongs to another user")
             subscription = subscription.model_copy(update={"owner_user_id": identity.id})
-        return store.save_subscription(subscription)
+        try:
+            return store.save_subscription(subscription)
+        except PermissionError as error:
+            raise HTTPException(status_code=403, detail="subscription identity belongs to another owner") from error
 
     @app.get("/api/subscriptions", response_model=list[Subscription])
     def list_subscriptions(
@@ -666,13 +671,16 @@ def create_app(
             subscription = store.get_subscription(event.subscription_id)
             if subscription is not None and subscription.source != event.source:
                 raise HTTPException(status_code=403, detail="subscription source mismatch")
-        return _record(event)
+        return _record(event, required_owner=None if identity.role == "admin" else identity.id)
 
-    def _record(event: ChatEvent) -> EventWriteResult:
-        stored, created = store.record_event(event)
+    def _record(event: ChatEvent, *, required_owner: str | None = None) -> EventWriteResult:
+        try:
+            stored, created = store.record_event(event, required_owner=required_owner)
+        except PermissionError as error:
+            raise HTTPException(status_code=403, detail="capture ownership conflict") from error
         return EventWriteResult(
             created=created,
-            dedupe_key=event.dedupe_key,
+            dedupe_key=stored.dedupe_key,
             seen_count=stored.seen_count,
         )
 
@@ -683,7 +691,7 @@ def create_app(
         x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
         chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> EventWriteResult | EventBatchWriteResult:
-        authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="zulip")
+        required_owner = authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="zulip")
         try:
             if payload.get("type") not in {"message", "heartbeat", "restart"} and not payload.get("queue_id"):
                 raise ValueError("queue lifetime required")
@@ -696,7 +704,7 @@ def create_app(
             )
         except (ValueError, TypeError) as error:
             raise HTTPException(status_code=422, detail="invalid Zulip event") from error
-        results = [_record(event) for event in events]
+        results = [_record(event, required_owner=required_owner) for event in events]
         if len(results) == 1:
             return results[0]
         return EventBatchWriteResult(items=results, count=len(results), created=sum(item.created for item in results))
@@ -717,6 +725,8 @@ def create_app(
         secret = load_secret("CHATEVENT_DISCOURSE_WEBHOOK_SECRET", "CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE")
         signed = False
         if secret:
+            if not os.environ.get("CHATEVENT_DISCOURSE_INSTANCE", "").strip() or not os.environ.get("CHATEVENT_DISCOURSE_SUBSCRIPTION_ID", "").strip():
+                raise HTTPException(status_code=503, detail="signed webhook requires trusted instance and subscription bindings")
             expected = "sha256=" + hmac.new(secret.encode(), await request.body(), hashlib.sha256).hexdigest()
             if not x_discourse_event_signature or not hmac.compare_digest(expected, x_discourse_event_signature):
                 raise HTTPException(status_code=401, detail="invalid webhook signature")
@@ -725,7 +735,7 @@ def create_app(
         if signed and subscription_id and subscription_id != bound_subscription:
             raise HTTPException(status_code=403, detail="webhook subscription binding mismatch")
         subscription_id = bound_subscription or subscription_id
-        authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="discourse", signed=signed)
+        required_owner = authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="discourse", signed=signed)
         bound_instance = os.environ.get("CHATEVENT_DISCOURSE_INSTANCE") if signed else None
         if bound_instance and x_discourse_instance and x_discourse_instance != bound_instance:
             raise HTTPException(status_code=403, detail="webhook instance binding mismatch")
@@ -741,7 +751,7 @@ def create_app(
             )
         except (ValueError, TypeError) as error:
             raise HTTPException(status_code=422, detail="invalid Discourse event") from error
-        return _record(event)
+        return _record(event, required_owner=required_owner)
 
     @app.post("/webhooks/gitea", response_model=EventWriteResult, status_code=202)
     def record_gitea_webhook(
@@ -750,7 +760,7 @@ def create_app(
         x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
         chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> EventWriteResult:
-        authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="gitea")
+        required_owner = authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="gitea")
         try:
             event = normalize_gitea_issue(
                 payload,
@@ -759,7 +769,7 @@ def create_app(
             )
         except (ValueError, TypeError) as error:
             raise HTTPException(status_code=422, detail="invalid Gitea event") from error
-        return _record(event)
+        return _record(event, required_owner=required_owner)
 
     @app.post("/webhooks/github", response_model=EventWriteResult, status_code=202)
     def record_github_webhook(
@@ -770,7 +780,7 @@ def create_app(
         x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
         chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> EventWriteResult:
-        authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="github")
+        required_owner = authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="github")
         if x_github_event == "ping":
             return EventWriteResult(dedupe_key="github:ping", created=False, seen_count=0)
         try:
@@ -782,7 +792,7 @@ def create_app(
             )
         except (ValueError, TypeError) as error:
             raise HTTPException(status_code=422, detail="invalid GitHub event") from error
-        return _record(event)
+        return _record(event, required_owner=required_owner)
 
     @app.get("/api/query", response_model=QueryPage)
     def query_events(
@@ -958,12 +968,8 @@ def create_app(
         chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> StoredEvent:
         identity, _source = require_authenticated(x_chatevent_admin_token, chatevent_session)
-        event = store.get_event(dedupe_key)
-        if event is None or (identity.role != "admin" and (
-            not event.event.subscription_id or
-            (subscription := store.get_subscription(event.event.subscription_id)) is None or
-            subscription.owner_user_id != identity.id
-        )):
+        event = store.get_event(dedupe_key, owner_user_id=None if identity.role == "admin" else identity.id)
+        if event is None:
             raise HTTPException(status_code=404, detail="event not found")
         return event
 

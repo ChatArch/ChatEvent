@@ -32,3 +32,7 @@ chatevent api query --source zulip --kind message.created --sort asc --limit 50
 `next_cursor` 用于下一页和增量续读。`GET /api/events` 为旧客户端保留，但其 `next_since` 不是无损 checkpoint。Observatory 的多选与 JSON 条件组均在服务端分页前执行。[过滤与视图](filtering.md)提供 curl、Python 和保存视图示例；[接口参考](reference.md)列出入口。
 
 Voice 路径只保存元数据，不保存摘要或转写正文。
+
+## 从旧版本升级
+
+升级前暂停采集器并对 SQLite 做一致性备份。0.3.0 加法迁移序号、视图、订阅身份和事件归属数据，不重写旧事件正文或旧去重键；旧事件的归属只在迁移时根据现有订阅快照确定，无法确认归属的事件仅管理员可读。随后将服务和所有采集进程升级到同一版本，再恢复采集；不要让旧版本写入器绕过新的权限约束。

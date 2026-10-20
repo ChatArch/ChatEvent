@@ -32,8 +32,8 @@ SQLite 的 `events` 表保持原行；新 `event_offsets` 表为旧事件按捕�
 
 ## 权限和采集
 
-配置用户或管理员 token 后，member 的事件列表、详情、结构化查询、stats 仅含自有订阅关联行；无 owner 的旧事件仅 admin 可见。member 视图按 owner 隔离，admin 可查看和管理全部；提交的 owner ID 不决定新视图归属；写入事件时 member 必须使用自有订阅。Cookie 写操作需要 CSRF；API token 不需要。无任何认证配置的本地开发模式保留匿名行为，必须只在可信本地使用。原始 payload 只向获授权读取者返回。
+配置用户或管理员 token 后，member 的事件列表、详情、结构化查询、stats 仅含捕获时归属自己的行；无 owner 的旧事件仅 admin 可见。订阅 ID 的 owner 绑定不可转移，历史事件权限也不随订阅删除转移。member 视图按 owner 隔离，admin 可查看和管理全部；提交的 owner ID 不决定新视图归属；写入事件时 member 必须使用自有订阅。Cookie 写操作需要 CSRF；API token 不需要。无任何认证配置的本地开发模式保留匿名行为，必须只在可信本地使用。原始 payload 只向获授权读取者返回。
 
-Discourse hook 可配置 `CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE` 或 `CHATEVENT_DISCOURSE_WEBHOOK_SECRET`、`CHATEVENT_DISCOURSE_INSTANCE`、`CHATEVENT_DISCOURSE_SUBSCRIPTION_ID`；按原始请求体验证 SHA-256 HMAC，实例 header 不能自行指定归属。其他 webhook 使用授权 ingest 凭据。`capture zulip-once` 是有界官方队列读取，`capture subscription-once` 是仅消息创建的 topic 游标回填；`capture discourse-topic-backfill` 是当前对象只读快照。覆盖矩阵见[平台动作](platform-actions.md)。
+Discourse hook 配置签名密钥后，必须同时配置 `CHATEVENT_DISCOURSE_INSTANCE` 和 `CHATEVENT_DISCOURSE_SUBSCRIPTION_ID`；缺少绑定时返回 503，不入库。密钥由 `CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE` 或 `CHATEVENT_DISCOURSE_WEBHOOK_SECRET` 提供；按原始请求体验证 SHA-256 HMAC，实例 header 不能自行指定归属。其他 webhook 使用授权 ingest 凭据。`capture zulip-once` 是有界官方队列读取，`capture subscription-once` 是仅消息创建的 topic 游标回填；`capture discourse-topic-backfill` 是当前对象只读快照。覆盖矩阵见[平台动作](platform-actions.md)。
 
 ChatEvent 不提供 Agent runner、唤醒派发、任务队列、分配或通用写平台网关。`chatevent --tree` 与 `chatevent --tree-brief` 由 ChatStyle 渲染；完整实测树见[CLI 树](cli-tree.md)。

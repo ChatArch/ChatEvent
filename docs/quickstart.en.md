@@ -32,3 +32,7 @@ chatevent api query --source zulip --kind message.created --sort asc --limit 50
 Use `next_cursor` for another page or incremental resume. Legacy `GET /api/events` remains for clients, but its `next_since` is not a lossless checkpoint. Observatory multi-select and JSON condition groups run on the server before pagination. See [Filtering and Views](filtering.md) for curl, Python, and saved-view examples, and [Reference](reference.md) for endpoints.
 
 Voice capture retains metadata only, never summary or transcript content.
+
+## Upgrading
+
+Pause collectors and make a consistent SQLite backup first. Version 0.3.0 additively migrates sequences, views, subscription identities, and capture ownership without rewriting existing event bodies or keys. Legacy ownership is snapshotted once from existing subscriptions; records with no known owner are admin-only. Upgrade the server and all collector processes together before resuming capture. Do not keep older writers that bypass the new ownership constraints.

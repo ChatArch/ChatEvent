@@ -77,4 +77,6 @@ chatevent api query --view-id '<view_id>' --limit 50
 chatevent api delete-view '<view_id>'
 ```
 
-member 只能查询其拥有的订阅关联事件；admin 可查询全部事件。没有订阅归属的旧事件只对 admin 可见。过滤条件和视图都不能扩大权限。事件响应包含原始 payload，因此应按账号授权控制 API 凭据。
+member 只能查询捕获时归属自己的事件；admin 可查询全部事件。历史权限保存在不可变的事件归属列中，不随订阅删除或编辑转移。订阅 ID 首次绑定的 owner 不可更换，删除后也不能由其他 owner 复用。未能确定归属的旧事件只对 admin 可见。过滤条件和视图都不能扩大权限。
+
+不同 owner 的相同平台事件使用独立存储去重键。读取详情时使用写入回执或列表项的 `dedupe_key`；不要用来源对象 ID 自行拼接存储键。规范化事件中的原生 `id` / `subject_id` 不变。事件响应包含原始 payload，因此应按账号授权保护 API 凭据。

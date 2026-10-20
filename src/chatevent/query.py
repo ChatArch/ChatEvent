@@ -137,10 +137,14 @@ def validate_filter(expression: Any) -> dict[str, Any] | None:
             if kind not in {"text", "array"}:
                 raise FilterError("contains requires text or tags")
             value = _value(value, "text")
+            if value is None:
+                raise FilterError("contains requires a non-null text value")
         elif op in {"any", "all"}:
             if kind != "array" or not isinstance(value, list) or not 1 <= len(value) <= MAX_LIST:
                 raise FilterError("any/all require a nonempty tags list of at most 50 values")
             value = list(dict.fromkeys(_value(item, "text") for item in value))
+            if any(item is None for item in value):
+                raise FilterError("tags any/all do not accept null")
         elif op in {"gt", "gte", "lt", "lte", "between"}:
             if kind not in {"time", "number"}:
                 raise FilterError("comparison requires a time or number field")
@@ -190,8 +194,7 @@ def compile_filter(expression: dict[str, Any] | None) -> tuple[str, list[Any]]:
     if op == "exists":
         return (f"({type_sql} IS {'NOT ' if value else ''}NULL)", [path])
     if value is None and op in {"eq", "ne"}:
-        return (f"({type_sql} {'=' if op == 'eq' else 'IS NOT NULL AND '+type_sql+' <>'} 'null')",
-                [path] if op == "eq" else [path, path])
+        return (f"({type_sql} = 'null')", [path]) if op == "eq" else (f"({type_sql} IN ({valid_type}))", [path])
     guard = f"({type_sql} IN ({valid_type})"
     if kind == "time" and op in {"gt", "gte", "lt", "lte", "between"}:
         operator = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}.get(op)

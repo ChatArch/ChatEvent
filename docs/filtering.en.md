@@ -77,4 +77,6 @@ chatevent api query --view-id '<view_id>' --limit 50
 chatevent api delete-view '<view_id>'
 ```
 
-Members can query only events linked to subscriptions they own; admins can query all events. Unowned legacy events are admin-only. Filters and views never widen access. Event responses include raw payload, so protect account credentials accordingly.
+Members can query only events owned by them at capture time; admins can query all events. Immutable event ownership does not transfer when a subscription is edited or deleted. A subscription ID remains bound to its original owner even after deletion and cannot be reclaimed by another owner. Legacy events with no known owner are admin-only. Filters and views never widen access.
+
+Identical platform events captured for different owners have separate storage deduplication keys. Use `dedupe_key` from a write receipt or result item when fetching detail; do not construct a storage key from native object IDs. The normalized event's native `id` / `subject_id` stay unchanged. Event responses include raw payload, so protect account credentials accordingly.

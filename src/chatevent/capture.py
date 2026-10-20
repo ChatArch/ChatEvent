@@ -21,7 +21,7 @@ from .adapters import (
     normalize_discourse_webhook,
 )
 from .model import CaptureMode, ChatEvent
-from .store import EventStore
+from .store import EventStore, StoredEvent
 from .subscription import Subscription, temporary_zulip_topic_watch
 
 
@@ -133,10 +133,11 @@ def capture_discourse_topic_backfill(
             instance=base_url.rstrip("/"), subscription_id=subscription_id,
             base_url=base_url, capture_mode=CaptureMode.MANUAL_BACKFILL,
         ))
-    created = sum(store.record_event(event)[1] for event in captured)
+    receipts = [store.record_event(event) for event in captured]
+    created = sum(created for _, created in receipts)
     return CaptureSummary(
         source="discourse", captured=len(captured), created=created,
-        events=[event.dedupe_key for event in captured], database=str(store.path),
+        events=[stored.dedupe_key for stored, _ in receipts], database=str(store.path),
     )
 
 
@@ -299,7 +300,7 @@ def _record_voice_talks(
     store = EventStore(db_path)
     if subscription_id:
         _ensure_voice_subscription(store, subscription_id)
-    captured: list[ChatEvent] = []
+    captured: list[StoredEvent] = []
     created = 0
     max_items = len(talks) if limit is None else max(0, limit)
     for talk in talks[:max_items]:
@@ -318,9 +319,9 @@ def _record_voice_talks(
             subscription_id=subscription_id,
             capture_mode=capture_mode,
         )
-        _, was_created = store.record_event(event)
+        stored, was_created = store.record_event(event)
         created += int(was_created)
-        captured.append(event)
+        captured.append(stored)
     return CaptureSummary(
         source="voice",
         captured=len(captured),
@@ -582,7 +583,7 @@ def _record_x_statuses(
     occurred_since: datetime | None = None,
 ) -> CaptureSummary:
     store = EventStore(db_path)
-    captured: list[ChatEvent] = []
+    captured: list[StoredEvent] = []
     created = 0
     for status_url in status_urls:
         payload = fetch_x_status_payload(status_url, timeout=timeout_seconds)
@@ -593,9 +594,9 @@ def _record_x_statuses(
         )
         if occurred_since is not None and event.occurred_at < occurred_since:
             continue
-        _, was_created = store.record_event(event)
+        stored, was_created = store.record_event(event)
         created += int(was_created)
-        captured.append(event)
+        captured.append(stored)
     return CaptureSummary(
         source="x",
         captured=len(captured),
@@ -850,7 +851,7 @@ def capture_zulip_once(
         raise RuntimeError("Zulip register response did not include queue_id")
 
     emitted_message_id: int | None = None
-    captured: list[ChatEvent] = []
+    captured: list[StoredEvent] = []
     created = 0
     unsupported = 0
     scope_unknown = 0
@@ -858,6 +859,8 @@ def capture_zulip_once(
     site = (env.get("ZULIP_SITE") or env.get("ZULIP_BASE_URL") or "").rstrip("/") or None
     try:
         store = EventStore(db_path)
+        capture_subscription = store.get_subscription(subscription_id) if subscription_id else None
+        context_owner = capture_subscription.owner_user_id if capture_subscription else None
         stream_names = {
             str(item["stream_id"]): str(item["name"])
             for item in [*(register.get("streams") or []), *(register.get("subscriptions") or [])]
@@ -872,7 +875,9 @@ def capture_zulip_once(
                 {"field": "instance", "op": "eq", "value": site},
                 {"field": "subject_id", "op": "eq", "value": f"message:{message_id}"},
                 {"field": "kind", "op": "in", "value": ["message.created", "message.moved", "message.edited"]},
-            ]}, limit=1).items
+                {"field": "payload.stream", "op": "ne", "value": ""},
+                {"field": "payload.topic", "op": "ne", "value": ""},
+            ]}, limit=1, owner_user_id=context_owner).items
             return rows[0].event if rows else None
 
         if content:
@@ -944,9 +949,9 @@ def capture_zulip_once(
                         if not any((not stream or stream in {str(s), stream_names.get(str(s))}) and
                                    (not topic or topic == t) for s, t in pairs):
                             continue
-                    _, was_created = store.record_event(event)
+                    stored, was_created = store.record_event(event, required_owner=context_owner)
                     created += int(was_created)
-                    captured.append(event)
+                    captured.append(stored)
             if emitted_message_id is not None and captured:
                 break
             if not events:
@@ -1010,7 +1015,7 @@ def capture_zulip_subscription_once(
         limit=limit,
         timeout=timeout_seconds,
     )
-    captured: list[ChatEvent] = []
+    captured: list[StoredEvent] = []
     created = 0
     for message in messages:
         event = normalize_zulip_message_event(
@@ -1022,9 +1027,9 @@ def capture_zulip_subscription_once(
         )
         site = env.get("ZULIP_SITE") or env.get("ZULIP_BASE_URL")
         event = event.model_copy(update={"instance": site.rstrip("/") if site else None})
-        _, was_created = store.record_event(event)
+        stored, was_created = store.record_event(event)
         created += int(was_created)
-        captured.append(event)
+        captured.append(stored)
     if not captured:
         store.save_subscription(subscription.model_copy(update={"last_error": None}))
     return CaptureSummary(
