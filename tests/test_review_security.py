@@ -68,6 +68,16 @@ def test_capture_receipt_uses_persisted_owner_scoped_key(tmp_path):
     assert summary.events[0]==store.query_events(owner_user_id='alice').items[0].dedupe_key
 
 
+def test_local_record_json_receipt_can_be_read_back(tmp_path,capsys):
+    from chatevent.cli import main
+    db=tmp_path/'events.db';store=EventStore(db)
+    store.save_subscription(Subscription(id='watch',source='zulip',target='stream:test',owner_user_id='alice'))
+    payload=tmp_path/'event.json';payload.write_text(event('watch').model_dump_json())
+    main(['record-json',str(payload),'--db',str(db)])
+    receipt=json.loads(capsys.readouterr().out)
+    assert store.get_event(receipt['dedupe_key']) is not None
+
+
 def test_legacy_owner_migration_keeps_body_and_key(tmp_path):
     import sqlite3
     db=tmp_path/'legacy.db'

@@ -888,7 +888,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         _print_json(
             EventWriteResult(
                 created=created,
-                dedupe_key=event.dedupe_key,
+                dedupe_key=stored.dedupe_key,
                 seen_count=stored.seen_count,
             ).model_dump(mode="json")
         )
