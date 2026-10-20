@@ -1,132 +1,57 @@
-# 注册监控
+# 注册采集范围
 
-注册监控分两层：
+`Subscription` 描述上游平台、目标、授权范围和动作范围；`SavedView` 是对已入库事件的查询。保存或启用订阅不会启动后台 collector。平台凭据仍由平台的 ChatEnv profile 或服务 secret 文件管理。
 
-1. 在 ChatEvent 里保存一个 `Subscription`，说明要观察哪个平台、哪个范围、哪些 action。
-2. 在对应平台上配置官方 webhook、event queue 或 bounded API cursor，让事件真正送到 ChatEvent。
+## 创建订阅
 
-## 创建 ChatEvent subscription
+账号 API token 通过 `CHATEVENT_ADMIN_TOKEN` 提供；以下请求由服务端把 member 的 `owner_user_id` 绑定为当前账号。
 
 ```bash
-curl -k -X POST https://event.public.wzhecnu.cn/api/subscriptions \
+curl -X POST 'https://events.example.org/api/subscriptions' \
+  -H "X-ChatEvent-Admin-Token: $CHATEVENT_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{
-    "id": "discourse-practice",
-    "source": "discourse",
-    "target": "category:agent-runs",
-    "label": "Discourse practice",
-    "event_kinds": ["topic.created", "post.created", "reply.created"],
-    "capture_modes": ["webhook", "api_cursor"],
-    "filters": {"category": "agent-runs"},
-    "labels": ["practice", "forum"]
-  }'
+  --data '{"id":"zulip-community","source":"zulip","target":"stream:community/topic:news","event_kinds":["*"],"capture_modes":["event_queue"]}'
 ```
 
-`id` 会作为 webhook URL 的 `subscription_id`，写入每条事件，方便筛选和 cursor 更新。
+member 的事件查询只会看到其拥有订阅关联的事实。无订阅归属的历史事件仅管理员可见。查询视图不能扩大这个权限。
 
-## Discourse webhook
+## Zulip 事件队列
 
-Discourse 支持官方 webhook。平台侧 payload URL 配置为：
-
-```text
-https://event.public.wzhecnu.cn/webhooks/discourse?subscription_id=discourse-practice
-```
-
-建议选择这些 Discourse event type：
-
-```text
-topic_created
-post_created
-post_edited
-post_destroyed
-post_liked
-notification_created
-```
-
-ChatEvent endpoint 会读取 `X-Discourse-Event` header，并把：
-
-- `post_created + post_number == 1` 规范化为 `post.created`
-- `post_created + post_number > 1` 规范化为 `reply.created`
-
-## Zulip event queue
-
-Zulip 优先用官方 event queue：
+在操作员管理的 env 文件中配置 `ZULIP_SITE`、`ZULIP_BOT_EMAIL`、`ZULIP_BOT_API_KEY`（或兼容的 Actor 名称）；不要把值放入文档、Git 或 CLI 参数。
 
 ```bash
-uv run --extra serve chatevent capture zulip-once \
-  --env-file ~/.chatarch/envs/Zulip/.env \
-  --stream "chatevent-practice" \
-  --topic "real-loop" \
-  --subscription-id zulip-practice
+chatevent capture zulip-once --env-file ./zulip.env --subscription-id zulip-community --timeout 30
 ```
 
-平台 secret 由 ChatEnv profile 或服务 secret 文件管理；ChatEvent 只通过路径引用，不复制、不打印。长时间运行时应由后续 supervisor/cron/watchdog 管理，当前 CLI 是 bounded capture pass。
+命令注册一个官方队列，请求消息创建、编辑/移动、单条/批量删除、reaction、stream、subscription 和 realm_user 事件，按类型分发后删除队列。输出 `captured`、`created`、`unsupported`、`scope_unknown`、`control`，可判断这一轮覆盖。带 `--stream`/`--topic` 的窄范围模式对缺少可验证上下文的稀疏事件按 fail-closed 跳过并增加 `scope_unknown`。`--content` 会真实发送消息，仅供明确练习。每次新建队列之间有潜在缺口；需要持续运行时，采用有界但足够长的捕获窗口及外部监督，不能把反复短轮询说成完整队列历史。
 
-## Zulip temporary topic watch
+已有的 `capture subscription-once --subscription-id zulip-community` 是 message ID 游标 topic 回填，读取当前可见的消息创建；它不恢复队列断开期间的 reaction 或编辑历史，也不能恢复已删除消息。
 
-活跃 assignment 可以注册短期 topic watch：
+## Discourse webhook 与只读回填
+
+在 Discourse 管理界面把 webhook URL 指向 `https://events.example.org/webhooks/discourse`，选中[动作覆盖表](platform-actions.md)中的 core 事件，并设置平台 webhook secret。ChatEvent 服务端配置：
+
+```text
+CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE=<operator-managed-secret-file>
+CHATEVENT_DISCOURSE_INSTANCE=https://forum.example.org
+CHATEVENT_DISCOURSE_SUBSCRIPTION_ID=discourse-community
+```
+
+绑定的订阅必须预先存在且 source=discourse。ChatEvent 用原始请求体验证 `X-Discourse-Event-Signature: sha256=...`，读取 `X-Discourse-Event` 动作名与 `X-Discourse-Event-Type` 包装类型。`X-Discourse-Instance` 只有在与已配置的实例绑定一致时才被接受为路由依据；不要仅凭不可信 header 或 payload 赋值 owner/instance。未配置签名 secret 时，webhook 需要授权的 ChatEvent API token 或 session。其他平台 webhook 在配置认证时同样需要授权 ingest 凭据。
+
+只读、限量的当前 topic/posts 快照：
 
 ```bash
-uv run chatevent capture watch-zulip-topic \
-  --stream "voice note" \
-  --topic "assignment-123" \
-  --assignment-id assign-123 \
-  --interval-seconds 5 \
-  --ttl-seconds 3600 \
-  --reason "active assignment clarification" \
-  --subscription-id zulip-topic-assign-123
-
-uv run chatevent capture subscription-once \
-  --env-file ~/.chatarch/envs/Zulip/.env \
-  --subscription-id zulip-topic-assign-123
+chatevent capture discourse-topic-backfill --base-url https://forum.example.org --topic-id 18 --limit 50 --subscription-id discourse-community --api-key-env DISCOURSE_API_KEY --api-username api-user
 ```
 
-watch contract:
+`DISCOURSE_API_KEY` 由调用环境提供。该命令读取 `/t/{id}.json` 和最多 100 个 `/posts/{id}.json`，只写本地 ChatEvent 数据库，不修改 Discourse。快照只表示当前可见对象，不重建历史编辑、删除或恢复。Discourse webhook 重试可能生成新的 delivery-row ID；去重使用动作、对象、修订/时间和规范化 payload 指纹，不仅靠 `X-Discourse-Event-Id`。
 
-- `source`: `zulip`
-- `target`: `stream:<stream>/topic:<topic>`
-- `event_kinds`: `["message.created"]`
-- `capture_modes`: `["api_cursor", "poll"]`
-- `filters`: only platform scope, currently `stream` and `topic`
-- `metadata`: `temporary`, `assignment_id`, `interval_seconds`, `expires_at`, `hot_until`, `reason`, `content_policy=topic-scoped-message-content`, and `policy_boundary`
-
-`subscription-once` reads Zulip `/messages` with a stream/topic narrow and uses the latest captured message id as `last_cursor`. ChatEvent captures topic-scoped message content plus sender identity fields; ChatAssign or another consumer must filter Rex/user/bot/self policy after reading normalized events.
-
-## Gitea webhook
-
-Gitea repo/org webhook 的 payload URL：
-
-```text
-https://event.public.wzhecnu.cn/webhooks/gitea?subscription_id=gitea-practice
-```
-
-当前 normalizer 已支持 issue payload 和部分 repo action 目录。推荐事件：
-
-```text
-push
-issues
-issue_comment
-pull_request
-release
-```
-
-## GitHub webhook
-
-GitHub repo webhook 的 payload URL：
-
-```text
-https://event.public.wzhecnu.cn/webhooks/github?subscription_id=github-chatevent
-```
-
-GitHub 事件名来自 `X-GitHub-Event` header。ChatEvent 会 ACK `ping`，但不把 ping 写入事件流；`push` 会规范化为 `commit.pushed`。
-
-## 验收
-
-注册后用以下接口验收：
+观察捕获结果：
 
 ```bash
-curl -k https://event.public.wzhecnu.cn/api/stats
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&days=7&limit=20'
+chatevent api stats
+chatevent api query --source discourse --sort desc --limit 50
 ```
 
-或者打开 Observatory，等待最多 5 秒自动刷新，也可以手动点击 **刷新**；事件流顶层只保留来源和时间两个下拉框，事件类型、订阅/渠道、关键词和自定义日期区间放在 **高级选项** 里，事件类型多选会随来源联动。
+Voice 始终只保存 metadata；平台 action catalog 是能力目录，不等于 collector 已运行。完整过滤方式见[过滤与视图](filtering.md)。

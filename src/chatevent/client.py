@@ -133,6 +133,34 @@ class ChatEventApiClient:
             "/api/events/" + urllib.parse.quote(dedupe_key, safe=""),
         )
 
+    def query_events(
+        self, *, filter: dict[str, Any] | None = None, view_id: str | None = None,
+        source: str | None = None, kind: str | None = None,
+        subscription_id: str | None = None, sort: str | None = None,
+        cursor: str | None = None, limit: int = 100,
+    ) -> dict[str, Any]:
+        return self._request("GET", "/api/query", query={
+            "filter": json.dumps(filter, separators=(",", ":")) if filter is not None else None,
+            "view_id": view_id, "source": source, "kind": kind,
+            "subscription_id": subscription_id, "sort": sort,
+            "cursor": cursor, "limit": limit,
+        })
+
+    def list_views(self) -> list[dict[str, Any]]:
+        return self._request("GET", "/api/views")
+
+    def get_view(self, view_id: str) -> dict[str, Any]:
+        return self._request("GET", "/api/views/" + urllib.parse.quote(view_id, safe=""))
+
+    def save_view(self, view: dict[str, Any]) -> dict[str, Any]:
+        return self._request("POST", "/api/views", payload=view)
+
+    def update_view(self, view_id: str, view: dict[str, Any]) -> dict[str, Any]:
+        return self._request("PUT", "/api/views/" + urllib.parse.quote(view_id, safe=""), payload=view)
+
+    def delete_view(self, view_id: str) -> dict[str, Any]:
+        return self._request("DELETE", "/api/views/" + urllib.parse.quote(view_id, safe=""))
+
     def record_json(self, path: Path) -> dict[str, Any]:
         payload = json.loads(path.read_text(encoding="utf-8"))
         return self._request("POST", "/api/events", payload=payload)

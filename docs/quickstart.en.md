@@ -1,105 +1,34 @@
-# Quick Start
+# Quick start
 
-## Install the development environment
+ChatEvent captures, normalizes, stores, and queries community facts. The Agent framework decides wakeup, runtime scheduling, and assignments.
 
-```bash
-uv sync --extra serve --extra test --extra docs
-uv run chatevent --tree
-uv run chatevent --tree-brief
-```
+## Install
 
-If you only need the API/UI, install at least the `serve` extra:
+From the source checkout:
 
 ```bash
-uv sync --extra serve
+python -m pip install -e '.[serve]'
+chatevent --tree
+chatevent --tree-brief
+chatevent paths --json
+chatevent serve --host 127.0.0.1 --port 8765
 ```
 
-## Run the Observatory
+Open `http://127.0.0.1:8765/`. ChatEnv manages the default database; compatible paths are `$CHATARCH_HOME/chatevent/events.db` and `~/.chatarch/chatevent/events.db`. `CHATEVENT_DB` overrides the path. The existing legacy database migration remains additive, and the new sequence table is populated for old events without rewriting their bodies.
+
+## Accounts and credentials
+
+Set `CHATEVENT_BOOTSTRAP_USERNAME` and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` to initialize an administrator. Log in with that account and create an API token. The CLI reads `CHATEVENT_ADMIN_TOKEN` or uses `--username` with `--password-file`. Supply values through an operator-managed ChatEnv profile or service secret file. With no account or admin token, an unauthenticated local-development mode remains; bind it only to a trusted local interface.
+
+## First query
+
+Connect a platform through [monitor registration](monitoring.md), or write an authorized normalized event. Saving a subscription alone does not start capture. Query authorized facts:
 
 ```bash
-uv run --extra serve chatevent serve \
-  --host 127.0.0.1 \
-  --port 8765
+chatevent api query --sort desc --limit 50
+chatevent api query --source zulip --kind message.created --sort asc --limit 50
 ```
 
-Open:
+Use `next_cursor` for another page or incremental resume. Legacy `GET /api/events` remains for clients, but its `next_since` is not a lossless checkpoint. Observatory multi-select and JSON condition groups run on the server before pagination. See [Filtering and Views](filtering.md) for curl, Python, and saved-view examples, and [Reference](reference.md) for endpoints.
 
-```text
-http://127.0.0.1:8765/
-```
-
-The current server demo is exposed at:
-
-```text
-https://event.public.wzhecnu.cn/
-https://event.local.wzhecnu.cn/
-```
-
-
-## Confirm default paths
-
-You do not need to pass `--db` for normal use. ChatEvent resolves ChatArch home through ChatEnv and stores runtime state under its `chatevent/` directory:
-
-```text
-<chatarch-home>/chatevent/events.db
-# usually ~/.chatarch/chatevent/events.db
-```
-
-Read the effective paths:
-
-```bash
-uv run chatevent paths --json
-```
-
-If legacy `~/.chatevent/events.db` exists and the new ChatArch-internal database does not, the first default startup copies the legacy database to `~/.chatarch/chatevent/events.db` without deleting the old file.
-
-## Refresh behavior
-
-The Observatory currently uses frontend polling, not WebSocket/SSE.
-
-- It runs `loadAll()` immediately after the page loads.
-- It automatically refreshes every **5 seconds**.
-- The **Refresh** button triggers an immediate manual refresh.
-- Search input refreshes after an approximately **260ms debounce**.
-- Source and event-kind filter changes refresh immediately.
-
-Each refresh requests these endpoints in parallel:
-
-```text
-GET /api/stats
-GET /api/subscriptions
-GET /api/events?...filters
-GET /api/platforms
-```
-
-The delay from a platform action to the UI is therefore:
-
-1. Platform delivery time: webhook delivery is normally seconds; Zulip event queues depend on the running capture pass; API cursors depend on the configured reconciliation interval.
-2. The next 5-second frontend poll; click Refresh to check immediately.
-
-## Record one event
-
-```bash
-uv run chatevent record-json event.json
-```
-
-Minimal event:
-
-```json
-{
-  "id": "issue:owner/repo:42",
-  "source": "gitea",
-  "kind": "issue.opened",
-  "occurred_at": "2026-08-18T12:00:00Z",
-  "capture_mode": "webhook"
-}
-```
-
-## Inspect the platform action catalog
-
-```bash
-uv run chatevent platforms
-uv run chatevent platforms --json
-```
-
-The same action catalog appears in the Observatory's **Platform actions** panel.
+Voice capture retains metadata only, never summary or transcript content.

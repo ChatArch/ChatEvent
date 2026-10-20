@@ -40,6 +40,7 @@ plugins:
             首页: Home
             快速开始: Quick Start
             注册监控: Register Monitors
+            过滤与视图: Filtering and Views
             平台与事件: Platforms and Events
             命令与接口: Commands and APIs
             CLI 树: CLI Tree
@@ -75,6 +76,7 @@ nav:
   - 首页: index.md
   - 快速开始: quickstart.md
   - 注册监控: monitoring.md
+  - 过滤与视图: filtering.md
   - 平台与事件: platform-actions.md
   - 命令与接口:
       - CLI 树: cli-tree.md

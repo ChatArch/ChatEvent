@@ -1,124 +1,55 @@
-# Interface Tree
+# Interface tree
 
-This page maps ChatEvent's Python modules, HTTP API, ChatEnv configuration, and security boundaries into one interface tree so the package aligns with standard Chat-series projects.
-
-## Python Package Interface
+These names match current source exports and registered FastAPI routes. The CLI tree is generated separately from an executed `render_cli_tree()` call.
 
 ```text
-chatevent
-├── catalog.py                  # Platform action catalog
-│   ├── PlatformAction
-│   ├── PlatformSpec
-│   ├── list_platform_specs()
-│   ├── get_platform_spec(source)
-│   └── action_kinds_for(source)
-├── model.py                    # Standard event envelope
-│   ├── CaptureMode
-│   ├── CarrierTarget
-│   ├── ActionDescriptor
-│   ├── ActorDescriptor
-│   └── ChatEvent
-├── subscription.py             # Subscription contract
-│   └── Subscription
-├── auth.py                     # Users, password hashes, API token hashes
-│   ├── UserRecord
-│   ├── generate_arch_token()
-│   ├── token_digest(token)
-│   └── password_digest(password)
-├── config.py                   # ChatEnv configuration registration
-│   └── ChatEventConfig
-├── state.py                    # ChatEnv/ChatArch-owned runtime paths
-│   ├── ChatEventPaths
-│   ├── state_paths()
-│   ├── default_database_path()
-│   ├── load_admin_token()
-│   └── admin_token_source()
-├── store.py                    # SQLite event/user/subscription store
-│   ├── StoredEvent
-│   └── EventStore
-│       ├── save_user() / list_users() / delete_user()
-│       ├── save_subscription() / list_subscriptions() / delete_subscription()
-│       ├── record_event() / get_event() / list_events()
-│       └── stats()
-├── adapters.py                 # Official platform payload normalizers
-│   ├── normalize_zulip_message_event()
-│   ├── normalize_discourse_webhook()
-│   ├── normalize_gitea_webhook()
-│   └── normalize_github_webhook()
-├── capture.py                  # Bounded platform capture helpers
-│   ├── load_env_file()
-│   └── capture_zulip_once()
-├── client.py                   # REST API client used by CLI
-│   └── ChatEventApiClient
-├── server.py                   # FastAPI app factory and REST/webhook endpoints
-│   └── create_app()
-├── dashboard.py                # Observatory HTML/CSS/JS
-├── monitor.py                  # In-process event observer helper
-└── cli.py                      # argparse runtime + ChatStyle-rendered CLI tree
-    ├── build_parser()
-    ├── render_cli_tree()
-    └── main()
+chatevent/
+├── model.py          ChatEvent, CaptureMode, ActorDescriptor, CarrierTarget
+├── query.py          SavedView, FilterError, validate_filter(), compile_filter()
+├── subscription.py   Subscription
+├── store.py          EventStore, StoredEvent, QueryPage
+│   └── record_event(), query_events(), list_events(), save_view(), list_views(), get_view(), delete_view(), stats()
+├── adapters.py       normalize_zulip_message_event(), normalize_zulip_queue_event()
+│                     normalize_discourse_post(), normalize_discourse_webhook()
+│                     normalize_gitea_issue(), normalize_github_event()
+├── capture.py        capture_zulip_once(), capture_zulip_subscription_once()
+│                     capture_discourse_topic_backfill(), capture_subscription_once()
+├── client.py         ChatEventApiClient.query_events(), list_views(), get_view(), save_view(), update_view(), delete_view()
+├── server.py         create_app()
+├── dashboard.py      DASHBOARD_HTML
+├── config.py         ChatEventConfig (ChatEnv entry point)
+└── cli.py            build_parser(), render_cli_tree(), main()
 ```
-
-`__init__.py` re-exports the core domain objects and `ChatEventConfig` for downstream packages and ChatEnv discovery.
-
-## HTTP API Surface
 
 ```text
-GET    /                         # Web Observatory; username/password login gate when auth is configured
-POST   /api/login                # Browser username/password login; sets session cookie
-GET    /login                    # ChatLogin default login UI
-GET    /login/assets/{name}      # Public ChatLogin login JS/CSS
-POST   /api/logout               # Clear browser session cookie; cookie auth requires CSRF
-GET    /api/health               # Health and runtime path summary
-GET    /api/session              # Current API token/cookie identity
-GET    /api/users                # Admin: list users
-POST   /api/users                # Admin: create username/password user; cookie auth requires CSRF
-POST   /api/me/token             # Current user: issue one-time arch_xxx API token; cookie auth requires CSRF
-POST   /api/users/{id}/token     # Admin: issue one-time token for user; cookie auth requires CSRF
-DELETE /api/users/{id}           # Admin: delete user; cookie auth requires CSRF
-GET    /api/schema/event         # ChatEvent JSON Schema
-GET    /api/schema/subscription  # Subscription JSON Schema
-GET    /api/platforms            # Platform action catalog
-GET    /api/subscriptions        # List subscriptions; members see their own subscriptions
-POST   /api/subscriptions        # Create/update subscription; member-owned when not admin; cookie auth requires CSRF
-GET    /api/subscriptions/{id}   # Read one subscription
-DELETE /api/subscriptions/{id}   # Delete subscription, not historical events; cookie auth requires CSRF
-POST   /api/events               # Write normalized ChatEvent
-GET    /api/events               # Query events with filters and next_since checkpoint
-GET    /api/events/{dedupe_key}  # Read one stored event
-GET    /api/stats                # Event/source/kind/duplicate counters
-POST   /webhooks/zulip           # Zulip webhook/event payload ingress
-POST   /webhooks/discourse       # Discourse webhook ingress
-POST   /webhooks/gitea           # Gitea webhook ingress
-POST   /webhooks/github          # GitHub webhook ingress
+GET    /                        Observatory or login page
+POST   /api/login               Account login
+POST   /api/logout              Logout
+GET    /api/session             Current account
+GET    /api/health              Service health
+GET    /api/platforms           Capability catalog
+GET    /api/schema/event        Event JSON Schema
+GET    /api/schema/subscription Subscription JSON Schema
+GET    /api/subscriptions       Visible acquisition configurations
+POST   /api/subscriptions       Create/update acquisition configuration
+GET    /api/subscriptions/{id}  Configuration detail
+DELETE /api/subscriptions/{id}  Delete configuration
+GET    /api/query               Bounded conditions, server filter, sequence cursor
+GET    /api/events              Legacy read compatibility
+GET    /api/events/{key}        Event detail
+POST   /api/events              Authorized normalized ingest
+GET    /api/views               Owner's views
+POST   /api/views               Create owner's view
+GET    /api/views/{id}          Owner's view detail
+PUT    /api/views/{id}          Update owner's view
+DELETE /api/views/{id}          Delete owner's view
+GET    /api/stats               Authorized counters
+POST   /webhooks/discourse      Signature or authorized ingest credentials
+POST   /webhooks/zulip          Authorized ingest credentials
+POST   /webhooks/gitea          Authorized ingest credentials
+POST   /webhooks/github         Authorized ingest credentials
 ```
 
-## ChatEnv Configuration Interface
+`EventStore` preserves old SQLite event rows and adds `event_offsets` and `saved_views`. `query_events()` restricts by owner; `validate_filter()` bounds paths, types, depth, and node count before querying. `CHATEVENT_DB`, `CHATEVENT_ADMIN_TOKEN(_FILE)`, `CHATEVENT_BOOTSTRAP_USERNAME`, and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` continue under ChatEnv/service configuration. Discourse hooks add `CHATEVENT_DISCOURSE_WEBHOOK_SECRET(_FILE)`, `CHATEVENT_DISCOURSE_INSTANCE`, and `CHATEVENT_DISCOURSE_SUBSCRIPTION_ID`. Default database paths remain compatible with `$CHATARCH_HOME/chatevent/events.db` and `~/.chatarch/chatevent/events.db`.
 
-ChatEvent registers `chatevent.config:ChatEventConfig` under the `chatenv.configs` entry point. ENV/profile/secret boundaries are:
-
-| Field | Purpose | Sensitivity |
-| --- | --- | --- |
-| `CHATARCH_HOME` | ChatArch runtime home; defaults to ChatEnv `get_paths().home_dir` | Not sensitive |
-| `CHATEVENT_DB` | Explicit SQLite DB path override | Not sensitive |
-| `CHATEVENT_API_URL` | Default REST API base URL for CLI commands | Not sensitive |
-| `CHATEVENT_ADMIN_TOKEN` | CLI/model/programmatic API token | Sensitive |
-| `CHATEVENT_ADMIN_TOKEN_FILE` | API token file path | Path is not sensitive; contents are sensitive |
-| `CHATEVENT_API_USERNAME` | Username for CLI password-login fallback | Not sensitive |
-| `CHATEVENT_API_PASSWORD_FILE` | CLI password file path | Path is not sensitive; contents are sensitive |
-| `CHATEVENT_BOOTSTRAP_USERNAME` | First administrator username | Not sensitive |
-| `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` | First administrator password file path | Path is not sensitive; contents are sensitive |
-| `CHATEVENT_PUBLIC_ORIGIN` | Explicit configured http(s) public origin for cookie Secure policy; arbitrary Forwarded headers are not trusted | Not sensitive |
-| `CHATEVENT_COOKIE_SECURE` | Override session cookie Secure flag; by default HTTPS public origin enables it and other origins keep localhost compatibility | Not sensitive |
-| `CHATEVENT_SESSION_TTL_SECONDS` | ChatLogin browser session TTL in seconds; must be a positive integer | Not sensitive |
-| `CHATEVENT_MAX_SESSIONS` | Current-process in-memory session capacity; must be a positive integer | Not sensitive |
-
-Platform credentials are not invented by ChatEvent. Zulip, Discourse, Gitea, GitHub, and similar secrets should stay in their own ChatEnv profiles or service secret files. `capture zulip-once` defaults to ChatEnv `envs_dir/Zulip/.env`.
-
-## Security And Compatibility Boundaries
-
-- Human Web entry uses username/password login; `arch_xxx` tokens are account API credentials, not homepage login credentials.
-- CLI and model automation should prefer API tokens; when no token exists, `--username` plus `--password-file` is available without putting passwords in argv.
-- `CHATEVENT_ADMIN_TOKEN` remains as a bootstrap/recovery compatibility path, but new deployments should manage it through ChatEnv or secret files.
-- FastAPI endpoints, SQLite schema, webhook endpoints, and `chatevent api ...` commands remain backward compatible; this alignment does not change the published event JSON contract.
+See [Reference](reference.md) and [Filtering and Views](filtering.md) for semantics.

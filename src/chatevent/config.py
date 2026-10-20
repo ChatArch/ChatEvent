@@ -84,6 +84,26 @@ class ChatEventConfig(BaseEnvConfig):
         desc="Positive maximum number of in-memory browser sessions for this process.",
         is_sensitive=False,
     )
+    CHATEVENT_DISCOURSE_WEBHOOK_SECRET = EnvField(
+        "CHATEVENT_DISCOURSE_WEBHOOK_SECRET",
+        desc="Secret for Discourse raw-body webhook HMAC verification.",
+        is_sensitive=True,
+    )
+    CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE = EnvField(
+        "CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE",
+        desc="Operator-managed file containing the Discourse webhook secret.",
+        is_sensitive=False,
+    )
+    CHATEVENT_DISCOURSE_INSTANCE = EnvField(
+        "CHATEVENT_DISCOURSE_INSTANCE",
+        desc="Trusted Discourse instance binding for a signed webhook.",
+        is_sensitive=False,
+    )
+    CHATEVENT_DISCOURSE_SUBSCRIPTION_ID = EnvField(
+        "CHATEVENT_DISCOURSE_SUBSCRIPTION_ID",
+        desc="Trusted subscription binding for a signed Discourse webhook.",
+        is_sensitive=False,
+    )
 
 
 __all__ = ["ChatEventConfig"]

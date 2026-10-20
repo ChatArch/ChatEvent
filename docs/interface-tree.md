@@ -1,124 +1,55 @@
 # 接口树
 
-这页把 ChatEvent 的 Python 模块、HTTP API、ChatEnv 配置和安全边界放在一张接口树里，方便和标准 Chat 系列项目对齐。
-
-## Python 包接口
+以下名称与当前源码导出及 FastAPI 注册路由一致；CLI 树单独从实际 `render_cli_tree()` 执行结果生成。
 
 ```text
-chatevent
-├── catalog.py                  # 平台 action catalog
-│   ├── PlatformAction
-│   ├── PlatformSpec
-│   ├── list_platform_specs()
-│   ├── get_platform_spec(source)
-│   └── action_kinds_for(source)
-├── model.py                    # 标准事件 envelope
-│   ├── CaptureMode
-│   ├── CarrierTarget
-│   ├── ActionDescriptor
-│   ├── ActorDescriptor
-│   └── ChatEvent
-├── subscription.py             # 订阅 contract
-│   └── Subscription
-├── auth.py                     # 账号、密码 hash、API token hash
-│   ├── UserRecord
-│   ├── generate_arch_token()
-│   ├── token_digest(token)
-│   └── password_digest(password)
-├── config.py                   # ChatEnv 配置注册
-│   └── ChatEventConfig
-├── state.py                    # ChatEnv/ChatArch-owned runtime path
-│   ├── ChatEventPaths
-│   ├── state_paths()
-│   ├── default_database_path()
-│   ├── load_admin_token()
-│   └── admin_token_source()
-├── store.py                    # SQLite event/user/subscription store
-│   ├── StoredEvent
-│   └── EventStore
-│       ├── save_user() / list_users() / delete_user()
-│       ├── save_subscription() / list_subscriptions() / delete_subscription()
-│       ├── record_event() / get_event() / list_events()
-│       └── stats()
-├── adapters.py                 # 官方平台 payload normalizer
-│   ├── normalize_zulip_message_event()
-│   ├── normalize_discourse_webhook()
-│   ├── normalize_gitea_webhook()
-│   └── normalize_github_webhook()
-├── capture.py                  # bounded platform capture helpers
-│   ├── load_env_file()
-│   └── capture_zulip_once()
-├── client.py                   # REST API client used by CLI
-│   └── ChatEventApiClient
-├── server.py                   # FastAPI app factory and REST/webhook endpoints
-│   └── create_app()
-├── dashboard.py                # Observatory HTML/CSS/JS
-├── monitor.py                  # in-process event observer helper
-└── cli.py                      # argparse runtime + ChatStyle-rendered CLI tree
-    ├── build_parser()
-    ├── render_cli_tree()
-    └── main()
+chatevent/
+├── model.py          ChatEvent, CaptureMode, ActorDescriptor, CarrierTarget
+├── query.py          SavedView, FilterError, validate_filter(), compile_filter()
+├── subscription.py   Subscription
+├── store.py          EventStore, StoredEvent, QueryPage
+│   └── record_event(), query_events(), list_events(), save_view(), list_views(), get_view(), delete_view(), stats()
+├── adapters.py       normalize_zulip_message_event(), normalize_zulip_queue_event()
+│                     normalize_discourse_post(), normalize_discourse_webhook()
+│                     normalize_gitea_issue(), normalize_github_event()
+├── capture.py        capture_zulip_once(), capture_zulip_subscription_once()
+│                     capture_discourse_topic_backfill(), capture_subscription_once()
+├── client.py         ChatEventApiClient.query_events(), list_views(), get_view(), save_view(), update_view(), delete_view()
+├── server.py         create_app()
+├── dashboard.py      DASHBOARD_HTML
+├── config.py         ChatEventConfig (ChatEnv entry point)
+└── cli.py            build_parser(), render_cli_tree(), main()
 ```
-
-`__init__.py` re-exports the core domain objects and `ChatEventConfig` for downstream packages and ChatEnv discovery.
-
-## HTTP API surface
 
 ```text
-GET    /                         # Web Observatory; username/password login gate when auth is configured
-POST   /api/login                # Browser username/password login; sets session cookie
-GET    /login                    # ChatLogin default login UI
-GET    /login/assets/{name}      # Public ChatLogin login JS/CSS
-POST   /api/logout               # Clear browser session cookie; cookie auth requires CSRF
-GET    /api/health               # Health and runtime path summary
-GET    /api/session              # Current API token/cookie identity
-GET    /api/users                # Admin: list users
-POST   /api/users                # Admin: create username/password user; cookie auth requires CSRF
-POST   /api/me/token             # Current user: issue one-time arch_xxx API token; cookie auth requires CSRF
-POST   /api/users/{id}/token     # Admin: issue one-time token for user; cookie auth requires CSRF
-DELETE /api/users/{id}           # Admin: delete user; cookie auth requires CSRF
-GET    /api/schema/event         # ChatEvent JSON Schema
-GET    /api/schema/subscription  # Subscription JSON Schema
-GET    /api/platforms            # Platform action catalog
-GET    /api/subscriptions        # List subscriptions; member sees own subscriptions
-POST   /api/subscriptions        # Create/update subscription; member-owned when not admin; cookie auth requires CSRF
-GET    /api/subscriptions/{id}   # Read one subscription
-DELETE /api/subscriptions/{id}   # Delete subscription, not historical events; cookie auth requires CSRF
-POST   /api/events               # Write normalized ChatEvent
-GET    /api/events               # Query events with filters and next_since checkpoint
-GET    /api/events/{dedupe_key}  # Read one stored event
-GET    /api/stats                # Event/source/kind/duplicate counters
-POST   /webhooks/zulip           # Zulip webhook/event payload ingress
-POST   /webhooks/discourse       # Discourse webhook ingress
-POST   /webhooks/gitea           # Gitea webhook ingress
-POST   /webhooks/github          # GitHub webhook ingress
+GET    /                        Observatory 或登录页
+POST   /api/login               账号登录
+POST   /api/logout              登出
+GET    /api/session             当前账号
+GET    /api/health              服务健康
+GET    /api/platforms           能力目录
+GET    /api/schema/event        Event JSON Schema
+GET    /api/schema/subscription Subscription JSON Schema
+GET    /api/subscriptions       当前账号可见采集配置
+POST   /api/subscriptions       创建/更新采集配置
+GET    /api/subscriptions/{id}  采集配置详情
+DELETE /api/subscriptions/{id}  删除采集配置
+GET    /api/query               有界条件、服务端过滤、序号游标
+GET    /api/events              兼容旧读接口
+GET    /api/events/{key}        事件详情
+POST   /api/events              授权的规范化入库
+GET    /api/views               owner 视图列表
+POST   /api/views               新建 owner 视图
+GET    /api/views/{id}          owner 视图详情
+PUT    /api/views/{id}          更新 owner 视图
+DELETE /api/views/{id}          删除 owner 视图
+GET    /api/stats               授权范围内统计
+POST   /webhooks/discourse      需签名或授权 ingest 凭据
+POST   /webhooks/zulip          需授权 ingest 凭据
+POST   /webhooks/gitea          需授权 ingest 凭据
+POST   /webhooks/github         需授权 ingest 凭据
 ```
 
-## ChatEnv 配置接口
+`EventStore` 在 SQLite 中保持旧 events 行，添加 `event_offsets` 和 `saved_views`。`query_events()` 按 owner 限制；`validate_filter()` 在查询前限制路径、类型、深度和节点数。`CHATEVENT_DB`、`CHATEVENT_ADMIN_TOKEN(_FILE)`、`CHATEVENT_BOOTSTRAP_USERNAME`、`CHATEVENT_BOOTSTRAP_PASSWORD_FILE` 继续沿用 ChatEnv/服务配置；Discourse webhook 另有 `CHATEVENT_DISCOURSE_WEBHOOK_SECRET(_FILE)`、`CHATEVENT_DISCOURSE_INSTANCE` 与 `CHATEVENT_DISCOURSE_SUBSCRIPTION_ID`。默认库兼容 `$CHATARCH_HOME/chatevent/events.db` 与 `~/.chatarch/chatevent/events.db`。
 
-ChatEvent 注册 `chatevent.config:ChatEventConfig` 到 `chatenv.configs` entry point。ENV/profile/secret 的职责边界是：
-
-| 字段 | 用途 | 敏感性 |
-| --- | --- | --- |
-| `CHATARCH_HOME` | ChatArch runtime home；默认由 ChatEnv `get_paths().home_dir` 提供 | 非敏感 |
-| `CHATEVENT_DB` | 显式 SQLite DB path override | 非敏感 |
-| `CHATEVENT_API_URL` | CLI 默认 REST API base URL | 非敏感 |
-| `CHATEVENT_ADMIN_TOKEN` | CLI/model/programmatic API token | 敏感 |
-| `CHATEVENT_ADMIN_TOKEN_FILE` | API token 文件路径 | 路径非敏感，内容敏感 |
-| `CHATEVENT_API_USERNAME` | CLI password-login fallback 用户名 | 非敏感 |
-| `CHATEVENT_API_PASSWORD_FILE` | CLI password 文件路径 | 路径非敏感，内容敏感 |
-| `CHATEVENT_BOOTSTRAP_USERNAME` | 首个管理员账号用户名 | 非敏感 |
-| `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` | 首个管理员密码文件路径 | 路径非敏感，内容敏感 |
-| `CHATEVENT_PUBLIC_ORIGIN` | 明确配置的 http(s) 公网 origin，用于 cookie Secure 策略；不读取任意 Forwarded header | 非敏感 |
-| `CHATEVENT_COOKIE_SECURE` | 覆盖 session cookie Secure flag；未设置时 HTTPS public origin 为 true，其余保持本地兼容 | 非敏感 |
-| `CHATEVENT_SESSION_TTL_SECONDS` | ChatLogin 浏览器 session TTL 秒数，必须为正整数 | 非敏感 |
-| `CHATEVENT_MAX_SESSIONS` | 当前进程内存 session 容量上限，必须为正整数 | 非敏感 |
-
-平台凭据不归 ChatEvent 自己 invent：Zulip、Discourse、Gitea、GitHub 等平台 secret 应继续放在各自 ChatEnv profile 或服务 secret 文件里。`capture zulip-once` 的默认 env 文件来自 ChatEnv `envs_dir/Zulip/.env`。
-
-## 安全和兼容边界
-
-- Web 入口是账号密码登录；`arch_xxx` token 是账号 API 凭据，不是主页登录凭据。
-- CLI 和模型优先用 API token；缺 token 时可用 `--username` + `--password-file` 登录，不在 argv 中传密码。
-- `CHATEVENT_ADMIN_TOKEN` 作为 bootstrap/恢复路径保留兼容，但新配置应由 ChatEnv/secret file 管理。
-- FastAPI、SQLite schema、webhook endpoints 和 `chatevent api ...` 命令保持向后兼容；这次对齐不改变已发布事件 JSON contract。
+详细语义见[接口参考](reference.md)与[过滤与视图](filtering.md)。

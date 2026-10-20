@@ -1,167 +1,39 @@
 # 接口参考
 
-## CLI 树
+## 事件模型与存储
 
-完整 CLI 树由 ChatStyle 渲染，见 [CLI 树](cli-tree.md)。`chatevent --tree` 是带参数签名的完整视图，`chatevent --tree-brief` 是省略参数签名的紧凑视图；两者都是文档和测试共同校对的命令表面。
+`ChatEvent` 1.0 envelope 保留 `id`、`source`、`kind`、`occurred_at`、`captured_at`、`capture_mode`、`subscription_id`、`actor`、`target`、`conversation_id`、`subject_id`、`payload`、`raw_payload` 和 `metadata`；新增可选 `instance`。原生对象 ID 属于 `subject_id`，创建与后续变更的 event `id` 分开。未设置 instance 的旧 key 保持 `source:id`；设置时 key 含实例 hash。重复投递增加 `seen_count`，原事件 body 不被替换。
 
-## HTTP API
+SQLite 的 `events` 表保持原行；新 `event_offsets` 表为旧事件按捕获时间和 key 稳定回填不可变序号，新事件入库时追加序号。`saved_views` 存账号 owner、名字、过滤表达式与排序。默认库由 ChatEnv 管理，兼容 `$CHATARCH_HOME/chatevent/events.db` 与 `~/.chatarch/chatevent/events.db`；`chatevent paths --json` 可回读路径。
 
-| 方法 | 路径 | 用途 |
+## HTTP 和 CLI
+
+| HTTP | 真实 CLI | 用途 |
 | --- | --- | --- |
-| `GET` | `/api/health` | 健康检查，返回当前 SQLite DB 路径。 |
-| `POST` | `/api/login` | 账号密码网页登录，设置浏览器 cookie。 |
-| `POST` | `/api/logout` | 清除浏览器 cookie。 |
-| `GET` | `/api/session` | 返回当前 API token 或 cookie 身份。 |
-| `GET` | `/login` | ChatLogin 默认登录页。 |
-| `GET` | `/login/assets/{name}` | ChatLogin 登录页公共 JS/CSS assets。 |
-| `GET` | `/api/users` | 管理员列出用户。 |
-| `POST` | `/api/users` | 管理员创建账号密码用户。 |
-| `POST` | `/api/me/token` | 当前账号生成一次性 `arch_xxx` API token。 |
-| `POST` | `/api/users/{id}/token` | 管理员为指定用户生成一次性 API token。 |
-| `DELETE` | `/api/users/{id}` | 管理员删除用户。 |
-| `GET` | `/api/schema/event` | 返回 `ChatEvent` JSON Schema。 |
-| `GET` | `/api/schema/subscription` | 返回 `Subscription` JSON Schema。 |
-| `GET` | `/api/platforms` | 返回平台 action catalog。 |
-| `POST` | `/api/subscriptions` | 创建或更新订阅。 |
-| `GET` | `/api/subscriptions` | 列出订阅。 |
-| `DELETE` | `/api/subscriptions/{id}` | 删除订阅配置，不删除历史事件。 |
-| `POST` | `/api/events` | 写入一条已规范化 `ChatEvent`。 |
-| `GET` | `/api/events` | 查询事件流，可按 source、kind、subscription、关键词、`since` checkpoint、最近 N 天或日期区间筛选。 |
-| `GET` | `/api/events/{dedupe_key}` | 查询单条事件详情。 |
-| `GET` | `/api/stats` | 统计事件数、来源数、重复投递数等。 |
-| `POST` | `/webhooks/zulip` | 接收 Zulip event queue/message payload。 |
-| `POST` | `/webhooks/discourse` | 接收 Discourse webhook payload。 |
-| `POST` | `/webhooks/gitea` | 接收 Gitea webhook payload。 |
-| `POST` | `/webhooks/github` | 接收 GitHub webhook payload。 |
+| `GET /api/query` | `chatevent api query` | 结构化过滤、`sort=asc|desc`、`cursor`、`limit`，返回 `next_cursor`/`has_more` |
+| `GET /api/events` | `chatevent api events` | 兼容旧简写参数；`next_since` 不能无损续读 |
+| `GET /api/events/{dedupe_key}` | `chatevent api event` | 单条详情 |
+| `POST /api/events` | `chatevent api record-json` | 写已规范化事件，需授权 |
+| `GET /api/views` | `chatevent api views` | 当前账号视图列表 |
+| `GET /api/views/{id}` | `chatevent api view` | 当前账号视图详情 |
+| `POST /api/views` | `chatevent api save-view` | 新建视图 |
+| `PUT /api/views/{id}` | `chatevent api update-view` | 更新视图；body 包含相同 id |
+| `DELETE /api/views/{id}` | `chatevent api delete-view` | 删除视图 |
+| `GET /api/subscriptions` | `chatevent api subscriptions` | 采集配置，不是视图 |
+| `POST /api/subscriptions` | `chatevent api save-subscription` | 保存采集配置 |
+| `GET /api/stats` | `chatevent api stats` | 当前账号可见事件统计 |
+| `GET /api/platforms` | `chatevent api platforms` | 能力目录，不证明 collector 接通 |
+| `POST /webhooks/discourse` | — | wrapped payload；可配置 raw-body HMAC |
+| `POST /webhooks/zulip`, `/webhooks/gitea`, `/webhooks/github` | — | 配置认证后需要 ingest 凭据 |
 
-## CLI 与 REST API 对应
+`GET /api/query` 可传 URL 编码 JSON 的 `filter`，或 `view_id`，另有 `source`、`kind`、`subscription_id` 简写、`sort`、`cursor`、`limit`。未知参数、未知字段或不匹配的游标返回 422。`filter` 与 `view_id` 不能同时传。完整 AST 和 curl/Python 示例见[过滤与视图](filtering.md)。
 
-`chatevent api ...` 是 REST API 的命令行客户端，默认读取 `CHATEVENT_API_URL`，未设置时连接 `http://127.0.0.1:8765`。
+`GET /api/events` 仍接收 `source`、`kind`、`subscription_id`、`q`、`since`、`days`、`from`、`to`、`limit`。它按 captured_at 倒序且限页，因此旧 `next_since` 是本页最新时间，**不保证**无损增量。客户端应迁移到 `/api/query?sort=asc`。
 
-| CLI | REST API |
-| --- | --- |
-| `chatevent api health` | `GET /api/health` |
-| `chatevent api stats` | `GET /api/stats` |
-| `chatevent api platforms` | `GET /api/platforms` |
-| `chatevent api schema event` | `GET /api/schema/event` |
-| `chatevent api subscriptions` | `GET /api/subscriptions` |
-| `chatevent api subscription <id>` | `GET /api/subscriptions/{id}` |
-| `chatevent api events --source discourse --days 7` | `GET /api/events?...` |
-| `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` |
-| `chatevent api record-json event.json` | `POST /api/events` |
-| `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` |
-| `chatevent api delete-subscription <id>` | `DELETE /api/subscriptions/{id}` |
+## 权限和采集
 
+配置用户或管理员 token 后，member 的事件列表、详情、结构化查询、stats 仅含自有订阅关联行；无 owner 的旧事件仅 admin 可见。member 视图按 owner 隔离，admin 可查看和管理全部；提交的 owner ID 不决定新视图归属；写入事件时 member 必须使用自有订阅。Cookie 写操作需要 CSRF；API token 不需要。无任何认证配置的本地开发模式保留匿名行为，必须只在可信本地使用。原始 payload 只向获授权读取者返回。
 
+Discourse hook 可配置 `CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE` 或 `CHATEVENT_DISCOURSE_WEBHOOK_SECRET`、`CHATEVENT_DISCOURSE_INSTANCE`、`CHATEVENT_DISCOURSE_SUBSCRIPTION_ID`；按原始请求体验证 SHA-256 HMAC，实例 header 不能自行指定归属。其他 webhook 使用授权 ingest 凭据。`capture zulip-once` 是有界官方队列读取，`capture subscription-once` 是仅消息创建的 topic 游标回填；`capture discourse-topic-backfill` 是当前对象只读快照。覆盖矩阵见[平台动作](platform-actions.md)。
 
-## 动作与承载目标字段
-
-`ChatEvent` 与 `Subscription` 都支持结构化 action target，且保留旧字段兼容：
-
-- `Subscription.target`：canonical string，适合快速展示和手写配置。
-- `Subscription.scope`：结构化承载目标，字段为 `type`、`key`、`display`、`url`、`parent`、`metadata`；`type` 是开放字符串。
-- `Subscription.actions`：结构化 action selectors；如果只传 `event_kinds`，服务会自动派生。
-- `ChatEvent.action`：真实动作，字段为 `kind`、`object_type`、`verb`、`metadata`。
-- `ChatEvent.actor` / `actor_role`：发起人和平台角色，角色保持开放字符串，例如 maintainer、member、bot、moderator。
-- `ChatEvent.target`：本次动作作用对象；`parent` 串起 repo/PR/comment 或 stream/topic/message 等承载链。
-
-旧客户端只传 `kind`、`subject_id`、`subject_type` 仍然可写入；新 adapter 会尽量写入完整 `action` 和 `target`。
-
-## 查询事件
-
-```bash
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&kind=reply.created&days=7&limit=20'
-```
-
-下游系统按 checkpoint 消费：
-
-```bash
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&subscription_id=discourse-practice&since=2026-08-18T12:47:37Z&limit=50'
-```
-
-常用参数：
-
-| 参数 | 含义 |
-| --- | --- |
-| `source` | 平台来源，例如 `discourse`。 |
-| `kind` | 事件类型，例如 `reply.created`。 |
-| `subscription_id` | 订阅 ID。 |
-| `since` | consumer checkpoint：只返回 `captured_at > since` 的事件；必须带时区，例如 `2026-08-18T12:47:37Z`。 |
-| `days` | 日期快捷筛选：只返回最近 N 天捕获的事件，例如 `days=7`。 |
-| `from` | 日期区间开始：只返回 `captured_at >= from` 的事件；必须带时区。 |
-| `to` | 日期区间结束：只返回 `captured_at <= to` 的事件；必须带时区。 |
-| `q` | payload、actor、conversation 等关键词搜索。 |
-| `limit` | 返回条数，1 到 500。 |
-
-响应包含 `items`、`count`、`latest_captured_at` 和 `next_since`。consumer 处理成功后保存 `next_since`，下一轮作为 `since` 继续拉取。Observatory 的“最近 24 小时 / 最近 3 天 / 最近 7 天 / 最近 30 天”使用 `days`；自定义起止时间使用 `from`/`to`。
-
-## 去重
-
-默认 dedupe key 是：
-
-```text
-source:id
-```
-
-同一个事件重复投递时不会新增事件行，只会增加 `seen_count`，并在 `/api/stats` 的 `duplicate_count` 里体现。
-
-## 存储与线上编辑
-
-订阅配置和事件账本都在 SQLite 中。默认数据库位于 ChatEnv/ChatArch home 内部：
-
-```text
-<chatarch-home>/chatevent/events.db
-```
-
-路径优先级是 `--db`、`CHATEVENT_DB`、ChatEnv `get_paths().home_dir/chatevent/events.db`、`$CHATARCH_HOME/chatevent/events.db`、`~/.chatarch/chatevent/events.db`。第一次使用默认路径时，若旧版 `~/.chatevent/events.db` 存在且新数据库不存在，会复制旧库到 ChatArch 内部路径并保留旧文件。
-
-`subscriptions.body` 保存完整 `Subscription` JSON，事件到达后 `last_cursor` / `last_event_at` 也会更新在订阅记录中；`events.body` 保存完整 `ChatEvent` JSON。
-
-Web Observatory 的 `Subscriptions` 标签页可以新建、编辑、启停和删除订阅。生产或公网环境应配置用户登录，并可以保留 bootstrap API token：优先读取 `CHATEVENT_ADMIN_TOKEN`，其次读取 `CHATEVENT_ADMIN_TOKEN_FILE`，再读取默认文件 `$CHATARCH_HOME/chatevent/secrets/admin-token` 或 `~/.chatarch/chatevent/secrets/admin-token`。bootstrap token 只用于 API/CLI 初始化或恢复管理权限，不是 Web 登录凭据。
-
-## Temporary Zulip topic watches
-
-Temporary topic watches are ordinary `Subscription` records with a documented contract:
-
-```json
-{
-  "source": "zulip",
-  "target": "stream:voice note/topic:assignment-123",
-  "event_kinds": ["message.created"],
-  "capture_modes": ["api_cursor", "poll"],
-  "filters": {"stream": "voice note", "topic": "assignment-123"},
-  "metadata": {
-    "temporary": true,
-    "assignment_id": "assign-123",
-    "interval_seconds": 5,
-    "expires_at": "2026-08-26T12:30:00+00:00",
-    "hot_until": "2026-08-26T12:15:00+00:00",
-    "reason": "active assignment clarification",
-    "content_policy": "topic-scoped-message-content",
-    "policy_boundary": "platform-scope-only; consumer filters sender/assignment policy"
-  }
-}
-```
-
-`chatevent capture subscription-once` currently supports Zulip topic subscriptions through the `/messages` API and stores the newest message id in `last_cursor`. Normalized Zulip events include `payload.sender_id`, `payload.sender_email`, `payload.sender_full_name`, `payload.sender_is_bot`, `actor.id`, `actor.display`, and `actor.metadata.email`. ChatEvent does not filter for Rex, assignment tags, confirmation words, or bot/self policy; consumers such as ChatAssign apply those predicates when they query Event.
-
-## 登录、用户管理与隔离
-
-ChatEvent 的最小登录模型是账号密码 + API token；账号、角色、启用状态和 token 仍由 EventStore 持久化并作为授权权威：
-
-- `GET /`：配置用户或 bootstrap 凭据后，未登录返回 ChatLogin 默认登录页；登录后才返回 Observatory。
-- `GET /login`：直接返回 ChatLogin `LoginUI`，`next` 只接受本地绝对路径，mounted/root_path 部署会把表单和 asset URL 指到正确前缀。
-- `POST /api/login`：校验 `username` / `password` 并设置浏览器 cookie；响应保留旧 `SessionStatus` 字段，并额外返回 canonical `csrf_token` 和安全 `next`。
-- `POST /api/logout`：清除浏览器 cookie；cookie session 调用必须带 `X-CSRF-Token`。
-- `GET /api/session`：校验当前 `X-ChatEvent-Admin-Token` 或 cookie，返回 `admin_required`、`authenticated`、`user`、是否为 bootstrap admin，以及 cookie session 的 CSRF token；匿名时仍返回 200。
-- `GET /api/users`：管理员列出用户。
-- `POST /api/users`：管理员创建账号密码用户；服务端只保存 password hash。cookie session 必须带 CSRF，验证成功的 API token / legacy admin token 免 CSRF。
-- `POST /api/me/token`：当前登录用户为自己的账号生成一次性 `arch_xxx` API token。cookie session 必须带 CSRF。
-- `POST /api/users/{id}/token`：管理员为指定用户生成一次性 API token。cookie session 必须带 CSRF。
-- `DELETE /api/users/{id}`：管理员删除用户。cookie session 必须带 CSRF。
-
-配置管理员 token 或用户后，`/api/stats`、`/api/events`、`/api/events/{dedupe_key}`、schema、platforms、subscriptions 等读取 API 都需要登录。cookie 认证的订阅写入和删除也必须带 CSRF；只有真正验证成功的 `arch_xxx` API token 或 legacy admin token 请求免 CSRF，伪造 token header 不会绕过 cookie CSRF。事件写入接口和 webhook 接口保持可达，用于接收平台事件。
-
-`CHATEVENT_BOOTSTRAP_USERNAME` 与 `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` 可初始化第一个管理员账号。密码存储继续使用 `pbkdf2_sha256$iterations$salt_hex$digest_hex` 字符串，创建新密码和校验已有密码时委托 ChatLogin PBKDF2 工具，但不会为了迁移重写既有用户密码。浏览器 session 使用 ChatLogin `SessionManager` 与 bounded in-memory store；每次受保护请求都会从 EventStore 回查当前用户启用状态和角色，不从旧 session 快照授权。`CHATEVENT_SESSION_TTL_SECONDS` 和 `CHATEVENT_MAX_SESSIONS` 可调整 TTL 和容量。
-
-`CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` 是 bootstrap 管理员 API 凭据，用于 CLI/模型/API 创建用户或恢复管理权限。`Subscription.owner_user_id` 是当前数据隔离边界：member 账号创建的订阅自动归属该用户；member 只能读取、修改、删除自己的订阅；admin 可管理全部订阅。事件流仍保留 Observatory 调试视图，后续可进一步按 tenant/user owner 收敛事件读取范围。
+ChatEvent 不提供 Agent runner、唤醒派发、任务队列、分配或通用写平台网关。`chatevent --tree` 与 `chatevent --tree-brief` 由 ChatStyle 渲染；完整实测树见[CLI 树](cli-tree.md)。

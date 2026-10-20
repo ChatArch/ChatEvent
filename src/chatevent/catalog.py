@@ -29,6 +29,7 @@ class PlatformAction(BaseModel):
     target_types: tuple[str, ...]
     acquisition_modes: tuple[CaptureMode, ...]
     webhook_events: tuple[str, ...] = ()
+    capture_status: Literal["implemented", "catalog_only", "unspecified"] = "unspecified"
 
 
 class PlatformSpec(BaseModel):
@@ -180,6 +181,39 @@ PLATFORM_SPECS: tuple[PlatformSpec, ...] = (
     ),
 )
 
+def _with_capture_support(spec: PlatformSpec) -> PlatformSpec:
+    """Expose real adapter kinds separately from broader platform catalog rows."""
+    from .adapters import DISCOURSE_WEBHOOK_ACTIONS, ZULIP_QUEUE_ACTION_KINDS
+
+    if spec.id not in {"zulip", "discourse"}:
+        return spec
+    implemented: dict[str, tuple[str, str]] = {}
+    if spec.id == "zulip":
+        for native_type, kinds in ZULIP_QUEUE_ACTION_KINDS.items():
+            for kind in kinds:
+                prefix = kind.split(".", 1)[0]
+                object_type = "message" if prefix in {"message", "reaction"} else "stream" if prefix in {"stream", "subscription"} else "user"
+                implemented[kind] = (object_type, native_type)
+        mode = CaptureMode.EVENT_QUEUE
+    else:
+        for native_type, (kind, object_type) in DISCOURSE_WEBHOOK_ACTIONS.items():
+            implemented[kind] = (object_type, native_type)
+        implemented["reply.created"] = ("post", "post_created")
+        mode = CaptureMode.WEBHOOK
+    rows = {item.kind: item.model_copy(update={"capture_status": "catalog_only"}) for item in spec.actions}
+    for kind, (object_type, native_type) in implemented.items():
+        existing = rows.get(kind)
+        if existing is None:
+            targets = (("zulip_stream", "zulip_topic", "message") if spec.id == "zulip" and object_type == "message"
+                       else (f"discourse_{object_type}",) if spec.id == "discourse" else (object_type,))
+            existing = action(kind, object_type, kind.rsplit(".", 1)[-1],
+                              f"Capture native {spec.id} {native_type} as {kind}.",
+                              (mode,), (native_type,), targets)
+        rows[kind] = existing.model_copy(update={"capture_status": "implemented"})
+    return spec.model_copy(update={"actions": tuple(rows.values())})
+
+
+PLATFORM_SPECS = tuple(_with_capture_support(spec) for spec in PLATFORM_SPECS)
 SUPPORTED_PLATFORM_IDS = tuple(sorted(spec.id for spec in PLATFORM_SPECS))
 _SPEC_BY_ID = {spec.id: spec for spec in PLATFORM_SPECS}
 

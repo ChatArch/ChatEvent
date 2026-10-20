@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 from .auth import UserRecord
 from .model import ChatEvent, utc_now
+from .query import FilterError, SavedView, compile_filter, decode_cursor, encode_cursor, query_fingerprint, validate_filter
 from .state import set_private_file_mode
 from .subscription import Subscription
 
@@ -25,6 +26,14 @@ class StoredEvent(BaseModel):
     first_captured_at: str
     last_captured_at: str
     seen_count: int
+    sequence: int | None = None
+
+
+class QueryPage(BaseModel):
+    items: list[StoredEvent]
+    count: int
+    next_cursor: str | None = None
+    has_more: bool = False
 
 
 class EventStore:
@@ -95,6 +104,24 @@ class EventStore:
                 """
             )
             self._migrate_users_schema(connection)
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS event_offsets (
+                    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                    dedupe_key TEXT NOT NULL UNIQUE REFERENCES events(dedupe_key)
+                );
+                CREATE TABLE IF NOT EXISTS saved_views (
+                    id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL,
+                    name TEXT NOT NULL, body TEXT NOT NULL,
+                    UNIQUE(owner_user_id, name)
+                );
+                """
+            )
+            # Additive migration: existing event rows and their bodies are untouched.
+            connection.execute("""
+                INSERT OR IGNORE INTO event_offsets(dedupe_key)
+                SELECT dedupe_key FROM events ORDER BY captured_at, dedupe_key
+            """)
 
     def _migrate_users_schema(self, connection: sqlite3.Connection) -> None:
         columns = {
@@ -323,6 +350,44 @@ class EventStore:
             )
         return cursor.rowcount > 0
 
+    def save_view(self, view: SavedView) -> SavedView:
+        if not view.owner_user_id:
+            raise ValueError("saved view requires an owner")
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO saved_views(id, owner_user_id, name, body) VALUES (?, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET name=excluded.name, body=excluded.body
+                   WHERE saved_views.owner_user_id=excluded.owner_user_id""",
+                (view.id, view.owner_user_id, view.name, self._json(view)),
+            )
+        return view
+
+    def list_views(self, owner_user_id: str | None = None) -> list[SavedView]:
+        sql = "SELECT body FROM saved_views"
+        params: tuple[str, ...] = ()
+        if owner_user_id is not None:
+            sql += " WHERE owner_user_id = ?"
+            params = (owner_user_id,)
+        sql += " ORDER BY name, id"
+        with self._connect() as connection:
+            rows = connection.execute(sql, params).fetchall()
+        return [SavedView.model_validate_json(row["body"]) for row in rows]
+
+    def get_view(self, view_id: str) -> SavedView | None:
+        with self._connect() as connection:
+            row = connection.execute("SELECT body FROM saved_views WHERE id = ?", (view_id,)).fetchone()
+        return SavedView.model_validate_json(row["body"]) if row else None
+
+    def delete_view(self, view_id: str, owner_user_id: str | None = None) -> bool:
+        sql = "DELETE FROM saved_views WHERE id = ?"
+        params: list[str] = [view_id]
+        if owner_user_id is not None:
+            sql += " AND owner_user_id = ?"
+            params.append(owner_user_id)
+        with self._connect() as connection:
+            cursor = connection.execute(sql, params)
+        return cursor.rowcount > 0
+
     def record_event(self, event: ChatEvent) -> tuple[StoredEvent, bool]:
         captured_at = event.captured_at.isoformat()
         body = self._json(event)
@@ -349,6 +414,10 @@ class EventStore:
                 ),
             )
             created = cursor.rowcount == 1
+            if created:
+                connection.execute(
+                    "INSERT INTO event_offsets(dedupe_key) VALUES (?)", (event.dedupe_key,)
+                )
             if not created:
                 connection.execute(
                     """
@@ -402,7 +471,48 @@ class EventStore:
             first_captured_at=row["first_captured_at"],
             last_captured_at=row["last_captured_at"],
             seen_count=row["seen_count"],
+            sequence=row["sequence"] if "sequence" in row.keys() else None,
         )
+
+    def query_events(
+        self, *, filter_expr: dict[str, Any] | None = None,
+        sort: str = "desc", limit: int = 100, cursor: str | None = None,
+        owner_user_id: str | None = None,
+    ) -> QueryPage:
+        """Filter in SQLite before paging by immutable insertion sequence.
+
+        ``owner_user_id=None`` is reserved for admin; member queries are joined
+        to subscriptions owned by that user. Existing unowned rows are admin-only.
+        """
+        expression = validate_filter(filter_expr)
+        if sort not in {"asc", "desc"}:
+            raise FilterError("sort must be asc or desc")
+        if type(limit) is not int or not 1 <= limit <= 500:
+            raise FilterError("limit must be between 1 and 500")
+        fingerprint = query_fingerprint(expression, sort, owner_user_id)
+        sequence = decode_cursor(cursor, fingerprint) if cursor is not None else None
+        filter_sql, parameters = compile_filter(expression)
+        clauses = [filter_sql]
+        if owner_user_id is not None:
+            clauses.append("events.subscription_id IN (SELECT id FROM subscriptions WHERE json_extract(body, '$.owner_user_id') = ?)")
+            parameters.append(owner_user_id)
+        if sequence is not None:
+            clauses.append(f"event_offsets.sequence {'>' if sort == 'asc' else '<'} ?")
+            parameters.append(sequence)
+        direction = "ASC" if sort == "asc" else "DESC"
+        sql = f"""
+            SELECT events.body, events.first_captured_at, events.last_captured_at,
+                   events.seen_count, event_offsets.sequence
+            FROM events JOIN event_offsets USING (dedupe_key)
+            WHERE {' AND '.join(clauses)}
+            ORDER BY event_offsets.sequence {direction} LIMIT ?
+        """
+        with self._connect() as connection:
+            rows = connection.execute(sql, [*parameters, limit + 1]).fetchall()
+        has_more = len(rows) > limit
+        items = [self._stored_event(row) for row in rows[:limit]]
+        next_cursor = encode_cursor(items[-1].sequence, fingerprint) if items else None
+        return QueryPage(items=items, count=len(items), next_cursor=next_cursor, has_more=has_more)
 
     def get_event(self, dedupe_key: str) -> StoredEvent | None:
         with self._connect() as connection:
@@ -421,9 +531,13 @@ class EventStore:
         source: str,
         subject_id: str,
         kind: str | None = None,
+        instance: str | None = None,
     ) -> StoredEvent | None:
         clauses = ["source = ?", "json_extract(body, '$.subject_id') = ?"]
         parameters: list[Any] = [source, subject_id]
+        if instance is not None:
+            clauses.append("json_extract(body, '$.instance') = ?")
+            parameters.append(instance)
         if kind:
             clauses.append("kind = ?")
             parameters.append(kind)
@@ -449,6 +563,7 @@ class EventStore:
         captured_from: datetime | None = None,
         captured_until: datetime | None = None,
         limit: int = 100,
+        owner_user_id: str | None = None,
     ) -> list[StoredEvent]:
         clauses: list[str] = []
         parameters: list[Any] = []
@@ -463,6 +578,9 @@ class EventStore:
         if query:
             clauses.append("body LIKE ?")
             parameters.append(f"%{query}%")
+        if owner_user_id is not None:
+            clauses.append("subscription_id IN (SELECT id FROM subscriptions WHERE json_extract(body, '$.owner_user_id') = ?)")
+            parameters.append(owner_user_id)
         if captured_since is not None:
             if captured_since.tzinfo is None or captured_since.utcoffset() is None:
                 raise ValueError("captured_since must include timezone information")
@@ -490,7 +608,12 @@ class EventStore:
             rows = connection.execute(sql, parameters).fetchall()
         return [self._stored_event(row) for row in rows]
 
-    def stats(self) -> dict[str, Any]:
+    def stats(self, *, owner_user_id: str | None = None) -> dict[str, Any]:
+        visibility = ""
+        params: tuple[str, ...] = ()
+        if owner_user_id is not None:
+            visibility = " WHERE subscription_id IN (SELECT id FROM subscriptions WHERE json_extract(body, '$.owner_user_id') = ?)"
+            params = (owner_user_id,)
         with self._connect() as connection:
             event_row = connection.execute(
                 """
@@ -498,19 +621,20 @@ class EventStore:
                        COALESCE(SUM(seen_count - 1), 0) AS duplicate_count,
                        MAX(last_captured_at) AS latest_captured_at
                 FROM events
-                """
+                """ + visibility, params
             ).fetchone()
             subscription_count = connection.execute(
-                "SELECT COUNT(*) FROM subscriptions WHERE enabled = 1"
+                "SELECT COUNT(*) FROM subscriptions WHERE enabled = 1" +
+                (" AND json_extract(body, '$.owner_user_id') = ?" if owner_user_id is not None else ""), params
             ).fetchone()[0]
             sources = dict(
                 connection.execute(
-                    "SELECT source, COUNT(*) FROM events GROUP BY source ORDER BY COUNT(*) DESC"
+                    "SELECT source, COUNT(*) FROM events" + visibility + " GROUP BY source ORDER BY COUNT(*) DESC", params
                 ).fetchall()
             )
             kinds = dict(
                 connection.execute(
-                    "SELECT kind, COUNT(*) FROM events GROUP BY kind ORDER BY COUNT(*) DESC"
+                    "SELECT kind, COUNT(*) FROM events" + visibility + " GROUP BY kind ORDER BY COUNT(*) DESC", params
                 ).fetchall()
             )
         return {

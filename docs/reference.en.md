@@ -1,167 +1,39 @@
 # Reference
 
-## CLI Tree
+## Event model and storage
 
-The complete CLI tree is rendered by ChatStyle. See [CLI Tree](cli-tree.md). `chatevent --tree` is the full view with parameter signatures, while `chatevent --tree-brief` is the compact view without signatures; both are shared by docs and tests.
+The `ChatEvent` 1.0 envelope retains `id`, `source`, `kind`, `occurred_at`, `captured_at`, `capture_mode`, `subscription_id`, `actor`, `target`, `conversation_id`, `subject_id`, `payload`, `raw_payload`, and `metadata`; `instance` is an optional addition. Native object identity belongs in `subject_id`, separate from the event `id` for creation and later changes. Old keys without instance remain `source:id`; instance-aware keys include an instance hash. Duplicate deliveries increment `seen_count` without replacing the first body.
 
-## HTTP API
+Existing rows stay in SQLite `events`. New `event_offsets` backfills immutable sequences for old rows in capture-time/key order and appends a sequence for new rows. `saved_views` holds account owner, name, filter, and sort. ChatEnv manages the default database, with compatible paths `$CHATARCH_HOME/chatevent/events.db` and `~/.chatarch/chatevent/events.db`; `chatevent paths --json` reports the actual path.
 
-| Method | Path | Purpose |
+## HTTP and CLI
+
+| HTTP | Real CLI | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/health` | Health check and current SQLite DB path. |
-| `POST` | `/api/login` | Username/password Web login; sets browser cookie. |
-| `POST` | `/api/logout` | Clear browser cookie. |
-| `GET` | `/api/session` | Return current API token or cookie identity. |
-| `GET` | `/login` | Default ChatLogin login page. |
-| `GET` | `/login/assets/{name}` | Public ChatLogin login JS/CSS assets. |
-| `GET` | `/api/users` | Admin-only user list. |
-| `POST` | `/api/users` | Admin creates a username/password user. |
-| `POST` | `/api/me/token` | Current account issues a one-time `arch_xxx` API token. |
-| `POST` | `/api/users/{id}/token` | Admin issues a one-time API token for a user. |
-| `DELETE` | `/api/users/{id}` | Admin deletes a user. |
-| `GET` | `/api/schema/event` | Return the `ChatEvent` JSON Schema. |
-| `GET` | `/api/schema/subscription` | Return the `Subscription` JSON Schema. |
-| `GET` | `/api/platforms` | Return the platform action catalog. |
-| `POST` | `/api/subscriptions` | Create or update a subscription. |
-| `GET` | `/api/subscriptions` | List subscriptions. |
-| `DELETE` | `/api/subscriptions/{id}` | Delete a subscription without deleting captured events. |
-| `POST` | `/api/events` | Record one normalized `ChatEvent`. |
-| `GET` | `/api/events` | Query events with source, kind, subscription, keyword, `since` checkpoint, recent-day, and captured-at range filters. |
-| `GET` | `/api/events/{dedupe_key}` | Read one stored event. |
-| `GET` | `/api/stats` | Return event/source/duplicate statistics. |
-| `POST` | `/webhooks/zulip` | Receive Zulip event-queue/message payloads. |
-| `POST` | `/webhooks/discourse` | Receive Discourse webhook payloads. |
-| `POST` | `/webhooks/gitea` | Receive Gitea webhook payloads. |
-| `POST` | `/webhooks/github` | Receive GitHub webhook payloads. |
+| `GET /api/query` | `chatevent api query` | Structured filter, `sort=asc|desc`, `cursor`, `limit`; returns `next_cursor`/`has_more` |
+| `GET /api/events` | `chatevent api events` | Legacy shorthand; `next_since` is not lossless |
+| `GET /api/events/{dedupe_key}` | `chatevent api event` | Event detail |
+| `POST /api/events` | `chatevent api record-json` | Authorized normalized event write |
+| `GET /api/views` | `chatevent api views` | Current account's views |
+| `GET /api/views/{id}` | `chatevent api view` | View detail |
+| `POST /api/views` | `chatevent api save-view` | Create view |
+| `PUT /api/views/{id}` | `chatevent api update-view` | Update view; body includes matching id |
+| `DELETE /api/views/{id}` | `chatevent api delete-view` | Delete view |
+| `GET /api/subscriptions` | `chatevent api subscriptions` | Acquisition configuration, not a view |
+| `POST /api/subscriptions` | `chatevent api save-subscription` | Save acquisition configuration |
+| `GET /api/stats` | `chatevent api stats` | Counters over authorized events |
+| `GET /api/platforms` | `chatevent api platforms` | Capability catalog, not collector health |
+| `POST /webhooks/discourse` | — | Wrapped payload; configurable raw-body HMAC |
+| `POST /webhooks/zulip`, `/webhooks/gitea`, `/webhooks/github` | — | Ingest credentials required when authentication is configured |
 
-## CLI and REST API mapping
+`GET /api/query` accepts URL-encoded JSON `filter` or `view_id`, plus `source`, `kind`, `subscription_id` shorthand, `sort`, `cursor`, and `limit`. Unknown parameters, fields, or mismatched cursors return 422. `filter` and `view_id` cannot be combined. See [Filtering and Views](filtering.md) for the complete AST and curl/Python examples.
 
-`chatevent api ...` is the command-line client for the REST API. It reads `CHATEVENT_API_URL` by default and falls back to `http://127.0.0.1:8765`.
+Legacy `GET /api/events` still takes `source`, `kind`, `subscription_id`, `q`, `since`, `days`, `from`, `to`, and `limit`. It returns a bounded newest-first captured-time page; its `next_since` is only the latest time in that page and **cannot guarantee** lossless incremental consumption. Migrate consumers to `/api/query?sort=asc`.
 
-| CLI | REST API |
-| --- | --- |
-| `chatevent api health` | `GET /api/health` |
-| `chatevent api stats` | `GET /api/stats` |
-| `chatevent api platforms` | `GET /api/platforms` |
-| `chatevent api schema event` | `GET /api/schema/event` |
-| `chatevent api subscriptions` | `GET /api/subscriptions` |
-| `chatevent api subscription <id>` | `GET /api/subscriptions/{id}` |
-| `chatevent api events --source discourse --days 7` | `GET /api/events?...` |
-| `chatevent api event <dedupe_key>` | `GET /api/events/{dedupe_key}` |
-| `chatevent api record-json event.json` | `POST /api/events` |
-| `chatevent api save-subscription subscription.json` | `POST /api/subscriptions` |
-| `chatevent api delete-subscription <id>` | `DELETE /api/subscriptions/{id}` |
+## Permissions and capture
 
+With user or admin token authentication configured, member event lists, detail, structured query, and stats are limited to rows linked to subscriptions they own; unowned legacy events are admin-only. Member views are owner-scoped; admins can inspect and manage all views. Submitted owner IDs do not set new view ownership. Member writes require an owned subscription. Cookie-authenticated writes require CSRF; API tokens do not. With no authentication configured, an unauthenticated local-development mode remains and must be used only on a trusted local interface. Raw payload is returned only to authorized readers.
 
+The Discourse hook can use `CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE` or `CHATEVENT_DISCOURSE_WEBHOOK_SECRET`, `CHATEVENT_DISCOURSE_INSTANCE`, and `CHATEVENT_DISCOURSE_SUBSCRIPTION_ID`. It verifies SHA-256 HMAC over raw bytes, and an instance header cannot assign ownership. Other webhooks require authorized ingest credentials. `capture zulip-once` is a bounded official queue reader; `capture subscription-once` is a message-creation-only topic cursor backfill; `capture discourse-topic-backfill` reads a current-object snapshot. See [Platform Actions](platform-actions.md) for coverage.
 
-## Action and carrier target fields
-
-Both `ChatEvent` and `Subscription` support structured action targets while keeping old fields compatible:
-
-- `Subscription.target`: canonical string for display and hand-written config.
-- `Subscription.scope`: structured carrier target with `type`, `key`, `display`, `url`, `parent`, and `metadata`; `type` is open-ended.
-- `Subscription.actions`: structured action selectors; if only `event_kinds` is provided, the service derives them automatically.
-- `ChatEvent.action`: concrete action with `kind`, `object_type`, `verb`, and `metadata`.
-- `ChatEvent.actor` / `actor_role`: initiator and platform-specific role; role stays an open string, e.g. maintainer, member, bot, or moderator.
-- `ChatEvent.target`: concrete object acted on; `parent` links repo/PR/comment or stream/topic/message carrier chains.
-
-Old clients that only send `kind`, `subject_id`, and `subject_type` remain valid. New adapters write full `action` and `target` whenever possible.
-
-## Query events
-
-```bash
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&kind=reply.created&days=7&limit=20'
-```
-
-Downstream systems consume by checkpoint:
-
-```bash
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&subscription_id=discourse-practice&since=2026-08-18T12:47:37Z&limit=50'
-```
-
-Common parameters:
-
-| Parameter | Meaning |
-| --- | --- |
-| `source` | Platform source such as `discourse`. |
-| `kind` | Event kind such as `reply.created`. |
-| `subscription_id` | Subscription id. |
-| `since` | Consumer checkpoint: return only events with `captured_at > since`; timezone is required, e.g. `2026-08-18T12:47:37Z`. |
-| `days` | Shortcut date filter: return events captured in the last N days, e.g. `days=7`. |
-| `from` | Captured-at range start: return events with `captured_at >= from`; timezone is required. |
-| `to` | Captured-at range end: return events with `captured_at <= to`; timezone is required. |
-| `q` | Keyword search across payload, actor, and conversation fields. |
-| `limit` | Number of events to return, from 1 to 500. |
-
-Responses include `items`, `count`, `latest_captured_at`, and `next_since`. Consumers should save `next_since` after successful processing and send it as `since` on the next poll. The Observatory uses `days` for the last 24 hours / 3 days / 7 days / 30 days presets, and `from`/`to` for custom ranges.
-
-## Deduplication
-
-The default dedupe key is:
-
-```text
-source:id
-```
-
-Repeated delivery of the same event does not create a new row; it increments `seen_count` and contributes to `/api/stats` `duplicate_count`.
-
-## Storage and online editing
-
-Subscription configuration and the event ledger are stored in SQLite. The default database is inside ChatEnv/ChatArch home:
-
-```text
-<chatarch-home>/chatevent/events.db
-```
-
-Path precedence is `--db`, `CHATEVENT_DB`, ChatEnv `get_paths().home_dir/chatevent/events.db`, `$CHATARCH_HOME/chatevent/events.db`, then `~/.chatarch/chatevent/events.db`. On first default-path use, if legacy `~/.chatevent/events.db` exists and the new database does not, ChatEvent copies it into the ChatArch-internal path and keeps the legacy file.
-
-`subscriptions.body` stores the full `Subscription` JSON, including `last_cursor` and `last_event_at` updates after events arrive; `events.body` stores the full `ChatEvent` JSON.
-
-The Web Observatory `Subscriptions` tab can create, edit, enable/disable, and delete subscriptions. Production or public deployments should configure user login and may keep a bootstrap API token: `CHATEVENT_ADMIN_TOKEN` first, then `CHATEVENT_ADMIN_TOKEN_FILE`, then the default file `$CHATARCH_HOME/chatevent/secrets/admin-token` or `~/.chatarch/chatevent/secrets/admin-token`. The bootstrap token is for API/CLI initialization or recovery only; it is not a Web login credential.
-
-## Temporary Zulip Topic Watches
-
-Temporary topic watches are ordinary `Subscription` records with a documented contract:
-
-```json
-{
-  "source": "zulip",
-  "target": "stream:voice note/topic:assignment-123",
-  "event_kinds": ["message.created"],
-  "capture_modes": ["api_cursor", "poll"],
-  "filters": {"stream": "voice note", "topic": "assignment-123"},
-  "metadata": {
-    "temporary": true,
-    "assignment_id": "assign-123",
-    "interval_seconds": 5,
-    "expires_at": "2026-08-26T12:30:00+00:00",
-    "hot_until": "2026-08-26T12:15:00+00:00",
-    "reason": "active assignment clarification",
-    "content_policy": "topic-scoped-message-content",
-    "policy_boundary": "platform-scope-only; consumer filters sender/assignment policy"
-  }
-}
-```
-
-`chatevent capture subscription-once` currently supports Zulip topic subscriptions through the `/messages` API and stores the newest message id in `last_cursor`. Normalized Zulip events include `payload.sender_id`, `payload.sender_email`, `payload.sender_full_name`, `payload.sender_is_bot`, `actor.id`, `actor.display`, and `actor.metadata.email`. ChatEvent does not filter for Rex, assignment tags, confirmation words, or bot/self policy; consumers such as ChatAssign apply those predicates when they query Event.
-
-## Login, User Management, And Isolation
-
-ChatEvent uses a minimal username/password + API token model. EventStore remains authoritative for accounts, roles, enabled state, and tokens:
-
-- `GET /`: when users or bootstrap credentials are configured, unauthenticated callers receive the default ChatLogin page; authenticated callers receive the Observatory.
-- `GET /login`: returns ChatLogin `LoginUI`; `next` accepts only safe local absolute paths, and mounted/root_path deployments get prefixed form and asset URLs.
-- `POST /api/login`: validate `username` / `password` and set a browser cookie. The response keeps the old `SessionStatus` fields and additionally returns canonical `csrf_token` and a safe `next`.
-- `POST /api/logout`: clear the browser cookie. Cookie-session calls must include `X-CSRF-Token`.
-- `GET /api/session`: validate the current `X-ChatEvent-Admin-Token` or cookie and return `admin_required`, `authenticated`, `user`, whether the caller is the bootstrap admin, and the cookie session CSRF token. Anonymous callers still receive 200.
-- `GET /api/users`: list users as an administrator.
-- `POST /api/users`: create a username/password user; the server stores only the password hash. Cookie sessions must include CSRF; successfully validated API tokens and the legacy admin token are CSRF-exempt.
-- `POST /api/me/token`: issue a one-time `arch_xxx` API token for the current logged-in account. Cookie sessions must include CSRF.
-- `POST /api/users/{id}/token`: issue a one-time API token for a target user as an administrator. Cookie sessions must include CSRF.
-- `DELETE /api/users/{id}`: delete a user as an administrator. Cookie sessions must include CSRF.
-
-After an admin token or users exist, read APIs such as `/api/stats`, `/api/events`, `/api/events/{dedupe_key}`, schema, platforms, and subscriptions require login. Cookie-authenticated subscription writes and deletes also require CSRF. Only truly validated `arch_xxx` API tokens or the legacy admin token are CSRF-exempt; a forged token header does not bypass cookie CSRF. Event-write and webhook endpoints remain reachable so platform events can still arrive.
-
-`CHATEVENT_BOOTSTRAP_USERNAME` and `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` can initialize the first administrator account. Password storage keeps the `pbkdf2_sha256$iterations$salt_hex$digest_hex` string format. ChatEvent delegates new password hashing and existing password verification to ChatLogin PBKDF2 helpers, but it does not rewrite existing users merely for migration. Browser sessions use ChatLogin `SessionManager` with a bounded in-memory store; every protected request re-reads the current EventStore user enabled state and role instead of authorizing from the session snapshot. `CHATEVENT_SESSION_TTL_SECONDS` and `CHATEVENT_MAX_SESSIONS` tune TTL and capacity.
-
-`CHATEVENT_ADMIN_TOKEN` / `secrets/admin-token` is the bootstrap administrator API credential for CLI/model/API user creation or recovery. `Subscription.owner_user_id` is the current isolation boundary: subscriptions created by member accounts are automatically owned by that user; members can only read, update, and delete their own subscriptions; admins can manage all subscriptions. The event stream remains an Observatory debugging view for now and can be tightened by tenant/user owner later.
+ChatEvent provides no Agent runner, wakeup dispatcher, task queue, assignment, or generic platform write gateway. ChatStyle renders `chatevent --tree` and `chatevent --tree-brief`; the executed [CLI tree](cli-tree.md) is included.

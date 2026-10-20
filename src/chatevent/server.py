@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import os
 import secrets
+import json
+import hmac
+import hashlib
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from importlib import resources
 from pathlib import Path
@@ -27,10 +31,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import __version__
 from .adapters import (
+    normalize_discourse_webhook,
     normalize_discourse_post,
     normalize_github_event,
     normalize_gitea_issue,
     normalize_zulip_message_event,
+    normalize_zulip_queue_event,
 )
 from .auth import (
     UserRecord,
@@ -43,8 +49,9 @@ from .auth import (
 from .catalog import PlatformSpec, list_platform_specs
 from .dashboard import DASHBOARD_HTML
 from .model import CaptureMode, ChatEvent
+from .query import FilterError, SavedView, validate_filter
 from .state import default_database_path, load_admin_token, state_paths
-from .store import EventStore, StoredEvent
+from .store import EventStore, StoredEvent, QueryPage
 from .subscription import Subscription
 
 
@@ -54,6 +61,12 @@ class EventWriteResult(BaseModel):
     created: bool
     dedupe_key: str
     seen_count: int
+
+
+class EventBatchWriteResult(BaseModel):
+    items: list[EventWriteResult]
+    count: int
+    created: int
 
 
 class EventPage(BaseModel):
@@ -308,6 +321,26 @@ def create_app(
         if identity.role == "admin":
             return True
         return subscription.owner_user_id == identity.id
+
+    def authorize_ingest(
+        token: str | None, cookie: str | None, csrf: str | None,
+        subscription_id: str | None, *, platform: str, signed: bool = False,
+    ) -> None:
+        identity = None
+        if not signed:
+            identity, source = require_authenticated(token, cookie)
+            require_write_csrf(source, cookie, csrf)
+        subscription = store.get_subscription(subscription_id) if subscription_id else None
+        if subscription is not None and subscription.source != platform:
+            raise HTTPException(status_code=403, detail="subscription source mismatch")
+        if signed:
+            if subscription_id and subscription is None:
+                raise HTTPException(status_code=403, detail="signed webhook subscription not found")
+            return
+        assert identity is not None
+        if identity.role != "admin":
+            if subscription is None or subscription.owner_user_id != identity.id:
+                raise HTTPException(status_code=403, detail="owned subscription required")
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     def dashboard(
@@ -615,7 +648,24 @@ def create_app(
         return DeleteResult(deleted=True, id=subscription_id)
 
     @app.post("/api/events", response_model=EventWriteResult, status_code=202)
-    def record_event(event: ChatEvent) -> EventWriteResult:
+    def record_event(
+        event: ChatEvent,
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> EventWriteResult:
+        identity, source = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        require_write_csrf(source, chatevent_session, x_csrf_token)
+        if identity.role != "admin":
+            subscription = store.get_subscription(event.subscription_id or "")
+            if subscription is None or subscription.owner_user_id != identity.id:
+                raise HTTPException(status_code=403, detail="owned subscription required")
+            if subscription.source != event.source:
+                raise HTTPException(status_code=403, detail="subscription source mismatch")
+        elif event.subscription_id:
+            subscription = store.get_subscription(event.subscription_id)
+            if subscription is not None and subscription.source != event.source:
+                raise HTTPException(status_code=403, detail="subscription source mismatch")
         return _record(event)
 
     def _record(event: ChatEvent) -> EventWriteResult:
@@ -626,52 +676,89 @@ def create_app(
             seen_count=stored.seen_count,
         )
 
-    @app.post("/webhooks/zulip", response_model=EventWriteResult, status_code=202)
+    @app.post("/webhooks/zulip", response_model=EventWriteResult | EventBatchWriteResult, status_code=202)
     def record_zulip_webhook(
-        payload: dict[str, Any], subscription_id: str | None = None
-    ) -> EventWriteResult:
+        payload: dict[str, Any], subscription_id: str | None = None,
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> EventWriteResult | EventBatchWriteResult:
+        authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="zulip")
         try:
-            event = normalize_zulip_message_event(
+            if payload.get("type") not in {"message", "heartbeat", "restart"} and not payload.get("queue_id"):
+                raise ValueError("queue lifetime required")
+            events = normalize_zulip_queue_event(
                 payload,
                 subscription_id=subscription_id,
                 site_url=os.environ.get("ZULIP_SITE"),
-                capture_mode=CaptureMode.EVENT_QUEUE,
+                instance=os.environ.get("ZULIP_SITE"),
+                queue_lifetime=str(payload.get("queue_id")) if payload.get("queue_id") else None,
             )
-        except Exception as error:  # pragma: no cover - exercised through HTTP response
-            raise HTTPException(status_code=422, detail=str(error)) from error
-        return _record(event)
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail="invalid Zulip event") from error
+        results = [_record(event) for event in events]
+        if len(results) == 1:
+            return results[0]
+        return EventBatchWriteResult(items=results, count=len(results), created=sum(item.created for item in results))
 
     @app.post("/webhooks/discourse", response_model=EventWriteResult, status_code=202)
-    def record_discourse_webhook(
+    async def record_discourse_webhook(
+        request: Request,
         payload: dict[str, Any],
         subscription_id: str | None = None,
         x_discourse_event: str | None = Header(default=None, alias="X-Discourse-Event"),
+        x_discourse_event_type: str | None = Header(default=None, alias="X-Discourse-Event-Type"),
+        x_discourse_event_signature: str | None = Header(default=None, alias="X-Discourse-Event-Signature"),
+        x_discourse_instance: str | None = Header(default=None, alias="X-Discourse-Instance"),
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> EventWriteResult:
-        if x_discourse_event and not (payload.get("event_name") or payload.get("discourse_event")):
-            payload = {**payload, "event_name": x_discourse_event}
+        secret = load_secret("CHATEVENT_DISCOURSE_WEBHOOK_SECRET", "CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE")
+        signed = False
+        if secret:
+            expected = "sha256=" + hmac.new(secret.encode(), await request.body(), hashlib.sha256).hexdigest()
+            if not x_discourse_event_signature or not hmac.compare_digest(expected, x_discourse_event_signature):
+                raise HTTPException(status_code=401, detail="invalid webhook signature")
+            signed = True
+        bound_subscription = os.environ.get("CHATEVENT_DISCOURSE_SUBSCRIPTION_ID") if signed else None
+        if signed and subscription_id and subscription_id != bound_subscription:
+            raise HTTPException(status_code=403, detail="webhook subscription binding mismatch")
+        subscription_id = bound_subscription or subscription_id
+        authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="discourse", signed=signed)
+        bound_instance = os.environ.get("CHATEVENT_DISCOURSE_INSTANCE") if signed else None
+        if bound_instance and x_discourse_instance and x_discourse_instance != bound_instance:
+            raise HTTPException(status_code=403, detail="webhook instance binding mismatch")
         try:
-            event = normalize_discourse_post(
+            event = normalize_discourse_webhook(
                 payload,
+                event_name=x_discourse_event,
+                event_type=x_discourse_event_type,
+                instance=bound_instance,
                 subscription_id=subscription_id,
                 base_url=os.environ.get("DISCOURSE_BASE_URL"),
                 capture_mode=CaptureMode.WEBHOOK,
             )
-        except Exception as error:  # pragma: no cover - exercised through HTTP response
-            raise HTTPException(status_code=422, detail=str(error)) from error
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail="invalid Discourse event") from error
         return _record(event)
 
     @app.post("/webhooks/gitea", response_model=EventWriteResult, status_code=202)
     def record_gitea_webhook(
-        payload: dict[str, Any], subscription_id: str | None = None
+        payload: dict[str, Any], subscription_id: str | None = None,
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> EventWriteResult:
+        authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="gitea")
         try:
             event = normalize_gitea_issue(
                 payload,
                 subscription_id=subscription_id,
                 capture_mode=CaptureMode.WEBHOOK,
             )
-        except Exception as error:  # pragma: no cover - exercised through HTTP response
-            raise HTTPException(status_code=422, detail=str(error)) from error
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail="invalid Gitea event") from error
         return _record(event)
 
     @app.post("/webhooks/github", response_model=EventWriteResult, status_code=202)
@@ -679,7 +766,11 @@ def create_app(
         payload: dict[str, Any],
         subscription_id: str | None = None,
         x_github_event: str | None = Header(default=None, alias="X-GitHub-Event"),
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> EventWriteResult:
+        authorize_ingest(x_chatevent_admin_token, chatevent_session, x_csrf_token, subscription_id, platform="github")
         if x_github_event == "ping":
             return EventWriteResult(dedupe_key="github:ping", created=False, seen_count=0)
         try:
@@ -689,9 +780,114 @@ def create_app(
                 subscription_id=subscription_id,
                 capture_mode=CaptureMode.WEBHOOK,
             )
-        except Exception as error:  # pragma: no cover - exercised through HTTP response
-            raise HTTPException(status_code=422, detail=str(error)) from error
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail="invalid GitHub event") from error
         return _record(event)
+
+    @app.get("/api/query", response_model=QueryPage)
+    def query_events(
+        request: Request,
+        filter: str | None = None,
+        view_id: str | None = None,
+        source: str | None = None,
+        kind: str | None = None,
+        subscription_id: str | None = None,
+        sort: str | None = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+        cursor: str | None = None,
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> QueryPage:
+        identity, _source = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        unknown = set(request.query_params) - {"filter", "view_id", "source", "kind", "subscription_id", "sort", "limit", "cursor"}
+        if unknown:
+            raise HTTPException(status_code=422, detail="unknown query parameter")
+        if view_id and filter:
+            raise HTTPException(status_code=422, detail="use filter or view_id")
+        view = store.get_view(view_id) if view_id else None
+        if view_id and (view is None or (identity.role != "admin" and view.owner_user_id != identity.id)):
+            raise HTTPException(status_code=404, detail="view not found")
+        try:
+            expression = json.loads(filter) if filter is not None else (view.filter if view else None)
+            expression = validate_filter(expression)
+            shortcuts = [{"field": field, "op": "eq", "value": value} for field, value in (("source", source), ("kind", kind), ("subscription_id", subscription_id)) if value is not None]
+            if shortcuts:
+                expression = {"all": [*([expression] if expression else []), *shortcuts]} if len(shortcuts) + int(expression is not None) > 1 else shortcuts[0]
+            return store.query_events(
+                filter_expr=expression, sort=sort or (view.sort if view else "desc"),
+                limit=limit, cursor=cursor,
+                owner_user_id=None if identity.role == "admin" else identity.id,
+            )
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/api/views", response_model=SavedView, status_code=201)
+    def save_view(
+        view: SavedView,
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> SavedView:
+        identity, source = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        require_write_csrf(source, chatevent_session, x_csrf_token)
+        existing = store.get_view(view.id)
+        if existing is not None and existing.owner_user_id != identity.id:
+            raise HTTPException(status_code=404, detail="view not found")
+        view = view.model_copy(update={"owner_user_id": identity.id})
+        try:
+            return store.save_view(view)
+        except sqlite3.IntegrityError as error:
+            raise HTTPException(status_code=409, detail="view name already exists") from error
+
+    @app.get("/api/views", response_model=list[SavedView])
+    def list_views(
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> list[SavedView]:
+        identity, _source = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        return store.list_views(None if identity.role == "admin" else identity.id)
+
+    @app.get("/api/views/{view_id}", response_model=SavedView)
+    def get_view(
+        view_id: str,
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> SavedView:
+        identity, _source = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        view = store.get_view(view_id)
+        if view is None or (identity.role != "admin" and view.owner_user_id != identity.id):
+            raise HTTPException(status_code=404, detail="view not found")
+        return view
+
+    @app.put("/api/views/{view_id}", response_model=SavedView)
+    def update_view(
+        view_id: str, view: SavedView,
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> SavedView:
+        existing = get_view(view_id, x_chatevent_admin_token, chatevent_session)
+        if view.id != view_id:
+            raise HTTPException(status_code=422, detail="view id mismatch")
+        _identity, source = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        require_write_csrf(source, chatevent_session, x_csrf_token)
+        try:
+            return store.save_view(view.model_copy(update={"owner_user_id": existing.owner_user_id}))
+        except sqlite3.IntegrityError as error:
+            raise HTTPException(status_code=409, detail="view name already exists") from error
+
+    @app.delete("/api/views/{view_id}", response_model=DeleteResult)
+    def delete_view(
+        view_id: str,
+        x_chatevent_admin_token: str | None = Header(default=None, alias="X-ChatEvent-Admin-Token"),
+        x_csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+        chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
+    ) -> DeleteResult:
+        identity, source = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        require_write_csrf(source, chatevent_session, x_csrf_token)
+        if not store.delete_view(view_id, None if identity.role == "admin" else identity.id):
+            raise HTTPException(status_code=404, detail="view not found")
+        return DeleteResult(deleted=True, id=view_id)
 
     @app.get("/api/events", response_model=EventPage)
     def list_events(
@@ -709,7 +905,7 @@ def create_app(
         ),
         chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> EventPage:
-        require_authenticated(x_chatevent_admin_token, chatevent_session)
+        identity, _source = require_authenticated(x_chatevent_admin_token, chatevent_session)
         if since is not None and (since.tzinfo is None or since.utcoffset() is None):
             raise HTTPException(
                 status_code=422,
@@ -741,6 +937,7 @@ def create_app(
             captured_from=captured_from,
             captured_until=to,
             limit=limit,
+            owner_user_id=None if identity.role == "admin" else identity.id,
         )
         latest_captured_at = max(
             (item.event.captured_at for item in items), default=None
@@ -760,9 +957,13 @@ def create_app(
         ),
         chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> StoredEvent:
-        require_authenticated(x_chatevent_admin_token, chatevent_session)
+        identity, _source = require_authenticated(x_chatevent_admin_token, chatevent_session)
         event = store.get_event(dedupe_key)
-        if event is None:
+        if event is None or (identity.role != "admin" and (
+            not event.event.subscription_id or
+            (subscription := store.get_subscription(event.event.subscription_id)) is None or
+            subscription.owner_user_id != identity.id
+        )):
             raise HTTPException(status_code=404, detail="event not found")
         return event
 
@@ -773,7 +974,7 @@ def create_app(
         ),
         chatevent_session: str | None = Cookie(default=None, alias=SESSION_COOKIE),
     ) -> dict[str, Any]:
-        require_authenticated(x_chatevent_admin_token, chatevent_session)
-        return store.stats()
+        identity, _source = require_authenticated(x_chatevent_admin_token, chatevent_session)
+        return store.stats(owner_user_id=None if identity.role == "admin" else identity.id)
 
     return app
