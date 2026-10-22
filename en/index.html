@@ -279,6 +279,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="filtering/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Filtering and Views
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="platform-actions/" class="md-tabs__link">
         
   
@@ -443,32 +462,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#current-boundary" class="md-nav__link">
+  <a href="#runtime-and-boundaries" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Current boundary
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#event-semantics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Event semantics
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-demo-endpoint" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Current demo endpoint
+        Runtime and boundaries
       
     </span>
   </a>
@@ -544,6 +541,33 @@
   
   
     <li class="md-nav__item">
+      <a href="filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filtering and Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="platform-actions/" class="md-nav__link">
         
   
@@ -586,10 +610,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -607,8 +631,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -763,32 +787,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#current-boundary" class="md-nav__link">
+  <a href="#runtime-and-boundaries" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Current boundary
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#event-semantics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Event semantics
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-demo-endpoint" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Current demo endpoint
+        Runtime and boundaries
       
     </span>
   </a>
@@ -821,63 +823,36 @@
 
 
 <h1 id="chatevent">ChatEvent<a class="headerlink" href="#chatevent" title="Permanent link">&para;</a></h1>
-<p>ChatEvent is ChatArch's collaboration-event observability layer. It captures official events from Zulip, Discourse, Gitea, and GitHub, normalizes them into a Pydantic <code>ChatEvent</code>, stores them in SQLite, and exposes a Web Observatory for inspection and debugging.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>official platform event / webhook / API cursor
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  → ChatEvent normalizer
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  → SQLite event store
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  → Observatory / API
+<p>ChatEvent captures actions from authorized communities, stores normalized events, and exposes them through the Web Observatory, CLI, and API. <strong>Acquisition settings choose what to collect; saved views choose what to read. The Agent framework decides how to act.</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Platform webhook / event queue / API snapshot → ChatEvent → SQLite → server query / Observatory
 </code></pre></div>
 <div class="grid cards">
 <ul>
-<li><strong>Run the Observatory</strong></li>
+<li>
+<p><strong>Connect a community</strong></p>
+<p>Configure Zulip's official event queue, signed Discourse webhooks, or read-only topic backfill.</p>
+<p><a href="monitoring/">Acquisition setup</a> · <a href="platform-actions/">Action coverage</a></p>
+</li>
+<li>
+<p><strong>Filter relevant facts</strong></p>
+<p>Combine source, action, actor, target, tags, and time; filter before pagination and save reusable views.</p>
+<p><a href="filtering/">Filtering and views</a></p>
+</li>
+<li>
+<p><strong>Read from tools and Agents</strong></p>
+<p>Python, REST, and CLI share query semantics. Resume new facts with stable sequence cursors.</p>
+<p><a href="quickstart/">Quick start</a> · <a href="reference/">API reference</a></p>
+</li>
+<li>
+<p><strong>Discover the interfaces</strong></p>
+<p>Inspect actual command and interface trees plus implementation status, rather than inferring capture support from a platform catalog.</p>
+<p><a href="cli-tree/">CLI tree</a> · <a href="interface-tree/">Interface tree</a> · <a href="changelog/">Changelog</a></p>
+</li>
 </ul>
-<p>Start <code>chatevent serve</code>, open the browser UI, and inspect stats, subscriptions, event rows, and raw payloads.</p>
-<p><a href="quickstart/">Quick start</a></p>
-<ul>
-<li><strong>Register monitors</strong></li>
-</ul>
-<p>Create subscriptions for Discourse category/topic, Zulip stream/topic, and Gitea/GitHub repositories; connect platform webhooks or event queues to ChatEvent.</p>
-<p><a href="monitoring/">Register monitors</a></p>
-<ul>
-<li><strong>Review action catalog</strong></li>
-</ul>
-<p>ChatEvent treats supported platform actions as first-class entries instead of overloading arbitrary <code>tag</code> values.</p>
-<p><a href="platform-actions/">Platforms and events</a></p>
-<ul>
-<li><strong>Use API / CLI</strong></li>
-</ul>
-<p>Write and query events through HTTP; use <code>chatevent api ...</code> as the CLI counterpart to the REST API.</p>
-<p><a href="reference/">Reference</a></p>
-<ul>
-<li><strong>Confirm default paths</strong></li>
-</ul>
-<p>Runtime state is managed under ChatEnv/ChatArch home as <code>&lt;chatarch-home&gt;/chatevent/</code>; verify with <code>chatevent paths --json</code>.</p>
-<p><a href="quickstart/">Quick start</a></p>
 </div>
-<h2 id="current-boundary">Current boundary<a class="headerlink" href="#current-boundary" title="Permanent link">&para;</a></h2>
-<ul>
-<li>ChatEvent only <strong>captures, normalizes, deduplicates, stores, and observes</strong> events.</li>
-<li>It does not execute agents, create tasks, or make routing decisions in the current scope.</li>
-<li>Platform REST APIs are used only for object completion after official events, bounded cursor reconciliation, and acceptance readback; ChatEvent itself exposes a standard REST API for downstream event write, query, and checkpoint consumption.</li>
-<li>Default install/runtime state, the SQLite ledger, and the optional admin-token file live under the <code>chatevent/</code> directory inside ChatEnv/ChatArch home.</li>
-<li>It does not scan whole sites, all messages, complete forum history, or full repository history.</li>
-</ul>
-<h2 id="event-semantics">Event semantics<a class="headerlink" href="#event-semantics" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>source</code>: platform id such as <code>zulip</code>, <code>discourse</code>, <code>gitea</code>, or <code>github</code>.</li>
-<li><code>target</code>: display/compatibility subscription scope such as stream/topic, category/topic, or repo/org.</li>
-<li><code>scope</code>: structured carrier target chain such as repo → pull request or stream → topic.</li>
-<li><code>kind</code> / <code>action</code>: business action such as <code>message.created</code>, <code>reply.created</code>, or <code>issue.opened</code>.</li>
-<li><code>capture_mode</code>: acquisition mechanism such as <code>webhook</code>, <code>event_queue</code>, or <code>api_cursor</code>.</li>
-<li><code>tags</code>: optional filtering/routing labels; they do not define the event action.</li>
-</ul>
-<h2 id="current-demo-endpoint">Current demo endpoint<a class="headerlink" href="#current-demo-endpoint" title="Permanent link">&para;</a></h2>
-<p>The current server demo is exposed at:</p>
-<ul>
-<li>https://event.public.wzhecnu.cn/</li>
-<li>https://event.local.wzhecnu.cn/</li>
-</ul>
-<p>Add authentication, signature verification, and supervised service management before treating the demo as production. The service itself binds to loopback and is exposed through nginx.</p>
+<h2 id="runtime-and-boundaries">Runtime and boundaries<a class="headerlink" href="#runtime-and-boundaries" title="Permanent link">&para;</a></h2>
+<p>The default database is <code>&lt;chatarch-home&gt;/chatevent/events.db</code> under ChatEnv, compatible with <code>$CHATARCH_HOME/chatevent/events.db</code> and <code>~/.chatarch/chatevent/events.db</code>. Use <code>chatevent paths --json</code> for the effective paths and <code>chatevent --tree</code> for the actual commands.</p>
+<p>ChatEvent does not run Agents, dispatch wakeups, assign tasks, or provide a generic posting gateway. Saving a subscription does not start a collector. Platform <code>capture_status</code> distinguishes implemented actions from catalog-only entries. Capture is bounded by the configured principal's platform permissions; query filters cannot widen access. Voice capture remains metadata-only.</p>
 
 
 

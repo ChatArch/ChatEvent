@@ -279,6 +279,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="../filtering/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Filtering and Views
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="../platform-actions/" class="md-tabs__link">
         
   
@@ -466,6 +485,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filtering and Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../platform-actions/" class="md-nav__link">
         
   
@@ -511,10 +557,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -532,8 +578,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -587,24 +633,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Interface Tree
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -621,69 +649,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#python-package-interface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Python Package Interface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#http-api-surface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        HTTP API Surface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#chatenv-configuration-interface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ChatEnv Configuration Interface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#security-and-compatibility-boundaries" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Security And Compatibility Boundaries
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -772,58 +737,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#python-package-interface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Python Package Interface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#http-api-surface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        HTTP API Surface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#chatenv-configuration-interface" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ChatEnv Configuration Interface
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#security-and-compatibility-boundaries" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Security And Compatibility Boundaries
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -847,179 +760,54 @@
   
 
 
-<h1 id="interface-tree">Interface Tree<a class="headerlink" href="#interface-tree" title="Permanent link">&para;</a></h1>
-<p>This page maps ChatEvent's Python modules, HTTP API, ChatEnv configuration, and security boundaries into one interface tree so the package aligns with standard Chat-series projects.</p>
-<h2 id="python-package-interface">Python Package Interface<a class="headerlink" href="#python-package-interface" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>chatevent
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── catalog.py                  # Platform action catalog
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── PlatformAction
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── PlatformSpec
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   ├── list_platform_specs()
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├── get_platform_spec(source)
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   └── action_kinds_for(source)
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── model.py                    # Standard event envelope
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   ├── CaptureMode
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   ├── CarrierTarget
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   ├── ActionDescriptor
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├── ActorDescriptor
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   └── ChatEvent
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── subscription.py             # Subscription contract
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   └── Subscription
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── auth.py                     # Users, password hashes, API token hashes
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   ├── UserRecord
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├── generate_arch_token()
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   ├── token_digest(token)
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   └── password_digest(password)
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>├── config.py                   # ChatEnv configuration registration
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   └── ChatEventConfig
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>├── state.py                    # ChatEnv/ChatArch-owned runtime paths
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   ├── ChatEventPaths
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   ├── state_paths()
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   ├── default_database_path()
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   ├── load_admin_token()
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   └── admin_token_source()
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>├── store.py                    # SQLite event/user/subscription store
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│   ├── StoredEvent
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│   └── EventStore
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│       ├── save_user() / list_users() / delete_user()
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│       ├── save_subscription() / list_subscriptions() / delete_subscription()
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>│       ├── record_event() / get_event() / list_events()
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>│       └── stats()
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>├── adapters.py                 # Official platform payload normalizers
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>│   ├── normalize_zulip_message_event()
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>│   ├── normalize_discourse_webhook()
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>│   ├── normalize_gitea_webhook()
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>│   └── normalize_github_webhook()
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>├── capture.py                  # Bounded platform capture helpers
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>│   ├── load_env_file()
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>│   └── capture_zulip_once()
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>├── client.py                   # REST API client used by CLI
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>│   └── ChatEventApiClient
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>├── server.py                   # FastAPI app factory and REST/webhook endpoints
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>│   └── create_app()
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>├── dashboard.py                # Observatory HTML/CSS/JS
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>├── monitor.py                  # In-process event observer helper
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>└── cli.py                      # argparse runtime + ChatStyle-rendered CLI tree
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    ├── build_parser()
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    ├── render_cli_tree()
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    └── main()
+<h1 id="interface-tree">Interface tree<a class="headerlink" href="#interface-tree" title="Permanent link">&para;</a></h1>
+<p>These names match current source exports and registered FastAPI routes. The CLI tree is generated separately from an executed <code>render_cli_tree()</code> call.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>chatevent/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── model.py          ChatEvent, CaptureMode, ActorDescriptor, CarrierTarget
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── query.py          SavedView, FilterError, validate_filter(), compile_filter()
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── subscription.py   Subscription
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── store.py          EventStore, StoredEvent, QueryPage
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   └── record_event(), query_events(), list_events(), save_view(), list_views(), get_view(), delete_view(), stats()
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── adapters.py       normalize_zulip_message_event(), normalize_zulip_queue_event()
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│                     normalize_discourse_post(), normalize_discourse_webhook()
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│                     normalize_gitea_issue(), normalize_github_event()
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── capture.py        capture_zulip_once(), capture_zulip_subscription_once()
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│                     capture_discourse_topic_backfill(), capture_subscription_once()
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>├── client.py         ChatEventApiClient.query_events(), list_views(), get_view(), save_view(), update_view(), delete_view()
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── server.py         create_app()
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── dashboard.py      DASHBOARD_HTML
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>├── config.py         ChatEventConfig (ChatEnv entry point)
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>└── cli.py            build_parser(), render_cli_tree(), main()
 </code></pre></div>
-<p><code>__init__.py</code> re-exports the core domain objects and <code>ChatEventConfig</code> for downstream packages and ChatEnv discovery.</p>
-<h2 id="http-api-surface">HTTP API Surface<a class="headerlink" href="#http-api-surface" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GET    /                         # Web Observatory; username/password login gate when auth is configured
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>POST   /api/login                # Browser username/password login; sets session cookie
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>GET    /login                    # ChatLogin default login UI
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>GET    /login/assets/{name}      # Public ChatLogin login JS/CSS
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>POST   /api/logout               # Clear browser session cookie; cookie auth requires CSRF
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>GET    /api/health               # Health and runtime path summary
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>GET    /api/session              # Current API token/cookie identity
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>GET    /api/users                # Admin: list users
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>POST   /api/users                # Admin: create username/password user; cookie auth requires CSRF
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>POST   /api/me/token             # Current user: issue one-time arch_xxx API token; cookie auth requires CSRF
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>POST   /api/users/{id}/token     # Admin: issue one-time token for user; cookie auth requires CSRF
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>DELETE /api/users/{id}           # Admin: delete user; cookie auth requires CSRF
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>GET    /api/schema/event         # ChatEvent JSON Schema
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>GET    /api/schema/subscription  # Subscription JSON Schema
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>GET    /api/platforms            # Platform action catalog
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>GET    /api/subscriptions        # List subscriptions; members see their own subscriptions
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>POST   /api/subscriptions        # Create/update subscription; member-owned when not admin; cookie auth requires CSRF
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>GET    /api/subscriptions/{id}   # Read one subscription
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>DELETE /api/subscriptions/{id}   # Delete subscription, not historical events; cookie auth requires CSRF
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>POST   /api/events               # Write normalized ChatEvent
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>GET    /api/events               # Query events with filters and next_since checkpoint
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>GET    /api/events/{dedupe_key}  # Read one stored event
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>GET    /api/stats                # Event/source/kind/duplicate counters
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>POST   /webhooks/zulip           # Zulip webhook/event payload ingress
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>POST   /webhooks/discourse       # Discourse webhook ingress
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>POST   /webhooks/gitea           # Gitea webhook ingress
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>POST   /webhooks/github          # GitHub webhook ingress
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GET    /                        Observatory or login page
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>POST   /api/login               Account login
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>POST   /api/logout              Logout
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>GET    /api/session             Current account
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>GET    /api/health              Service health
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>GET    /api/platforms           Capability catalog
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>GET    /api/schema/event        Event JSON Schema
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>GET    /api/schema/subscription Subscription JSON Schema
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>GET    /api/subscriptions       Visible acquisition configurations
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>POST   /api/subscriptions       Create/update acquisition configuration
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>GET    /api/subscriptions/{id}  Configuration detail
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>DELETE /api/subscriptions/{id}  Delete configuration
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>GET    /api/query               Bounded conditions, server filter, sequence cursor
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>GET    /api/events              Legacy read compatibility
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>GET    /api/events/{key}        Event detail
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>POST   /api/events              Authorized normalized ingest
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>GET    /api/views               Owner's views
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>POST   /api/views               Create owner's view
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>GET    /api/views/{id}          Owner's view detail
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>PUT    /api/views/{id}          Update owner's view
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>DELETE /api/views/{id}          Delete owner's view
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>GET    /api/stats               Authorized counters
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>POST   /webhooks/discourse      Signature or authorized ingest credentials
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>POST   /webhooks/zulip          Authorized ingest credentials
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>POST   /webhooks/gitea          Authorized ingest credentials
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>POST   /webhooks/github         Authorized ingest credentials
 </code></pre></div>
-<h2 id="chatenv-configuration-interface">ChatEnv Configuration Interface<a class="headerlink" href="#chatenv-configuration-interface" title="Permanent link">&para;</a></h2>
-<p>ChatEvent registers <code>chatevent.config:ChatEventConfig</code> under the <code>chatenv.configs</code> entry point. ENV/profile/secret boundaries are:</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Purpose</th>
-<th>Sensitivity</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>CHATARCH_HOME</code></td>
-<td>ChatArch runtime home; defaults to ChatEnv <code>get_paths().home_dir</code></td>
-<td>Not sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_DB</code></td>
-<td>Explicit SQLite DB path override</td>
-<td>Not sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_API_URL</code></td>
-<td>Default REST API base URL for CLI commands</td>
-<td>Not sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_ADMIN_TOKEN</code></td>
-<td>CLI/model/programmatic API token</td>
-<td>Sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_ADMIN_TOKEN_FILE</code></td>
-<td>API token file path</td>
-<td>Path is not sensitive; contents are sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_API_USERNAME</code></td>
-<td>Username for CLI password-login fallback</td>
-<td>Not sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_API_PASSWORD_FILE</code></td>
-<td>CLI password file path</td>
-<td>Path is not sensitive; contents are sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_BOOTSTRAP_USERNAME</code></td>
-<td>First administrator username</td>
-<td>Not sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code></td>
-<td>First administrator password file path</td>
-<td>Path is not sensitive; contents are sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_PUBLIC_ORIGIN</code></td>
-<td>Explicit configured http(s) public origin for cookie Secure policy; arbitrary Forwarded headers are not trusted</td>
-<td>Not sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_COOKIE_SECURE</code></td>
-<td>Override session cookie Secure flag; by default HTTPS public origin enables it and other origins keep localhost compatibility</td>
-<td>Not sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_SESSION_TTL_SECONDS</code></td>
-<td>ChatLogin browser session TTL in seconds; must be a positive integer</td>
-<td>Not sensitive</td>
-</tr>
-<tr>
-<td><code>CHATEVENT_MAX_SESSIONS</code></td>
-<td>Current-process in-memory session capacity; must be a positive integer</td>
-<td>Not sensitive</td>
-</tr>
-</tbody>
-</table>
-<p>Platform credentials are not invented by ChatEvent. Zulip, Discourse, Gitea, GitHub, and similar secrets should stay in their own ChatEnv profiles or service secret files. <code>capture zulip-once</code> defaults to ChatEnv <code>envs_dir/Zulip/.env</code>.</p>
-<h2 id="security-and-compatibility-boundaries">Security And Compatibility Boundaries<a class="headerlink" href="#security-and-compatibility-boundaries" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Human Web entry uses username/password login; <code>arch_xxx</code> tokens are account API credentials, not homepage login credentials.</li>
-<li>CLI and model automation should prefer API tokens; when no token exists, <code>--username</code> plus <code>--password-file</code> is available without putting passwords in argv.</li>
-<li><code>CHATEVENT_ADMIN_TOKEN</code> remains as a bootstrap/recovery compatibility path, but new deployments should manage it through ChatEnv or secret files.</li>
-<li>FastAPI endpoints, SQLite schema, webhook endpoints, and <code>chatevent api ...</code> commands remain backward compatible; this alignment does not change the published event JSON contract.</li>
-</ul>
+<p><code>EventStore</code> preserves old SQLite event rows and adds <code>event_offsets</code> and <code>saved_views</code>. <code>query_events()</code> restricts by owner; <code>validate_filter()</code> bounds paths, types, depth, and node count before querying. <code>CHATEVENT_DB</code>, <code>CHATEVENT_ADMIN_TOKEN(_FILE)</code>, <code>CHATEVENT_BOOTSTRAP_USERNAME</code>, and <code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code> continue under ChatEnv/service configuration. Discourse hooks add <code>CHATEVENT_DISCOURSE_WEBHOOK_SECRET(_FILE)</code>, <code>CHATEVENT_DISCOURSE_INSTANCE</code>, and <code>CHATEVENT_DISCOURSE_SUBSCRIPTION_ID</code>. Default database paths remain compatible with <code>$CHATARCH_HOME/chatevent/events.db</code> and <code>~/.chatarch/chatevent/events.db</code>.</p>
+<p>See <a href="../reference/">Reference</a> and <a href="../filtering/">Filtering and Views</a> for semantics.</p>
 
 
 

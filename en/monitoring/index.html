@@ -16,7 +16,7 @@
         <link rel="prev" href="../quickstart/">
       
       
-        <link rel="next" href="../platform-actions/">
+        <link rel="next" href="../filtering/">
       
       
         
@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#register-monitors" class="md-skip">
+        <a href="#register-acquisition-scope" class="md-skip">
           Skip to content
         </a>
       
@@ -269,6 +269,25 @@
     
   
   Register Monitors
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../filtering/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Filtering and Views
 
       </a>
     </li>
@@ -499,21 +518,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#create-a-chatevent-subscription" class="md-nav__link">
+  <a href="#create-a-subscription" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Create a ChatEvent subscription
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#discourse-webhook" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Discourse webhook
+        Create a subscription
       
     </span>
   </a>
@@ -532,43 +540,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#zulip-temporary-topic-watch" class="md-nav__link">
+  <a href="#discourse-webhook-and-read-only-backfill" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Zulip temporary topic watch
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gitea-webhook" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Gitea webhook
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#github-webhook" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GitHub webhook
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#acceptance-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Acceptance checks
+        Discourse webhook and read-only backfill
       
     </span>
   </a>
@@ -579,6 +554,33 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Filtering and Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -632,10 +634,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -653,8 +655,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -809,21 +811,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#create-a-chatevent-subscription" class="md-nav__link">
+  <a href="#create-a-subscription" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Create a ChatEvent subscription
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#discourse-webhook" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Discourse webhook
+        Create a subscription
       
     </span>
   </a>
@@ -842,43 +833,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#zulip-temporary-topic-watch" class="md-nav__link">
+  <a href="#discourse-webhook-and-read-only-backfill" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Zulip temporary topic watch
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gitea-webhook" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Gitea webhook
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#github-webhook" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GitHub webhook
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#acceptance-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Acceptance checks
+        Discourse webhook and read-only backfill
       
     </span>
   </a>
@@ -910,100 +868,38 @@
   
 
 
-<h1 id="register-monitors">Register Monitors<a class="headerlink" href="#register-monitors" title="Permanent link">&para;</a></h1>
-<p>Registering a monitor has two layers:</p>
-<ol>
-<li>Save a ChatEvent <code>Subscription</code> describing the platform, scope, and action kinds to observe.</li>
-<li>Configure the platform's official webhook, event queue, or bounded API cursor so real events reach ChatEvent.</li>
-</ol>
-<h2 id="create-a-chatevent-subscription">Create a ChatEvent subscription<a class="headerlink" href="#create-a-chatevent-subscription" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-k<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>https://event.public.wzhecnu.cn/api/subscriptions<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="s1">    "id": "discourse-practice",</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="s1">    "source": "discourse",</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="s1">    "target": "category:agent-runs",</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="s1">    "label": "Discourse practice",</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="s1">    "event_kinds": ["topic.created", "post.created", "reply.created"],</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="s1">    "capture_modes": ["webhook", "api_cursor"],</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="s1">    "filters": {"category": "agent-runs"},</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="s1">    "labels": ["practice", "forum"]</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="s1">  }'</span>
+<h1 id="register-acquisition-scope">Register acquisition scope<a class="headerlink" href="#register-acquisition-scope" title="Permanent link">&para;</a></h1>
+<p>A <code>Subscription</code> describes upstream platform, target, authorized scope, and requested actions. A <code>SavedView</code> queries facts already in the ledger. Saving or enabling a subscription does not start a background collector. Platform credentials remain in operator-managed ChatEnv profiles or service secret files.</p>
+<h2 id="create-a-subscription">Create a subscription<a class="headerlink" href="#create-a-subscription" title="Permanent link">&para;</a></h2>
+<p>Provide an account API token through <code>CHATEVENT_ADMIN_TOKEN</code>. The server binds a member's <code>owner_user_id</code> to that account.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s1">'https://events.example.org/api/subscriptions'</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"X-ChatEvent-Admin-Token: </span><span class="nv">$CHATEVENT_ADMIN_TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--data<span class="w"> </span><span class="s1">'{"id":"zulip-community","source":"zulip","target":"stream:community/topic:news","event_kinds":["*"],"capture_modes":["event_queue"]}'</span>
 </code></pre></div>
-<p>The <code>id</code> becomes the webhook URL's <code>subscription_id</code>, so each captured event can be filtered and can update subscription cursors.</p>
-<h2 id="discourse-webhook">Discourse webhook<a class="headerlink" href="#discourse-webhook" title="Permanent link">&para;</a></h2>
-<p>Discourse supports official webhooks. Configure the platform payload URL as:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>https://event.public.wzhecnu.cn/webhooks/discourse?subscription_id=discourse-practice
-</code></pre></div>
-<p>Recommended Discourse event types:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>topic_created
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>post_created
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>post_edited
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>post_destroyed
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>post_liked
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>notification_created
-</code></pre></div>
-<p>The ChatEvent endpoint reads the <code>X-Discourse-Event</code> header and normalizes:</p>
-<ul>
-<li><code>post_created + post_number == 1</code> to <code>post.created</code></li>
-<li><code>post_created + post_number &gt; 1</code> to <code>reply.created</code></li>
-</ul>
+<p>Members query only facts linked to subscriptions they own. Unowned historical events are admin-only. A query view cannot widen access.</p>
 <h2 id="zulip-event-queue">Zulip event queue<a class="headerlink" href="#zulip-event-queue" title="Permanent link">&para;</a></h2>
-<p>Zulip should use the official event queue first:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--extra<span class="w"> </span>serve<span class="w"> </span>chatevent<span class="w"> </span>capture<span class="w"> </span>zulip-once<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--env-file<span class="w"> </span>~/.chatarch/envs/Zulip/.env<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--stream<span class="w"> </span><span class="s2">"chatevent-practice"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--topic<span class="w"> </span><span class="s2">"real-loop"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>--subscription-id<span class="w"> </span>zulip-practice
+<p>Configure <code>ZULIP_SITE</code>, <code>ZULIP_BOT_EMAIL</code>, and <code>ZULIP_BOT_API_KEY</code> (or compatible Actor names) in an operator-managed env file. Do not put values in docs, Git, or CLI arguments.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>zulip-once<span class="w"> </span>--env-file<span class="w"> </span>./zulip.env<span class="w"> </span>--subscription-id<span class="w"> </span>zulip-community<span class="w"> </span>--timeout<span class="w"> </span><span class="m">30</span>
 </code></pre></div>
-<p>Platform secrets are managed by ChatEnv profiles or service secret files; ChatEvent references them by path only and does not copy or print secrets. A long-running capture should later be supervised by a proper service/cron/watchdog; the current CLI is a bounded capture pass.</p>
-<h2 id="zulip-temporary-topic-watch">Zulip temporary topic watch<a class="headerlink" href="#zulip-temporary-topic-watch" title="Permanent link">&para;</a></h2>
-<p>Active assignments can register short-lived topic watches:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>capture<span class="w"> </span>watch-zulip-topic<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--stream<span class="w"> </span><span class="s2">"voice note"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--topic<span class="w"> </span><span class="s2">"assignment-123"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--assignment-id<span class="w"> </span>assign-123<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--interval-seconds<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>--ttl-seconds<span class="w"> </span><span class="m">3600</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span>--reason<span class="w"> </span><span class="s2">"active assignment clarification"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span>--subscription-id<span class="w"> </span>zulip-topic-assign-123
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>capture<span class="w"> </span>subscription-once<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span>--env-file<span class="w"> </span>~/.chatarch/envs/Zulip/.env<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span>--subscription-id<span class="w"> </span>zulip-topic-assign-123
+<p>The command registers one official queue, requests message creation, edits/moves, single/bulk deletion, reactions, stream, subscription, and realm_user events, dispatches them, then deletes the queue. Its output includes <code>captured</code>, <code>created</code>, <code>unsupported</code>, <code>scope_unknown</code>, and <code>control</code>. With <code>--stream</code>/<code>--topic</code>, sparse events without verifiable context fail closed and increment <code>scope_unknown</code>. <code>--content</code> sends a real message and is only for an explicit write exercise. Fresh queues leave potential gaps between runs. For continuous collection, use an externally supervised bounded but sufficiently long capture window; repeated short polls do not provide complete queue history.</p>
+<p>The existing <code>capture subscription-once --subscription-id zulip-community</code> is a topic message-ID cursor backfill for currently visible message creations. It cannot restore reaction or edit history during a queue outage or recover deleted messages.</p>
+<h2 id="discourse-webhook-and-read-only-backfill">Discourse webhook and read-only backfill<a class="headerlink" href="#discourse-webhook-and-read-only-backfill" title="Permanent link">&para;</a></h2>
+<p>In Discourse administration, set the hook URL to <code>https://events.example.org/webhooks/discourse</code>, select the core events in the <a href="../platform-actions/">coverage table</a>, and configure a webhook secret. Configure ChatEvent:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE=&lt;operator-managed-secret-file&gt;
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>CHATEVENT_DISCOURSE_INSTANCE=https://forum.example.org
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>CHATEVENT_DISCOURSE_SUBSCRIPTION_ID=discourse-community
 </code></pre></div>
-<p>Watch contract:</p>
-<ul>
-<li><code>source</code>: <code>zulip</code></li>
-<li><code>target</code>: <code>stream:&lt;stream&gt;/topic:&lt;topic&gt;</code></li>
-<li><code>event_kinds</code>: <code>["message.created"]</code></li>
-<li><code>capture_modes</code>: <code>["api_cursor", "poll"]</code></li>
-<li><code>filters</code>: platform scope only, currently <code>stream</code> and <code>topic</code></li>
-<li><code>metadata</code>: <code>temporary</code>, <code>assignment_id</code>, <code>interval_seconds</code>, <code>expires_at</code>, <code>hot_until</code>, <code>reason</code>, <code>content_policy=topic-scoped-message-content</code>, and <code>policy_boundary</code></li>
-</ul>
-<p><code>subscription-once</code> reads Zulip <code>/messages</code> with a stream/topic narrow and uses the latest captured message id as <code>last_cursor</code>. ChatEvent captures topic-scoped message content plus sender identity fields; ChatAssign or another consumer must filter Rex/user/bot/self policy after reading normalized events.</p>
-<h2 id="gitea-webhook">Gitea webhook<a class="headerlink" href="#gitea-webhook" title="Permanent link">&para;</a></h2>
-<p>Gitea repository/org webhook payload URL:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>https://event.public.wzhecnu.cn/webhooks/gitea?subscription_id=gitea-practice
+<p>The bound subscription must already exist with source=discourse. ChatEvent verifies <code>X-Discourse-Event-Signature: sha256=...</code> over the raw request body, reads <code>X-Discourse-Event</code> for the action name and <code>X-Discourse-Event-Type</code> for the wrapper type. It accepts <code>X-Discourse-Instance</code> for routing only when it matches the configured instance binding; an untrusted header or payload cannot set owner/instance. Without a configured signature secret, the webhook requires authorized ChatEvent API token or session credentials. Other platform webhooks also require authorized ingest credentials when authentication is configured.</p>
+<p>Read a bounded current topic/posts snapshot:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>chatevent<span class="w"> </span>capture<span class="w"> </span>discourse-topic-backfill<span class="w"> </span>--base-url<span class="w"> </span>https://forum.example.org<span class="w"> </span>--topic-id<span class="w"> </span><span class="m">18</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span><span class="w"> </span>--subscription-id<span class="w"> </span>discourse-community<span class="w"> </span>--api-key-env<span class="w"> </span>DISCOURSE_API_KEY<span class="w"> </span>--api-username<span class="w"> </span>api-user
 </code></pre></div>
-<p>The current normalizer supports issue payloads and the first action catalog. Recommended events:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>push
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>issues
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>issue_comment
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>pull_request
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>release
+<p>The caller's environment supplies <code>DISCOURSE_API_KEY</code>. The command reads <code>/t/{id}.json</code> and up to 100 <code>/posts/{id}.json</code> objects and writes only the local ChatEvent database. A snapshot is the current visible state, not historical edits, deletions, or restorations. Discourse retries can create fresh delivery-row IDs; deduplication uses action, object, revision/time, and canonical payload fingerprint rather than <code>X-Discourse-Event-Id</code> alone.</p>
+<p>Check captured facts:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chatevent<span class="w"> </span>api<span class="w"> </span>stats
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>chatevent<span class="w"> </span>api<span class="w"> </span>query<span class="w"> </span>--source<span class="w"> </span>discourse<span class="w"> </span>--sort<span class="w"> </span>desc<span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span>
 </code></pre></div>
-<h2 id="github-webhook">GitHub webhook<a class="headerlink" href="#github-webhook" title="Permanent link">&para;</a></h2>
-<p>GitHub repository webhook payload URL:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>https://event.public.wzhecnu.cn/webhooks/github?subscription_id=github-chatevent
-</code></pre></div>
-<p>GitHub sends the event name through <code>X-GitHub-Event</code>. ChatEvent acknowledges <code>ping</code> without writing it to the event stream; <code>push</code> normalizes to <code>commit.pushed</code>.</p>
-<h2 id="acceptance-checks">Acceptance checks<a class="headerlink" href="#acceptance-checks" title="Permanent link">&para;</a></h2>
-<p>After registering a monitor, verify with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl<span class="w"> </span>-k<span class="w"> </span>https://event.public.wzhecnu.cn/api/stats
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>curl<span class="w"> </span>-k<span class="w"> </span><span class="s1">'https://event.public.wzhecnu.cn/api/events?source=discourse&amp;days=7&amp;limit=20'</span>
-</code></pre></div>
-<p>Or open the Observatory, wait up to 5 seconds for automatic refresh, or click <strong>Refresh</strong> manually. The top Event Stream filter keeps only source and time dropdowns; action kinds, subscriptions/channels, keyword search, and custom captured-at ranges live under <strong>Advanced options</strong>, with action-kind multi-select bound to the selected source.</p>
+<p>Voice remains metadata-only. The platform action catalog is a capability directory, not proof that a collector is running. See <a href="../filtering/">Filtering and Views</a> for query details.</p>
 
 
 

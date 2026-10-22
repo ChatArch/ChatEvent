@@ -279,6 +279,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="filtering/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  过滤与视图
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="platform-actions/" class="md-tabs__link">
         
   
@@ -446,29 +465,7 @@
   <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        当前产品边界
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        事件语义
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        当前验证入口
+        运行与边界
       
     </span>
   </a>
@@ -544,6 +541,33 @@
   
   
     <li class="md-nav__item">
+      <a href="filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    过滤与视图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="platform-actions/" class="md-nav__link">
         
   
@@ -586,10 +610,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -607,8 +631,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -766,29 +790,7 @@
   <a href="#_1" class="md-nav__link">
     <span class="md-ellipsis">
       
-        当前产品边界
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        事件语义
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        当前验证入口
+        运行与边界
       
     </span>
   </a>
@@ -821,63 +823,36 @@
 
 
 <h1 id="chatevent">ChatEvent<a class="headerlink" href="#chatevent" title="Permanent link">&para;</a></h1>
-<p>ChatEvent 是 ChatArch 的协作事件观察层：把 Zulip、Discourse、Gitea、GitHub 等平台的官方事件捕获下来，规范化为 Pydantic <code>ChatEvent</code>，写入 SQLite，并在 Web Observatory 中查看、筛选和调试。</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>平台官方事件 / webhook / API cursor
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  → ChatEvent normalizer
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  → SQLite event store
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  → Observatory / API
+<p>ChatEvent 捕获已授权社区里的动作，统一保存为事件，再通过网页、命令行和接口展示与过滤。<strong>采集配置决定抓什么，保存视图决定看什么；Agent 框架自行决定如何行动。</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>平台 webhook / 事件队列 / API 快照 → ChatEvent → SQLite → 服务端查询 / Observatory
 </code></pre></div>
 <div class="grid cards">
 <ul>
-<li><strong>启动观察台</strong></li>
+<li>
+<p><strong>接入社区</strong></p>
+<p>配置 Zulip 官方事件队列、Discourse 签名 webhook 或只读主题回填。</p>
+<p><a href="monitoring/">注册采集范围</a> · <a href="platform-actions/">动作覆盖</a></p>
+</li>
+<li>
+<p><strong>筛选需要的信息</strong></p>
+<p>组合来源、动作、作者、目标、标签和时间条件；先筛选，再分页，保存为可复用视图。</p>
+<p><a href="filtering/">过滤与视图</a></p>
+</li>
+<li>
+<p><strong>让工具和 Agent 读取</strong></p>
+<p>Python、REST 和 CLI 使用同一套查询语义；按稳定游标读取新增事实。</p>
+<p><a href="quickstart/">快速开始</a> · <a href="reference/">接口参考</a></p>
+</li>
+<li>
+<p><strong>查看完整能力</strong></p>
+<p>真实命令树、接口树与实现状态，避免把平台目录误认为已接通能力。</p>
+<p><a href="cli-tree/">CLI 树</a> · <a href="interface-tree/">接口树</a> · <a href="changelog/">发行说明</a></p>
+</li>
 </ul>
-<p>本地启动 <code>chatevent serve</code>，浏览器打开 Observatory，看统计、订阅、事件流和 raw payload。</p>
-<p><a href="quickstart/">进入快速开始</a></p>
-<ul>
-<li><strong>注册监控对象</strong></li>
-</ul>
-<p>为 Discourse category/topic、Zulip stream/topic、Gitea/GitHub repo 创建订阅，并把平台 webhook 或事件队列接到 ChatEvent。</p>
-<p><a href="monitoring/">查看注册监控</a></p>
-<ul>
-<li><strong>查看 action 目录</strong></li>
-</ul>
-<p>当前只把四个平台的常见动作列为一等公民，避免把任意 <code>tag</code> 当成事件语义。</p>
-<p><a href="platform-actions/">查看平台与事件</a></p>
-<ul>
-<li><strong>对接 API / CLI</strong></li>
-</ul>
-<p>用 HTTP API 写入、查询事件；用 <code>chatevent api ...</code> 作为 REST API 的命令行对应。</p>
-<p><a href="reference/">查看接口参考</a></p>
-<ul>
-<li><strong>确认默认目录</strong></li>
-</ul>
-<p>默认运行态由 ChatEnv/ChatArch home 管理，位于 <code>&lt;chatarch-home&gt;/chatevent/</code>，可用 <code>chatevent paths --json</code> 回读。</p>
-<p><a href="quickstart/">查看快速开始</a></p>
 </div>
-<h2 id="_1">当前产品边界<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
-<ul>
-<li>ChatEvent 只负责 <strong>捕获、规范化、去重、保存、观察</strong>。</li>
-<li>当前不直接执行 Agent、不开任务、不做路由决策。</li>
-<li>平台 REST API 只用于官方事件后的对象补全、明确订阅范围内的 cursor 增量补偿和验收读回；ChatEvent 自身提供标准 REST API 供下游写入、查询和按 checkpoint 消费事件。</li>
-<li>默认安装、运行、SQLite 账本和可选管理员 token 文件都归入 ChatEnv/ChatArch home 下的 <code>chatevent/</code> 目录。</li>
-<li>不做全盘扫帖、全站消息遍历、全仓库历史扫描或 HTML 爬虫式 capture。</li>
-</ul>
-<h2 id="_2">事件语义<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>source</code>：平台来源，例如 <code>zulip</code>、<code>discourse</code>、<code>gitea</code>、<code>github</code>。</li>
-<li><code>target</code>：兼容展示用订阅范围，例如 stream/topic、category/topic、repo/org。</li>
-<li><code>scope</code>：结构化承载目标链，例如 repo → pull request 或 stream → topic。</li>
-<li><code>kind</code> / <code>action</code>：发生了什么业务动作，例如 <code>message.created</code>、<code>reply.created</code>、<code>issue.opened</code>。</li>
-<li><code>capture_mode</code>：怎么捕获，例如 <code>webhook</code>、<code>event_queue</code>、<code>api_cursor</code>。</li>
-<li><code>tags</code>：筛选/路由标签，不定义事件动作本身。</li>
-</ul>
-<h2 id="_3">当前验证入口<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
-<p>服务器 demo 当前暴露为：</p>
-<ul>
-<li>https://event.public.wzhecnu.cn/</li>
-<li>https://event.local.wzhecnu.cn/</li>
-</ul>
-<p>生产化部署前应加认证、验签和受控服务管理；当前 demo 服务只绑定 loopback，由 nginx 反代。</p>
+<h2 id="_1">运行与边界<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<p>默认数据库位于 ChatEnv 的 <code>&lt;chatarch-home&gt;/chatevent/events.db</code>；兼容 <code>$CHATARCH_HOME/chatevent/events.db</code> 与 <code>~/.chatarch/chatevent/events.db</code>。使用 <code>chatevent paths --json</code> 回读实际位置，使用 <code>chatevent --tree</code> 查看真实命令。</p>
+<p>ChatEvent 不运行 Agent，不提供唤醒派发、任务分配或通用发帖网关。保存订阅不等于采集器已运行；平台目录的 <code>capture_status</code> 区分已实现与仅目录动作。采集只覆盖当前凭据可见的数据，查询过滤不能扩大权限。Voice 始终只保留元数据。</p>
 
 
 

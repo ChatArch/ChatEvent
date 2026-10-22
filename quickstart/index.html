@@ -281,6 +281,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="../filtering/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  过滤与视图
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="../platform-actions/" class="md-tabs__link">
         
   
@@ -475,18 +494,7 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        安装开发环境
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observatory" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        启动 Observatory
+        安装
       
     </span>
   </a>
@@ -497,7 +505,7 @@
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        确认默认目录
+        账号和凭据
       
     </span>
   </a>
@@ -508,7 +516,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        页面刷新机制
+        第一个查询
       
     </span>
   </a>
@@ -519,18 +527,7 @@
   <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
-        写入一条事件
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#action" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        查看平台 action 目录
+        从旧版本升级
       
     </span>
   </a>
@@ -560,6 +557,33 @@
     
   
     注册监控
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    过滤与视图
   
 
     
@@ -621,10 +645,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -642,8 +666,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -801,18 +825,7 @@
   <a href="#_2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        安装开发环境
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observatory" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        启动 Observatory
+        安装
       
     </span>
   </a>
@@ -823,7 +836,7 @@
   <a href="#_3" class="md-nav__link">
     <span class="md-ellipsis">
       
-        确认默认目录
+        账号和凭据
       
     </span>
   </a>
@@ -834,7 +847,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        页面刷新机制
+        第一个查询
       
     </span>
   </a>
@@ -845,18 +858,7 @@
   <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
-        写入一条事件
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#action" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        查看平台 action 目录
+        从旧版本升级
       
     </span>
   </a>
@@ -889,72 +891,27 @@
 
 
 <h1 id="_1">快速开始<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h1>
-<h2 id="_2">安装开发环境<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>serve<span class="w"> </span>--extra<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--extra<span class="w"> </span>docs
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>--tree
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>--tree-brief
+<p>ChatEvent 负责捕获、规范化、保存和查询社区事实。Agent 的唤醒、运行、调度和任务分配由 Agent 框架决定。</p>
+<h2 id="_2">安装<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<p>在源码检出目录：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[serve]'</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>chatevent<span class="w"> </span>--tree
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>chatevent<span class="w"> </span>--tree-brief
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>chatevent<span class="w"> </span>paths<span class="w"> </span>--json
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>chatevent<span class="w"> </span>serve<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">8765</span>
 </code></pre></div>
-<p>如果只运行 API/UI，至少安装 <code>serve</code> extra：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>serve
+<p>打开 <code>http://127.0.0.1:8765/</code>。默认数据库由 ChatEnv 管理，兼容 <code>$CHATARCH_HOME/chatevent/events.db</code> 和 <code>~/.chatarch/chatevent/events.db</code>；可用 <code>CHATEVENT_DB</code> 覆盖。默认路径存在旧库时会按既有兼容逻辑迁移，事件序号表再对旧事件做加法迁移。</p>
+<h2 id="_3">账号和凭据<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<p>设置 <code>CHATEVENT_BOOTSTRAP_USERNAME</code> 与 <code>CHATEVENT_BOOTSTRAP_PASSWORD_FILE</code> 初始化管理员，在网页用账号密码登录，再生成 API token。CLI 使用 <code>CHATEVENT_ADMIN_TOKEN</code> 环境变量，或 <code>--username</code> 与 <code>--password-file</code>。配置值应由 ChatEnv profile 或服务 secret 文件提供，示例不包含实际值。未配置账号和管理员 token 时保留本地开发匿名模式；只应绑定可信本地接口。</p>
+<h2 id="_4">第一个查询<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<p>先通过<a href="../monitoring/">注册监控</a>连接平台，或者用已授权的规范化事件写入接口。保存订阅本身不会开始采集。查询所有已授权事件：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>chatevent<span class="w"> </span>api<span class="w"> </span>query<span class="w"> </span>--sort<span class="w"> </span>desc<span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>chatevent<span class="w"> </span>api<span class="w"> </span>query<span class="w"> </span>--source<span class="w"> </span>zulip<span class="w"> </span>--kind<span class="w"> </span>message.created<span class="w"> </span>--sort<span class="w"> </span>asc<span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span>
 </code></pre></div>
-<h2 id="observatory">启动 Observatory<a class="headerlink" href="#observatory" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--extra<span class="w"> </span>serve<span class="w"> </span>chatevent<span class="w"> </span>serve<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--port<span class="w"> </span><span class="m">8765</span>
-</code></pre></div>
-<p>打开：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>http://127.0.0.1:8765/
-</code></pre></div>
-<p>当前服务器 demo 的实际入口：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>https://event.public.wzhecnu.cn/
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>https://event.local.wzhecnu.cn/
-</code></pre></div>
-<h2 id="_3">确认默认目录<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
-<p>默认不需要传 <code>--db</code>。ChatEvent 会通过 ChatEnv 解析 ChatArch home，并把运行态放到该 home 的 <code>chatevent/</code> 目录下：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>&lt;chatarch-home&gt;/chatevent/events.db
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a># 默认通常是 ~/.chatarch/chatevent/events.db
-</code></pre></div>
-<p>用 <code>paths</code> 回读实际位置：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>paths<span class="w"> </span>--json
-</code></pre></div>
-<p>如果旧版 <code>~/.chatevent/events.db</code> 存在，且新的 ChatArch 内部数据库还不存在，第一次默认启动会复制旧库到 <code>~/.chatarch/chatevent/events.db</code>，但不会删除旧文件。</p>
-<h2 id="_4">页面刷新机制<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
-<p>Observatory 当前是前端轮询，不是 WebSocket/SSE。</p>
-<ul>
-<li>页面加载后立即执行一次 <code>loadAll()</code>。</li>
-<li>之后每 <strong>5 秒</strong> 自动刷新一次。</li>
-<li>点击页面右侧事件流标题旁的 <strong>刷新</strong> 按钮，会立即手动刷新。</li>
-<li>搜索框输入会做约 <strong>260ms debounce</strong> 后刷新。</li>
-<li>来源筛选、事件类型筛选变化后会立即刷新。</li>
-</ul>
-<p>每次刷新会并行请求：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>GET /api/stats
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>GET /api/subscriptions
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>GET /api/events?...filters
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>GET /api/platforms
-</code></pre></div>
-<p>所以“平台动作发生 → Observatory 看到”的延迟由两段组成：</p>
-<ol>
-<li>平台把官方事件送到 ChatEvent 的时间：webhook 通常是秒级；Zulip event queue 取决于 capture pass 的轮询或运行方式；API cursor 取决于配置的增量任务频率。</li>
-<li>前端下一次 5 秒轮询的时间；手动点刷新可立即查看。</li>
-</ol>
-<h2 id="_5">写入一条事件<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>record-json<span class="w"> </span>event.json
-</code></pre></div>
-<p>事件最小字段：</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"issue:owner/repo:42"</span><span class="p">,</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gitea"</span><span class="p">,</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"issue.opened"</span><span class="p">,</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">"occurred_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-08-18T12:00:00Z"</span><span class="p">,</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">"capture_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"webhook"</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">}</span>
-</code></pre></div>
-<h2 id="action">查看平台 action 目录<a class="headerlink" href="#action" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>platforms
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>uv<span class="w"> </span>run<span class="w"> </span>chatevent<span class="w"> </span>platforms<span class="w"> </span>--json
-</code></pre></div>
-<p>这些 action 也会出现在 Observatory 左侧的 <strong>Platform actions</strong> 区块里。</p>
+<p><code>next_cursor</code> 用于下一页和增量续读。<code>GET /api/events</code> 为旧客户端保留，但其 <code>next_since</code> 不是无损 checkpoint。Observatory 的多选与 JSON 条件组均在服务端分页前执行。<a href="../filtering/">过滤与视图</a>提供 curl、Python 和保存视图示例；<a href="../reference/">接口参考</a>列出入口。</p>
+<p>Voice 路径只保存元数据，不保存摘要或转写正文。</p>
+<h2 id="_5">从旧版本升级<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<p>升级前暂停采集器并对 SQLite 做一致性备份。0.3.0 加法迁移序号、视图、订阅身份和事件归属数据，不重写旧事件正文或旧去重键；旧事件的归属只在迁移时根据现有订阅快照确定，无法确认归属的事件仅管理员可读。随后将服务和所有采集进程升级到同一版本，再恢复采集；不要让旧版本写入器绕过新的权限约束。</p>
 
 
 
