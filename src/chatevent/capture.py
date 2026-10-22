@@ -15,9 +15,13 @@ from typing import Any
 from urllib.parse import quote, urlencode, urljoin
 from urllib.request import Request, urlopen
 
-from .adapters import normalize_voice_talk, normalize_x_post, normalize_zulip_message_event
+from .adapters import (
+    ZULIP_CONTROL_EVENT_TYPES, ZULIP_QUEUE_EVENT_TYPES, normalize_voice_talk,
+    normalize_x_post, normalize_zulip_message_event, normalize_zulip_queue_event,
+    normalize_discourse_webhook,
+)
 from .model import CaptureMode, ChatEvent
-from .store import EventStore
+from .store import EventStore, StoredEvent
 from .subscription import Subscription, temporary_zulip_topic_watch
 
 
@@ -30,6 +34,9 @@ class CaptureSummary:
     created: int
     events: list[str]
     database: str
+    unsupported: int = 0
+    scope_unknown: int = 0
+    control: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +45,9 @@ class CaptureSummary:
             "created": self.created,
             "events": self.events,
             "database": self.database,
+            "unsupported": self.unsupported,
+            "scope_unknown": self.scope_unknown,
+            "control": self.control,
         }
 
 
@@ -64,6 +74,71 @@ def load_env_file(path: str | Path) -> dict[str, str]:
         result[normalized_key] = value
         context[normalized_key] = value
     return result
+
+
+def _discourse_get(
+    base_url: str, path: str, *, api_key: str | None = None,
+    api_username: str | None = None, timeout: float = 10,
+) -> dict[str, Any]:
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Api-Key"] = api_key
+        if api_username:
+            headers["Api-Username"] = api_username
+    request = Request(base_url.rstrip("/") + path, headers=headers, method="GET")
+    with urlopen(request, timeout=timeout) as response:  # noqa: S310 - configured Discourse instance
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Discourse response must be an object")
+    return payload
+
+
+def capture_discourse_topic_backfill(
+    *, db_path: str | Path, base_url: str, topic_id: int,
+    limit: int = 50, timeout_seconds: float = 10,
+    subscription_id: str | None = None,
+    api_key_env: str = "DISCOURSE_API_KEY", api_username: str | None = None,
+) -> CaptureSummary:
+    """Read one current topic snapshot and up to ``limit`` current posts.
+
+    This does not reconstruct edits, deletions, or webhook history. It never
+    sends a write request to Discourse.
+    """
+    if topic_id <= 0 or not 1 <= limit <= 100 or timeout_seconds <= 0:
+        raise ValueError("topic_id, limit, and timeout must be positive and bounded")
+    if not base_url.startswith(("https://", "http://")):
+        raise ValueError("base_url must be HTTP(S)")
+    api_key = os.environ.get(api_key_env)
+    options = {"api_key": api_key, "api_username": api_username, "timeout": timeout_seconds}
+    topic = _discourse_get(base_url, f"/t/{topic_id}.json", **options)
+    if str(topic.get("id")) != str(topic_id):
+        raise ValueError("Discourse topic response has unexpected ID")
+    stream = topic.get("post_stream", {}).get("stream")
+    if not isinstance(stream, list):
+        raise ValueError("Discourse topic response lacks post stream")
+    store = EventStore(db_path)
+    captured: list[ChatEvent] = [normalize_discourse_webhook(
+        {"topic": topic}, event_name="topic_created", instance=base_url.rstrip("/"),
+        subscription_id=subscription_id, base_url=base_url,
+        capture_mode=CaptureMode.MANUAL_BACKFILL,
+    )]
+    for post_id in stream[:limit]:
+        if not isinstance(post_id, int) or post_id <= 0:
+            raise ValueError("Discourse post stream contains invalid ID")
+        post = _discourse_get(base_url, f"/posts/{post_id}.json", **options)
+        if str(post.get("id")) != str(post_id) or str(post.get("topic_id")) != str(topic_id):
+            raise ValueError("Discourse post response has unexpected identity")
+        captured.append(normalize_discourse_webhook(
+            {"post": post, "topic": topic}, event_name="post_created",
+            instance=base_url.rstrip("/"), subscription_id=subscription_id,
+            base_url=base_url, capture_mode=CaptureMode.MANUAL_BACKFILL,
+        ))
+    receipts = [store.record_event(event) for event in captured]
+    created = sum(created for _, created in receipts)
+    return CaptureSummary(
+        source="discourse", captured=len(captured), created=created,
+        events=[stored.dedupe_key for stored, _ in receipts], database=str(store.path),
+    )
 
 
 def load_proxy_env_file(path: str | Path) -> dict[str, str]:
@@ -225,7 +300,7 @@ def _record_voice_talks(
     store = EventStore(db_path)
     if subscription_id:
         _ensure_voice_subscription(store, subscription_id)
-    captured: list[ChatEvent] = []
+    captured: list[StoredEvent] = []
     created = 0
     max_items = len(talks) if limit is None else max(0, limit)
     for talk in talks[:max_items]:
@@ -244,9 +319,9 @@ def _record_voice_talks(
             subscription_id=subscription_id,
             capture_mode=capture_mode,
         )
-        _, was_created = store.record_event(event)
+        stored, was_created = store.record_event(event)
         created += int(was_created)
-        captured.append(event)
+        captured.append(stored)
     return CaptureSummary(
         source="voice",
         captured=len(captured),
@@ -508,7 +583,7 @@ def _record_x_statuses(
     occurred_since: datetime | None = None,
 ) -> CaptureSummary:
     store = EventStore(db_path)
-    captured: list[ChatEvent] = []
+    captured: list[StoredEvent] = []
     created = 0
     for status_url in status_urls:
         payload = fetch_x_status_payload(status_url, timeout=timeout_seconds)
@@ -519,9 +594,9 @@ def _record_x_statuses(
         )
         if occurred_since is not None and event.occurred_at < occurred_since:
             continue
-        _, was_created = store.record_event(event)
+        stored, was_created = store.record_event(event)
         created += int(was_created)
-        captured.append(event)
+        captured.append(stored)
     return CaptureSummary(
         source="x",
         captured=len(captured),
@@ -745,11 +820,12 @@ def capture_zulip_once(
     timeout_seconds: float = 10,
     subscription_id: str | None = "zulip-practice",
 ) -> CaptureSummary:
-    """Capture one bounded Zulip event-queue pass and store matching messages.
+    """Capture one bounded Zulip queue lifetime and clean it up.
 
     This uses Zulip's official event queue.  If ``content`` is provided, the
     helper first sends a stream message through the official ``/messages`` API,
-    then waits for that exact message id to arrive via ``/events``.
+    then waits for that exact message id to arrive via ``/events``. Queue outages
+    lose edits/reactions; topic message cursor backfill only recovers creations.
     """
 
     env = load_env_file(env_file)
@@ -764,7 +840,9 @@ def capture_zulip_once(
         env,
         "POST",
         "/api/v1/register",
-        data={"event_types": ["message"], "apply_markdown": False},
+        data={"event_types": list(ZULIP_QUEUE_EVENT_TYPES), "apply_markdown": False,
+              "fetch_event_types": ["stream", "subscription"],
+              "client_capabilities": {"bulk_message_deletion": True}},
         timeout=timeout_seconds,
     )
     queue_id = register.get("queue_id")
@@ -773,21 +851,43 @@ def capture_zulip_once(
         raise RuntimeError("Zulip register response did not include queue_id")
 
     emitted_message_id: int | None = None
-    if content:
-        sent = _zulip_request(
-            env,
-            "POST",
-            "/api/v1/messages",
-            data={"type": "stream", "to": stream, "topic": topic, "content": content},
-            timeout=timeout_seconds,
-        )
-        emitted_message_id = int(sent["id"])
-
-    store = EventStore(db_path)
-    captured: list[ChatEvent] = []
+    captured: list[StoredEvent] = []
     created = 0
-    deadline = time.time() + timeout_seconds
+    unsupported = 0
+    scope_unknown = 0
+    control = 0
+    site = (env.get("ZULIP_SITE") or env.get("ZULIP_BASE_URL") or "").rstrip("/") or None
     try:
+        store = EventStore(db_path)
+        capture_subscription = store.get_subscription(subscription_id) if subscription_id else None
+        context_owner = capture_subscription.owner_user_id if capture_subscription else None
+        stream_names = {
+            str(item["stream_id"]): str(item["name"])
+            for item in [*(register.get("streams") or []), *(register.get("subscriptions") or [])]
+            if isinstance(item, dict) and item.get("stream_id") is not None and item.get("name")
+        }
+
+        def message_context(message_id: Any) -> ChatEvent | None:
+            if message_id is None:
+                return None
+            rows = store.query_events(filter_expr={"all": [
+                {"field": "source", "op": "eq", "value": "zulip"},
+                {"field": "instance", "op": "eq", "value": site},
+                {"field": "subject_id", "op": "eq", "value": f"message:{message_id}"},
+                {"field": "kind", "op": "in", "value": ["message.created", "message.moved", "message.edited"]},
+                {"field": "payload.stream", "op": "ne", "value": ""},
+                {"field": "payload.topic", "op": "ne", "value": ""},
+            ]}, limit=1, owner_user_id=context_owner).items
+            return rows[0].event if rows else None
+
+        if content:
+            sent = _zulip_request(
+                env, "POST", "/api/v1/messages",
+                data={"type": "stream", "to": stream, "topic": topic, "content": content},
+                timeout=timeout_seconds,
+            )
+            emitted_message_id = int(sent["id"])
+        deadline = time.time() + timeout_seconds
         while time.time() < deadline:
             poll = _zulip_request(
                 env,
@@ -796,7 +896,7 @@ def capture_zulip_once(
                 query={
                     "queue_id": queue_id,
                     "last_event_id": last_event_id,
-                    "dont_block": "false",
+                    "dont_block": True,
                 },
                 timeout=min(8, max(1, deadline - time.time())),
             )
@@ -804,23 +904,54 @@ def capture_zulip_once(
             for raw_event in events:
                 if isinstance(raw_event, dict) and "id" in raw_event:
                     last_event_id = raw_event["id"]
-                if not isinstance(raw_event, dict) or raw_event.get("type") != "message":
+                if not isinstance(raw_event, dict):
+                    unsupported += 1
                     continue
-                if not _matches_zulip_message(
-                    raw_event,
-                    stream=stream,
-                    topic=topic,
-                    message_id=emitted_message_id,
-                ):
+                event_type = raw_event.get("type")
+                if event_type in ZULIP_CONTROL_EVENT_TYPES:
+                    control += 1
                     continue
-                event = normalize_zulip_message_event(
-                    raw_event,
-                    subscription_id=subscription_id,
-                    site_url=env.get("ZULIP_SITE") or env.get("ZULIP_BASE_URL"),
-                )
-                _, was_created = store.record_event(event)
-                created += int(was_created)
-                captured.append(event)
+                context_event = message_context(raw_event.get("message_id"))
+                if event_type == "stream":
+                    for item in raw_event.get("streams") or [raw_event]:
+                        if isinstance(item, dict) and item.get("stream_id") is not None:
+                            name = item.get("name") or (item.get("value") if item.get("property") == "name" else None)
+                            if isinstance(name, str):
+                                stream_names[str(item["stream_id"])] = name
+                try:
+                    normalized = normalize_zulip_queue_event(
+                        raw_event, instance=site, queue_lifetime=str(queue_id),
+                        subscription_id=subscription_id, site_url=site,
+                        context=context_event,
+                    )
+                except (ValueError, TypeError):
+                    unsupported += 1
+                    continue
+                for event in normalized:
+                    if emitted_message_id is not None and event.subject_id != f"message:{emitted_message_id}":
+                        continue
+                    item_context = message_context(event.subject_id.removeprefix("message:")) if event.subject_type == "message" and event.subject_id else None
+                    if stream or topic:
+                        if event.subject_type not in {"message", "stream"} or (topic and event.subject_type != "message"):
+                            continue
+                        old_stream = item_context.payload.get("stream") if item_context else None
+                        old_topic = item_context.payload.get("topic") if item_context else None
+                        if event.subject_type == "stream":
+                            pairs = [(event.subject_id.removeprefix("stream:"), None)]
+                        elif event.kind == "message.moved":
+                            pairs = [(event.payload.get("stream"), event.payload.get("topic")),
+                                     (old_stream or event.payload.get("from_stream"), event.payload.get("from_topic") or old_topic)]
+                        else:
+                            pairs = [(event.payload.get("stream") or old_stream, event.payload.get("topic") or old_topic)]
+                        if not any((not stream or s) and (not topic or t) for s, t in pairs):
+                            scope_unknown += 1
+                            continue
+                        if not any((not stream or stream in {str(s), stream_names.get(str(s))}) and
+                                   (not topic or topic == t) for s, t in pairs):
+                            continue
+                    stored, was_created = store.record_event(event, required_owner=context_owner)
+                    created += int(was_created)
+                    captured.append(stored)
             if emitted_message_id is not None and captured:
                 break
             if not events:
@@ -837,6 +968,9 @@ def capture_zulip_once(
         created=created,
         events=[event.dedupe_key for event in captured],
         database=str(EventStore(db_path).path),
+        unsupported=unsupported,
+        scope_unknown=scope_unknown,
+        control=control,
     )
 
 
@@ -881,7 +1015,7 @@ def capture_zulip_subscription_once(
         limit=limit,
         timeout=timeout_seconds,
     )
-    captured: list[ChatEvent] = []
+    captured: list[StoredEvent] = []
     created = 0
     for message in messages:
         event = normalize_zulip_message_event(
@@ -891,9 +1025,11 @@ def capture_zulip_subscription_once(
             capture_mode=CaptureMode.API_CURSOR,
             acquisition="zulip-messages-api",
         )
-        _, was_created = store.record_event(event)
+        site = env.get("ZULIP_SITE") or env.get("ZULIP_BASE_URL")
+        event = event.model_copy(update={"instance": site.rstrip("/") if site else None})
+        stored, was_created = store.record_event(event)
         created += int(was_created)
-        captured.append(event)
+        captured.append(stored)
     if not captured:
         store.save_subscription(subscription.model_copy(update={"last_error": None}))
     return CaptureSummary(

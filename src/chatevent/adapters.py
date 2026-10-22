@@ -446,7 +446,8 @@ def normalize_zulip_message_event(
     sender_is_bot = message.get("sender_is_bot")
     if not isinstance(sender_is_bot, bool):
         sender_is_bot = None
-    occurred_at = _parse_datetime(message.get("timestamp") or message.get("date_sent"))
+    source_timestamp = message.get("timestamp") or message.get("date_sent")
+    occurred_at = _parse_datetime(source_timestamp) if source_timestamp is not None else utc_now()
     url = _zulip_message_url(site_url, message)
     actor_metadata: dict[str, Any] = {}
     if sender_email:
@@ -501,9 +502,161 @@ def normalize_zulip_message_event(
         metadata={
             "acquisition": acquisition,
             "content_policy": "topic-scoped-message-content",
+            "timestamp_source": "source-payload" if message.get("timestamp") or message.get("date_sent") else "capture-time",
         },
         tags=["zulip", "message"],
     )
+
+
+# Names from the official /api/get-events and /api/register-queue snapshots.
+ZULIP_QUEUE_ACTION_KINDS = {
+    "message": ("message.created",),
+    "update_message": ("message.edited", "message.moved", "message.rendered", "message.updated"),
+    "delete_message": ("message.deleted",),
+    "reaction": ("reaction.added", "reaction.removed"),
+    "stream": ("stream.created", "stream.updated", "stream.deleted"),
+    "subscription": ("subscription.added", "subscription.removed", "subscription.updated"),
+    "realm_user": ("user.added", "user.updated", "user.removed"),
+}
+ZULIP_QUEUE_EVENT_TYPES = tuple(ZULIP_QUEUE_ACTION_KINDS)
+ZULIP_CONTROL_EVENT_TYPES = {"heartbeat", "restart"}
+
+
+def normalize_zulip_queue_event(
+    raw: dict[str, Any], *, instance: str | None = None,
+    queue_lifetime: str | None = None, subscription_id: str | None = None,
+    site_url: str | None = None,
+    context: ChatEvent | None = None,
+) -> list[ChatEvent]:
+    """Expand one official Zulip queue event into immutable facts.
+
+    A queue event ID is only unique inside one queue. Creation uses the native
+    message ID; changes use queue lifetime plus queue event ID (or a canonical
+    payload fingerprint for direct fixture calls). Sparse events may inherit
+    known message context supplied by the collector.
+    """
+    event_type = raw.get("type")
+    if event_type in ZULIP_CONTROL_EVENT_TYPES:
+        return []
+    if event_type not in ZULIP_QUEUE_EVENT_TYPES:
+        raise ValueError("unsupported Zulip queue event type")
+    if event_type == "message":
+        event = normalize_zulip_message_event(raw, subscription_id=subscription_id, site_url=site_url)
+        return [event.model_copy(update={"instance": instance.rstrip("/") if instance else None})]
+
+    queue_marker = hashlib.sha256((queue_lifetime or "unscoped").encode()).hexdigest()[:12]
+    raw_fingerprint = hashlib.sha256(json.dumps(raw, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:16]
+    event_marker = _string(raw.get("id")) or raw_fingerprint
+    occurred_value = raw.get("edit_timestamp") or raw.get("timestamp") or raw.get("date")
+    occurred_at = _parse_datetime(occurred_value) if occurred_value is not None else utc_now()
+    timestamp_source = "source-payload" if occurred_value is not None else "capture-time"
+    actor_value = (raw.get("user_id") or raw.get("sender_id")) if event_type in {"reaction", "update_message"} else None
+    actor_id = f"user:{actor_value}" if actor_value is not None else None
+
+    def fact(
+        kind: str, object_type: str, object_id: str, *,
+        payload: dict[str, Any] | None = None, conversation_id: str | None = None,
+        target: CarrierTarget | None = None,
+    ) -> ChatEvent:
+        subject = f"{object_type}:{object_id}"
+        return ChatEvent(
+            id=f"queue:{queue_marker}:{event_marker}:{kind}:{subject}",
+            source="zulip", instance=instance, kind=kind,
+            occurred_at=occurred_at, capture_mode=CaptureMode.EVENT_QUEUE,
+            subscription_id=subscription_id, actor_id=actor_id,
+            subject_id=subject, subject_type=object_type,
+            conversation_id=conversation_id or (context.conversation_id if context else None),
+            target=target,
+            url=context.url if context else None,
+            cursor=event_marker, payload=payload or {}, raw_payload=raw,
+            metadata={"acquisition": "zulip-event-queue", "timestamp_source": timestamp_source},
+            tags=["zulip", object_type],
+        )
+
+    if event_type in {"update_message", "delete_message"}:
+        message_ids = raw.get("message_ids")
+        if not isinstance(message_ids, list) or not message_ids:
+            single = raw.get("message_id")
+            message_ids = [single] if single is not None else []
+        if not message_ids:
+            raise ValueError("Zulip message change lacks message IDs")
+        stream_id = _string(raw.get("new_stream_id") or raw.get("stream_id"))
+        topic = _string(raw.get("subject") or raw.get("topic") or raw.get("orig_subject"))
+        conversation = f"stream:{stream_id}/topic:{topic}" if stream_id and topic else None
+        if event_type == "delete_message":
+            return [fact("message.deleted", "message", str(item), conversation_id=conversation,
+                         payload={"topic": topic or "", "stream": stream_id or ""}) for item in message_ids]
+        moved = any(key in raw for key in ("new_stream_id", "subject")) and (
+            raw.get("new_stream_id") is not None or raw.get("subject") != raw.get("orig_subject")
+        )
+        result: list[ChatEvent] = []
+        if moved:
+            result.extend(fact("message.moved", "message", str(item), conversation_id=conversation,
+                               payload={"topic": topic or "", "stream": stream_id or "",
+                                        "from_topic": raw.get("orig_subject") or "",
+                                        "from_stream": str(raw.get("stream_id") or "")}) for item in message_ids)
+        if "content" in raw or "orig_content" in raw:
+            result.append(fact("message.edited", "message", str(raw.get("message_id") or message_ids[0]),
+                               conversation_id=conversation, payload={"content": raw.get("content") or "",
+                                                                   "topic": topic or "", "stream": stream_id or ""}))
+        if not result:
+            result.append(fact("message.rendered" if raw.get("rendering_only") else "message.updated",
+                               "message", str(raw.get("message_id") or message_ids[0]), conversation_id=conversation))
+        return result
+    if event_type == "reaction":
+        if raw.get("op") not in {"add", "remove"} or raw.get("message_id") is None:
+            raise ValueError("invalid Zulip reaction")
+        return [fact("reaction.added" if raw["op"] == "add" else "reaction.removed",
+                     "message", str(raw["message_id"]),
+                     payload={"emoji_code": raw.get("emoji_code") or "",
+                              "emoji_name": raw.get("emoji_name") or "",
+                              "reaction_type": raw.get("reaction_type") or ""})]
+    if event_type == "stream":
+        op = raw.get("op")
+        if op not in {"create", "update", "delete"}:
+            raise ValueError("unsupported Zulip stream operation")
+        objects = raw.get("streams") if op == "create" else (raw.get("stream_ids") or raw.get("streams")) if op == "delete" else [raw]
+        if not isinstance(objects, list):
+            objects = [raw]
+        result = []
+        for item in objects:
+            item = item if isinstance(item, dict) else {"stream_id": item}
+            stream_id = _string(item.get("stream_id"))
+            if not stream_id:
+                raise ValueError("Zulip stream event lacks stream ID")
+            result.append(fact({"create": "stream.created", "update": "stream.updated", "delete": "stream.deleted"}[op],
+                               "stream", stream_id, payload={"name": item.get("name") or raw.get("name") or "",
+                                                             "property": raw.get("property"), "value": raw.get("value")}))
+        return result
+    if event_type == "subscription":
+        op = raw.get("op")
+        if op not in {"add", "remove", "update"}:
+            raise ValueError("unsupported Zulip subscription operation")
+        objects = raw.get("subscriptions") or [raw]
+        if not isinstance(objects, list):
+            raise ValueError("invalid Zulip subscriptions")
+        result = []
+        for item in objects:
+            if not isinstance(item, dict):
+                raise ValueError("invalid Zulip subscription object")
+            stream_id = _string(item.get("stream_id") or item.get("id") or raw.get("stream_id"))
+            if not stream_id:
+                raise ValueError("Zulip subscription event lacks stream ID")
+            result.append(fact({"add": "subscription.added", "remove": "subscription.removed", "update": "subscription.updated"}[op],
+                               "stream", stream_id, payload={"name": item.get("name") or "",
+                                                             "property": raw.get("property"), "value": raw.get("value")}))
+        return result
+    # realm_user: person is the affected subject, not necessarily the actor.
+    op = raw.get("op")
+    if op not in {"add", "update", "remove"}:
+        raise ValueError("unsupported Zulip realm_user operation")
+    person = raw.get("person") if isinstance(raw.get("person"), dict) else raw
+    user_id = _string(person.get("user_id") or person.get("id"))
+    if not user_id:
+        raise ValueError("Zulip realm_user event lacks user ID")
+    item = fact({"add": "user.added", "update": "user.updated", "remove": "user.removed"}[op],
+                "user", user_id, payload={"name": person.get("full_name") or ""})
+    return [item.model_copy(update={"actor_id": None, "actor": None})]
 
 
 def _discourse_kind(event_name: str | None, post_number: str | None = None) -> str:
@@ -551,6 +704,7 @@ def normalize_discourse_post(
         or _string(post.get("title"))
         or "Discourse post"
     )
+
     slug = _string(post.get("topic_slug") or topic.get("slug"))
     url = _join_url(base_url, post.get("post_url") or post.get("url"))
     if url is None and base_url and topic_id and slug:
@@ -596,8 +750,136 @@ def normalize_discourse_post(
             "username": username or "",
         },
         raw_payload=raw,
-        metadata={"acquisition": acquisition},
+        metadata={"acquisition": acquisition, "timestamp_source": "source-payload"},
         tags=["discourse", "post"],
+    )
+
+
+# Event names from upstream WebHookEventType::TYPES (core families only).
+DISCOURSE_WEBHOOK_ACTIONS: dict[str, tuple[str, str]] = {
+    "post_created": ("post.created", "post"),
+    "post_edited": ("post.edited", "post"),
+    "post_destroyed": ("post.deleted", "post"),
+    "post_recovered": ("post.recovered", "post"),
+    "topic_created": ("topic.created", "topic"),
+    "topic_edited": ("topic.edited", "topic"),
+    "topic_revised": ("topic.revised", "topic"),
+    "topic_destroyed": ("topic.deleted", "topic"),
+    "topic_recovered": ("topic.recovered", "topic"),
+    "user_created": ("user.created", "user"),
+    "user_updated": ("user.updated", "user"),
+    "user_approved": ("user.approved", "user"),
+    "user_suspended": ("user.suspended", "user"),
+    "user_unsuspended": ("user.unsuspended", "user"),
+    "user_destroyed": ("user.deleted", "user"),
+    "category_created": ("category.created", "category"),
+    "category_updated": ("category.updated", "category"),
+    "category_destroyed": ("category.deleted", "category"),
+    "tag_created": ("tag.created", "tag"),
+    "tag_updated": ("tag.updated", "tag"),
+    "tag_destroyed": ("tag.deleted", "tag"),
+    "group_created": ("group.created", "group"),
+    "group_updated": ("group.updated", "group"),
+    "group_destroyed": ("group.deleted", "group"),
+    "like_created": ("like.created", "like"),
+    "notification_created": ("notification.created", "notification"),
+    "group_user_added": ("group_user.added", "group_user"),
+    "group_user_removed": ("group_user.removed", "group_user"),
+}
+
+
+def normalize_discourse_webhook(
+    raw: dict[str, Any], *, event_name: str | None = None,
+    event_type: str | None = None, instance: str | None = None,
+    subscription_id: str | None = None, base_url: str | None = None,
+    capture_mode: CaptureMode = CaptureMode.WEBHOOK,
+) -> ChatEvent:
+    """Normalize a wrapped Discourse webhook without trusting delivery-row IDs.
+
+    Retries can create fresh X-Discourse-Event-Id values. Native object identity,
+    action, source revision/time, and canonical payload fingerprint identify a
+    fact; distinct edits and restoration remain separate immutable rows.
+    """
+    name = event_name or _string(raw.get("event_name") or raw.get("discourse_event"))
+    if name is None and (event_type == "post" or "post" in raw):
+        name = "post_created"  # Legacy local wrapper compatibility.
+    if name not in DISCOURSE_WEBHOOK_ACTIONS:
+        raise ValueError("unsupported Discourse webhook event")
+    kind, object_type = DISCOURSE_WEBHOOK_ACTIONS[name]
+    if event_type and event_type != object_type:
+        raise ValueError("Discourse event type and wrapper disagree")
+    obj = raw.get(object_type)
+    if not isinstance(obj, dict):
+        # Some group-user hooks wrap membership inside the group object.
+        if object_type == "group_user" and isinstance(raw.get("group"), dict):
+            obj = raw["group"]
+        else:
+            raise ValueError("Discourse webhook lacks expected object wrapper")
+    native_id = _string(obj.get("id") or obj.get("post_id") or obj.get("topic_id") or obj.get("user_id"))
+    if object_type == "like" and obj.get("id") is None:
+        if obj.get("post_id") is None or obj.get("user_id") is None:
+            raise ValueError("Discourse like lacks stable action or actor/post identity")
+        native_id = f"{obj['post_id']}:{obj['user_id']}"
+    if object_type == "group_user":
+        group_id = _string(obj.get("group_id") or obj.get("id"))
+        nested_user = obj.get("user") if isinstance(obj.get("user"), dict) else {}
+        user_id = _string(obj.get("user_id") or nested_user.get("id"))
+        if not group_id or not user_id:
+            raise ValueError("Discourse group membership lacks identity")
+        native_id = f"{group_id}:{user_id}"
+    if not native_id:
+        raise ValueError("Discourse webhook object lacks identity")
+    if name == "post_created" and (obj.get("created_at") or obj.get("updated_at")):
+        created = normalize_discourse_post(
+            {**raw, "event_name": name}, subscription_id=subscription_id,
+            base_url=base_url, capture_mode=capture_mode,
+        )
+        return created.model_copy(update={"instance": instance.rstrip("/") if instance else None})
+
+    timestamp = (obj.get("updated_at") or obj.get("created_at") or obj.get("deleted_at")
+                 or raw.get("updated_at") or raw.get("created_at"))
+    occurred_at = _parse_datetime(timestamp) if timestamp is not None else utc_now()
+    fingerprint = hashlib.sha256(json.dumps(raw, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:20]
+    revision = _string(obj.get("version") or obj.get("revision") or timestamp) or "capture"
+    identity = (f"{object_type}:{native_id}:created" if kind.endswith(".created") and not (object_type == "like" and obj.get("id") is None) else
+                f"{object_type}:{native_id}:{kind}:{hashlib.sha256(revision.encode()).hexdigest()[:8]}:{fingerprint}")
+    explicit_actor = raw.get("actor") or raw.get("acting_user")
+    actor_id = None
+    if isinstance(explicit_actor, dict):
+        actor_value = _string(explicit_actor.get("id") or explicit_actor.get("user_id") or explicit_actor.get("username"))
+        actor_id = f"user:{actor_value}" if actor_value else None
+    elif object_type == "post" and name == "post_created":
+        username = _string(obj.get("username"))
+        actor_id = f"user:{username}" if username else None
+    topic_id = _string(obj.get("topic_id") or raw.get("topic_id"))
+    conversation = f"topic:{topic_id}" if topic_id and object_type != "topic" else None
+    url = _join_url(base_url, obj.get("url") or obj.get("post_url"))
+    if url is None and base_url and object_type in {"post", "topic"}:
+        target_topic_id = topic_id if object_type == "post" else native_id
+        slug = _string(obj.get("topic_slug") or obj.get("slug"))
+        if target_topic_id and slug:
+            suffix = f"/{obj['post_number']}" if object_type == "post" and obj.get("post_number") else ""
+            url = f"{base_url.rstrip('/')}/t/{quote(slug, safe='-._~')}/{target_topic_id}{suffix}"
+    target = CarrierTarget(type=f"discourse_{object_type}", key=native_id,
+                           display=_string(obj.get("title") or obj.get("name") or obj.get("username")),
+                           url=url,
+                           parent=CarrierTarget(type="discourse_topic", key=topic_id) if conversation else None)
+    payload = {
+        "title": _string(obj.get("title") or obj.get("name") or obj.get("topic_title")) or "",
+        "content": obj.get("raw") or obj.get("cooked") or "",
+    }
+    if topic_id:
+        payload["topic_id"] = topic_id
+    return ChatEvent(
+        id=identity, source="discourse", instance=instance, kind=kind,
+        occurred_at=occurred_at, capture_mode=capture_mode,
+        subscription_id=subscription_id, actor_id=actor_id,
+        subject_id=f"{object_type}:{native_id}", subject_type=object_type,
+        conversation_id=conversation, target=target, url=url,
+        payload=payload, raw_payload=raw,
+        metadata={"acquisition": "discourse-topic-api" if capture_mode == CaptureMode.MANUAL_BACKFILL else "discourse-webhook", "event_name": name,
+                  "timestamp_source": "source-payload" if timestamp is not None else "capture-time"},
+        tags=["discourse", object_type],
     )
 
 

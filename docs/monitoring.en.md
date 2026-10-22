@@ -1,132 +1,57 @@
-# Register Monitors
+# Register acquisition scope
 
-Registering a monitor has two layers:
+A `Subscription` describes upstream platform, target, authorized scope, and requested actions. A `SavedView` queries facts already in the ledger. Saving or enabling a subscription does not start a background collector. Platform credentials remain in operator-managed ChatEnv profiles or service secret files.
 
-1. Save a ChatEvent `Subscription` describing the platform, scope, and action kinds to observe.
-2. Configure the platform's official webhook, event queue, or bounded API cursor so real events reach ChatEvent.
+## Create a subscription
 
-## Create a ChatEvent subscription
+Provide an account API token through `CHATEVENT_ADMIN_TOKEN`. The server binds a member's `owner_user_id` to that account.
 
 ```bash
-curl -k -X POST https://event.public.wzhecnu.cn/api/subscriptions \
+curl -X POST 'https://events.example.org/api/subscriptions' \
+  -H "X-ChatEvent-Admin-Token: $CHATEVENT_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{
-    "id": "discourse-practice",
-    "source": "discourse",
-    "target": "category:agent-runs",
-    "label": "Discourse practice",
-    "event_kinds": ["topic.created", "post.created", "reply.created"],
-    "capture_modes": ["webhook", "api_cursor"],
-    "filters": {"category": "agent-runs"},
-    "labels": ["practice", "forum"]
-  }'
+  --data '{"id":"zulip-community","source":"zulip","target":"stream:community/topic:news","event_kinds":["*"],"capture_modes":["event_queue"]}'
 ```
 
-The `id` becomes the webhook URL's `subscription_id`, so each captured event can be filtered and can update subscription cursors.
-
-## Discourse webhook
-
-Discourse supports official webhooks. Configure the platform payload URL as:
-
-```text
-https://event.public.wzhecnu.cn/webhooks/discourse?subscription_id=discourse-practice
-```
-
-Recommended Discourse event types:
-
-```text
-topic_created
-post_created
-post_edited
-post_destroyed
-post_liked
-notification_created
-```
-
-The ChatEvent endpoint reads the `X-Discourse-Event` header and normalizes:
-
-- `post_created + post_number == 1` to `post.created`
-- `post_created + post_number > 1` to `reply.created`
+Members query only facts linked to subscriptions they own. Unowned historical events are admin-only. A query view cannot widen access.
 
 ## Zulip event queue
 
-Zulip should use the official event queue first:
+Configure `ZULIP_SITE`, `ZULIP_BOT_EMAIL`, and `ZULIP_BOT_API_KEY` (or compatible Actor names) in an operator-managed env file. Do not put values in docs, Git, or CLI arguments.
 
 ```bash
-uv run --extra serve chatevent capture zulip-once \
-  --env-file ~/.chatarch/envs/Zulip/.env \
-  --stream "chatevent-practice" \
-  --topic "real-loop" \
-  --subscription-id zulip-practice
+chatevent capture zulip-once --env-file ./zulip.env --subscription-id zulip-community --timeout 30
 ```
 
-Platform secrets are managed by ChatEnv profiles or service secret files; ChatEvent references them by path only and does not copy or print secrets. A long-running capture should later be supervised by a proper service/cron/watchdog; the current CLI is a bounded capture pass.
+The command registers one official queue, requests message creation, edits/moves, single/bulk deletion, reactions, stream, subscription, and realm_user events, dispatches them, then deletes the queue. Its output includes `captured`, `created`, `unsupported`, `scope_unknown`, and `control`. With `--stream`/`--topic`, sparse events without verifiable context fail closed and increment `scope_unknown`. `--content` sends a real message and is only for an explicit write exercise. Fresh queues leave potential gaps between runs. For continuous collection, use an externally supervised bounded but sufficiently long capture window; repeated short polls do not provide complete queue history.
 
-## Zulip temporary topic watch
+The existing `capture subscription-once --subscription-id zulip-community` is a topic message-ID cursor backfill for currently visible message creations. It cannot restore reaction or edit history during a queue outage or recover deleted messages.
 
-Active assignments can register short-lived topic watches:
+## Discourse webhook and read-only backfill
+
+In Discourse administration, set the hook URL to `https://events.example.org/webhooks/discourse`, select the core events in the [coverage table](platform-actions.md), and configure a webhook secret. Configure ChatEvent:
+
+```text
+CHATEVENT_DISCOURSE_WEBHOOK_SECRET_FILE=<operator-managed-secret-file>
+CHATEVENT_DISCOURSE_INSTANCE=https://forum.example.org
+CHATEVENT_DISCOURSE_SUBSCRIPTION_ID=discourse-community
+```
+
+The bound subscription must already exist with source=discourse. ChatEvent verifies `X-Discourse-Event-Signature: sha256=...` over the raw request body, reads `X-Discourse-Event` for the action name and `X-Discourse-Event-Type` for the wrapper type. It accepts `X-Discourse-Instance` for routing only when it matches the configured instance binding; an untrusted header or payload cannot set owner/instance. Without a configured signature secret, the webhook requires authorized ChatEvent API token or session credentials. Other platform webhooks also require authorized ingest credentials when authentication is configured.
+
+Read a bounded current topic/posts snapshot:
 
 ```bash
-uv run chatevent capture watch-zulip-topic \
-  --stream "voice note" \
-  --topic "assignment-123" \
-  --assignment-id assign-123 \
-  --interval-seconds 5 \
-  --ttl-seconds 3600 \
-  --reason "active assignment clarification" \
-  --subscription-id zulip-topic-assign-123
-
-uv run chatevent capture subscription-once \
-  --env-file ~/.chatarch/envs/Zulip/.env \
-  --subscription-id zulip-topic-assign-123
+chatevent capture discourse-topic-backfill --base-url https://forum.example.org --topic-id 18 --limit 50 --subscription-id discourse-community --api-key-env DISCOURSE_API_KEY --api-username api-user
 ```
 
-Watch contract:
+The caller's environment supplies `DISCOURSE_API_KEY`. The command reads `/t/{id}.json` and up to 100 `/posts/{id}.json` objects and writes only the local ChatEvent database. A snapshot is the current visible state, not historical edits, deletions, or restorations. Discourse retries can create fresh delivery-row IDs; deduplication uses action, object, revision/time, and canonical payload fingerprint rather than `X-Discourse-Event-Id` alone.
 
-- `source`: `zulip`
-- `target`: `stream:<stream>/topic:<topic>`
-- `event_kinds`: `["message.created"]`
-- `capture_modes`: `["api_cursor", "poll"]`
-- `filters`: platform scope only, currently `stream` and `topic`
-- `metadata`: `temporary`, `assignment_id`, `interval_seconds`, `expires_at`, `hot_until`, `reason`, `content_policy=topic-scoped-message-content`, and `policy_boundary`
-
-`subscription-once` reads Zulip `/messages` with a stream/topic narrow and uses the latest captured message id as `last_cursor`. ChatEvent captures topic-scoped message content plus sender identity fields; ChatAssign or another consumer must filter Rex/user/bot/self policy after reading normalized events.
-
-## Gitea webhook
-
-Gitea repository/org webhook payload URL:
-
-```text
-https://event.public.wzhecnu.cn/webhooks/gitea?subscription_id=gitea-practice
-```
-
-The current normalizer supports issue payloads and the first action catalog. Recommended events:
-
-```text
-push
-issues
-issue_comment
-pull_request
-release
-```
-
-## GitHub webhook
-
-GitHub repository webhook payload URL:
-
-```text
-https://event.public.wzhecnu.cn/webhooks/github?subscription_id=github-chatevent
-```
-
-GitHub sends the event name through `X-GitHub-Event`. ChatEvent acknowledges `ping` without writing it to the event stream; `push` normalizes to `commit.pushed`.
-
-## Acceptance checks
-
-After registering a monitor, verify with:
+Check captured facts:
 
 ```bash
-curl -k https://event.public.wzhecnu.cn/api/stats
-curl -k 'https://event.public.wzhecnu.cn/api/events?source=discourse&days=7&limit=20'
+chatevent api stats
+chatevent api query --source discourse --sort desc --limit 50
 ```
 
-Or open the Observatory, wait up to 5 seconds for automatic refresh, or click **Refresh** manually. The top Event Stream filter keeps only source and time dropdowns; action kinds, subscriptions/channels, keyword search, and custom captured-at ranges live under **Advanced options**, with action-kind multi-select bound to the selected source.
+Voice remains metadata-only. The platform action catalog is a capability directory, not proof that a collector is running. See [Filtering and Views](filtering.md) for query details.

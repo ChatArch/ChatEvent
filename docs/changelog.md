@@ -1,5 +1,9 @@
 # 发行说明
 
+## 0.3.0
+
+- 社区多动作采集、结构化查询、游标分页、保存视图和事件权限边界；详见[过滤与视图](filtering.md)与[平台动作覆盖](platform-actions.md)。
+
 ## 0.2.5
 
 - Web 登录接入 ChatLogin 共享核心，保留 EventStore 用户、角色、启用状态、API token 和既有 PBKDF2 字符串格式。

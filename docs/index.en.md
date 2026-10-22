@@ -1,70 +1,41 @@
 # ChatEvent
 
-ChatEvent is ChatArch's collaboration-event observability layer. It captures official events from Zulip, Discourse, Gitea, and GitHub, normalizes them into a Pydantic `ChatEvent`, stores them in SQLite, and exposes a Web Observatory for inspection and debugging.
+ChatEvent captures actions from authorized communities, stores normalized events, and exposes them through the Web Observatory, CLI, and API. **Acquisition settings choose what to collect; saved views choose what to read. The Agent framework decides how to act.**
 
 ```text
-official platform event / webhook / API cursor
-  → ChatEvent normalizer
-  → SQLite event store
-  → Observatory / API
+Platform webhook / event queue / API snapshot → ChatEvent → SQLite → server query / Observatory
 ```
 
 <div class="grid cards" markdown>
 
-- **Run the Observatory**
+- **Connect a community**
 
-  Start `chatevent serve`, open the browser UI, and inspect stats, subscriptions, event rows, and raw payloads.
+    Configure Zulip's official event queue, signed Discourse webhooks, or read-only topic backfill.
 
-  [Quick start](quickstart.md)
+    [Acquisition setup](monitoring.md) · [Action coverage](platform-actions.md)
 
-- **Register monitors**
+- **Filter relevant facts**
 
-  Create subscriptions for Discourse category/topic, Zulip stream/topic, and Gitea/GitHub repositories; connect platform webhooks or event queues to ChatEvent.
+    Combine source, action, actor, target, tags, and time; filter before pagination and save reusable views.
 
-  [Register monitors](monitoring.md)
+    [Filtering and views](filtering.md)
 
-- **Review action catalog**
+- **Read from tools and Agents**
 
-  ChatEvent treats supported platform actions as first-class entries instead of overloading arbitrary `tag` values.
+    Python, REST, and CLI share query semantics. Resume new facts with stable sequence cursors.
 
-  [Platforms and events](platform-actions.md)
+    [Quick start](quickstart.md) · [API reference](reference.md)
 
-- **Use API / CLI**
+- **Discover the interfaces**
 
-  Write and query events through HTTP; use `chatevent api ...` as the CLI counterpart to the REST API.
+    Inspect actual command and interface trees plus implementation status, rather than inferring capture support from a platform catalog.
 
-  [Reference](reference.md)
-
-- **Confirm default paths**
-
-  Runtime state is managed under ChatEnv/ChatArch home as `<chatarch-home>/chatevent/`; verify with `chatevent paths --json`.
-
-  [Quick start](quickstart.md)
+    [CLI tree](cli-tree.md) · [Interface tree](interface-tree.md) · [Changelog](changelog.md)
 
 </div>
 
-## Current boundary
+## Runtime and boundaries
 
-- ChatEvent only **captures, normalizes, deduplicates, stores, and observes** events.
-- It does not execute agents, create tasks, or make routing decisions in the current scope.
-- Platform REST APIs are used only for object completion after official events, bounded cursor reconciliation, and acceptance readback; ChatEvent itself exposes a standard REST API for downstream event write, query, and checkpoint consumption.
-- Default install/runtime state, the SQLite ledger, and the optional admin-token file live under the `chatevent/` directory inside ChatEnv/ChatArch home.
-- It does not scan whole sites, all messages, complete forum history, or full repository history.
+The default database is `<chatarch-home>/chatevent/events.db` under ChatEnv, compatible with `$CHATARCH_HOME/chatevent/events.db` and `~/.chatarch/chatevent/events.db`. Use `chatevent paths --json` for the effective paths and `chatevent --tree` for the actual commands.
 
-## Event semantics
-
-- `source`: platform id such as `zulip`, `discourse`, `gitea`, or `github`.
-- `target`: display/compatibility subscription scope such as stream/topic, category/topic, or repo/org.
-- `scope`: structured carrier target chain such as repo → pull request or stream → topic.
-- `kind` / `action`: business action such as `message.created`, `reply.created`, or `issue.opened`.
-- `capture_mode`: acquisition mechanism such as `webhook`, `event_queue`, or `api_cursor`.
-- `tags`: optional filtering/routing labels; they do not define the event action.
-
-## Current demo endpoint
-
-The current server demo is exposed at:
-
-- https://event.public.wzhecnu.cn/
-- https://event.local.wzhecnu.cn/
-
-Add authentication, signature verification, and supervised service management before treating the demo as production. The service itself binds to loopback and is exposed through nginx.
+ChatEvent does not run Agents, dispatch wakeups, assign tasks, or provide a generic posting gateway. Saving a subscription does not start a collector. Platform `capture_status` distinguishes implemented actions from catalog-only entries. Capture is bounded by the configured principal's platform permissions; query filters cannot widen access. Voice capture remains metadata-only.

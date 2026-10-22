@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
+from hashlib import sha256
 from typing import Literal
 
 from pydantic import (
@@ -238,6 +239,7 @@ class ChatEvent(BaseModel):
     schema_version: Literal["1.0"] = "1.0"
     id: str = Field(min_length=1)
     source: str = Field(min_length=1)
+    instance: str | None = None
     kind: str = Field(min_length=1)
     occurred_at: AwareDatetime
     captured_at: AwareDatetime = Field(default_factory=utc_now)
@@ -264,6 +266,16 @@ class ChatEvent(BaseModel):
         value = value.strip()
         if not value:
             raise ValueError("must not be empty")
+        return value
+
+    @field_validator("instance")
+    @classmethod
+    def normalize_instance(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip().rstrip("/")
+        if not value:
+            raise ValueError("instance must not be empty")
         return value
 
     @field_validator("occurred_at", "captured_at")
@@ -313,6 +325,9 @@ class ChatEvent(BaseModel):
     def dedupe_key(self) -> str:
         """Return the default stable key used to suppress duplicate delivery."""
 
+        if self.instance:
+            namespace = sha256(self.instance.encode("utf-8")).hexdigest()[:16]
+            return f"{self.source}:instance:{namespace}:{self.id}"
         return f"{self.source}:{self.id}"
 
     def to_dict(self) -> dict[str, JsonValue]:

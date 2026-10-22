@@ -133,6 +133,9 @@ DASHBOARD_HTML = r"""<!doctype html>
     .check-chip input { margin: 0; accent-color: var(--accent); }
     .advanced-note { color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, monospace; }
     .control { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; padding: 0 11px; color: var(--text); background: var(--control-bg); outline: none; }
+    textarea.control { height: 110px; padding: 10px 11px; font: 11px/1.5 ui-monospace, SFMono-Regular, monospace; }
+    .query-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+    .query-actions select { max-width: 260px; }
     .control:focus { border-color: rgba(185,255,102,.55); box-shadow: 0 0 0 3px rgba(185,255,102,.08); }
     .event-head, .event-row { display: grid; grid-template-columns: 112px minmax(160px, .9fr) minmax(170px, .9fr) minmax(180px, 1.1fr) 145px 72px; gap: 14px; align-items: center; }
     .event-head { padding: 10px 15px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid var(--line); }
@@ -251,7 +254,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <button class="button" id="advancedFiltersToggle" type="button" aria-expanded="false" aria-controls="advancedFilters">高级选项 <span id="advancedFilterCount" class="tab-count">0</span></button>
         </div>
         <div class="advanced-filters" id="advancedFilters" hidden>
-          <label>关键词搜索<input class="control" id="search" placeholder="payload、actor、conversation…" /></label>
+          <label>标题 / 正文搜索<input class="control" id="search" placeholder="包含的文字" /></label>
           <div class="filter-group">
             <div class="filter-title">事件类型（随来源联动，可多选）</div>
             <div class="checkbox-grid" id="kindCheckboxes"></div>
@@ -263,14 +266,23 @@ DASHBOARD_HTML = r"""<!doctype html>
           </div>
           <label>开始时间<input class="control" id="fromFilter" type="datetime-local" title="开始时间" /></label>
           <label>结束时间<input class="control" id="toFilter" type="datetime-local" title="结束时间" /></label>
+          <label class="wide">高级条件组 JSON（all / any / not）<textarea class="control" id="advancedFilterJson" spellcheck="false" placeholder='{"all":[{"field":"source","op":"eq","value":"zulip"},{"not":{"field":"actor.role","op":"eq","value":"bot"}}]}'></textarea></label>
+        </div>
+        <div class="query-actions">
+          <select class="control" id="savedViews"><option value="">选择保存的视图</option></select>
+          <button class="button" type="button" id="loadView">加载视图</button>
+          <button class="button" type="button" id="saveView">保存当前条件</button>
+          <button class="button danger" type="button" id="deleteView">删除视图</button>
+          <span class="advanced-note" id="queryStatus">按条件在服务端查询全部已授权事件；每页 50 条。</span>
         </div>
         <div class="event-head"><span>Source</span><span>Kind</span><span>Target</span><span>Summary</span><span>Captured</span><span>Seen</span></div>
         <div class="event-list" id="events"></div>
+        <div class="query-actions"><button class="button" id="previousPage" type="button">上一页</button><button class="button" id="nextPage" type="button">下一页</button><span class="advanced-note" id="pageStatus">第 1 页</span></div>
       </section>
 
       <section class="panel tab-panel" id="subscriptionsPanel" role="tabpanel" aria-labelledby="subscriptionsTab" hidden>
         <div class="panel-head">
-          <div><h2>Subscriptions</h2><span>当前关注对象</span></div>
+          <div><h2>Subscriptions</h2><span>采集配置；保存或启用不代表采集器正在运行</span></div>
           <div class="subscription-actions">
             <span class="chip" id="sessionStatus">未登录</span>
             <button class="button" id="adminToken" type="button">账号 / API Token</button>
@@ -295,6 +307,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       <h2 id="detailTitle"></h2>
       <div class="chips" id="detailChips"></div>
       <div class="detail-grid" id="detailFields"></div>
+      <a id="originalUrl" class="icon-link" target="_blank" rel="noopener noreferrer" hidden>打开原始事件</a>
       <div class="json-title"><strong>Normalized payload</strong></div><pre id="normalizedJson"></pre>
       <div class="json-title"><strong>Raw payload</strong><button class="button" id="copyRaw">复制 JSON</button></div><pre id="rawJson"></pre>
     </aside>
@@ -366,7 +379,7 @@ DASHBOARD_HTML = r"""<!doctype html>
   </dialog>
 
   <script>
-    const state = { events: [], subscriptions: [], stats: {}, platforms: [], detail: null, editingSubscription: null, selectedKinds: new Set(), selectedSubscriptions: new Set(), csrf: "" };
+    const state = { events: [], subscriptions: [], stats: {}, platforms: [], views: [], detail: null, editingSubscription: null, selectedKinds: new Set(), selectedSubscriptions: new Set(), csrf: "", pageCursor: null, previousCursors: [], nextCursor: null, hasMore: false, querySort: "desc", timeAnchor: Date.now() };
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
     const formatTime = (value) => value ? new Intl.DateTimeFormat("zh-CN", {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit"}).format(new Date(value)) : "—";
@@ -542,7 +555,8 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     function summary(event) {
       const payload = event.payload || {};
-      return payload.title || payload.subject || payload.content || payload.message || event.conversation_id || event.subject_id || event.id;
+      const text = payload.title || payload.subject || payload.content || payload.message || event.conversation_id || event.subject_id || event.id;
+      return `${event.actor?.display || event.actor_id || "unknown actor"} · ${text}`;
     }
 
     function renderStats(stats) {
@@ -596,7 +610,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     function updateAdvancedCount() {
-      const count = state.selectedKinds.size + state.selectedSubscriptions.size + ($("search").value.trim() ? 1 : 0) + ($("fromFilter").value ? 1 : 0) + ($("toFilter").value ? 1 : 0);
+      const count = state.selectedKinds.size + state.selectedSubscriptions.size + ($("search").value.trim() ? 1 : 0) + ($("fromFilter").value ? 1 : 0) + ($("toFilter").value ? 1 : 0) + ($("advancedFilterJson").value.trim() ? 1 : 0);
       $("advancedFilterCount").textContent = String(count);
     }
 
@@ -609,17 +623,31 @@ DASHBOARD_HTML = r"""<!doctype html>
       renderCheckboxes("kindCheckboxes", kinds, state.selectedKinds, "kindOption", "当前来源还没有可选 action。/api/platforms 会补全目录。 ");
       renderCheckboxes("subscriptionCheckboxes", subscriptionIds, state.selectedSubscriptions, "subscriptionOption", "当前来源还没有订阅。 ");
       const sourceText = selectedSource() || "全部来源";
-      $("kindFilterHint").textContent = `事件类型来自 ${sourceText} 的 platform action catalog；多选时在前端二次过滤。`;
+      $("kindFilterHint").textContent = `事件类型来自 ${sourceText} 的目录与已采集事实；条件在服务端分页前执行。`;
       updateAdvancedCount();
     }
 
-    function applyAdvancedEventFilters(items) {
-      return items.filter(item => {
-        const event = item.event;
-        if (state.selectedKinds.size && !state.selectedKinds.has(event.kind)) return false;
-        if (state.selectedSubscriptions.size && !state.selectedSubscriptions.has(event.subscription_id || "")) return false;
-        return true;
-      });
+    function currentFilter() {
+      const conditions = [];
+      const leaf = (field, op, value) => conditions.push({field, op, value});
+      if ($("sourceFilter").value) leaf("source", "eq", $("sourceFilter").value);
+      if (state.selectedKinds.size) leaf("kind", "in", [...state.selectedKinds]);
+      if (state.selectedSubscriptions.size) leaf("subscription_id", "in", [...state.selectedSubscriptions]);
+      if ($("timeFilter").value) leaf("captured_at", "gte", new Date(state.timeAnchor - Number($("timeFilter").value) * 86400000).toISOString());
+      if ($("fromFilter").value) leaf("captured_at", "gte", localDateTimeToIso($("fromFilter").value));
+      if ($("toFilter").value) leaf("captured_at", "lte", localDateTimeToIso($("toFilter").value));
+      if ($("search").value.trim()) conditions.push({any: ["payload.title", "payload.content", "payload.text"].map(field => ({field, op:"contains", value:$("search").value.trim()}))});
+      if ($("advancedFilterJson").value.trim()) conditions.push(JSON.parse($("advancedFilterJson").value));
+      return conditions.length > 1 ? {all:conditions} : conditions[0] || null;
+    }
+
+    function resetPage() { state.pageCursor = null; state.previousCursors = []; state.timeAnchor = Date.now(); }
+
+    function renderViews(views) {
+      state.views = views;
+      const select = $("savedViews"); const selected = select.value;
+      select.innerHTML = `<option value="">选择保存的视图</option>` + views.map(view => `<option value="${escapeHtml(view.id)}">${escapeHtml(view.name)}</option>`).join("");
+      select.value = views.some(view => view.id === selected) ? selected : "";
     }
 
     function renderSubscriptions(items) {
@@ -691,10 +719,11 @@ DASHBOARD_HTML = r"""<!doctype html>
       $("platformActionTitle").textContent = `${platform.display_name} · ${action.kind}`;
       const modes = action.acquisition_modes || [];
       const webhookEvents = action.webhook_events?.length ? action.webhook_events.join(", ") : "—";
-      const apiMeaning = `${action.description} 捕获后会规范化为 kind=${action.kind}，target 通常挂在 ${(action.target_types || []).join(" / ") || action.object_type} 上；api_cursor 模式只用于官方 API 增量补偿或对象补全。`;
+      const apiMeaning = `${action.description} 这是平台能力目录；具体采集覆盖以连接器和事件记录为准。`;
       $("platformActionFields").innerHTML = [
         field("平台", `${platform.display_name} (${platform.id})`),
         field("Action kind", action.kind),
+        field("捕获实现", action.capture_status === "implemented" ? "已实现" : action.capture_status === "catalog_only" ? "仅平台目录，尚未实现" : "独立平台适配，需核对"),
         field("对象 / 动词", `${action.object_type} · ${action.action}`),
         field("Target types", (action.target_types || []).join(" → ")),
         field("捕获方式", modes.join(", ")),
@@ -752,6 +781,9 @@ DASHBOARD_HTML = r"""<!doctype html>
         field("Cursor", event.cursor),
         field("URL", event.url),
       ].join("");
+      const link = $("originalUrl");
+      try { const url = new URL(event.url); link.hidden = !["https:", "http:"].includes(url.protocol); if (!link.hidden) link.href = url.href; }
+      catch (_error) { link.hidden = true; link.removeAttribute("href"); }
       $("normalizedJson").textContent = JSON.stringify(event.payload || {}, null, 2);
       $("rawJson").textContent = JSON.stringify(event.raw_payload ?? {}, null, 2);
       $("detail").classList.add("open"); $("detail").setAttribute("aria-hidden", "false");
@@ -845,26 +877,30 @@ DASHBOARD_HTML = r"""<!doctype html>
     async function loadAll() {
       try {
         const params = new URLSearchParams();
-        if ($("sourceFilter").value) params.set("source", $("sourceFilter").value);
-        if (state.selectedKinds.size === 1) params.set("kind", Array.from(state.selectedKinds)[0]);
-        if (state.selectedSubscriptions.size === 1) params.set("subscription_id", Array.from(state.selectedSubscriptions)[0]);
-        if ($("timeFilter").value) params.set("days", $("timeFilter").value);
-        if ($("fromFilter").value) params.set("from", localDateTimeToIso($("fromFilter").value));
-        if ($("toFilter").value) params.set("to", localDateTimeToIso($("toFilter").value));
-        if ($("search").value.trim()) params.set("q", $("search").value.trim());
-        const [stats, subscriptions, events, platforms, session] = await Promise.all([
+        const filter = currentFilter();
+        if (filter) params.set("filter", JSON.stringify(filter));
+        params.set("sort", state.querySort); params.set("limit", "50");
+        if (state.pageCursor) params.set("cursor", state.pageCursor);
+        const [stats, subscriptions, events, platforms, session, views] = await Promise.all([
           api("/api/stats"),
           api("/api/subscriptions", {headers: adminAuthHeaders()}),
-          api(`/api/events?${params}`),
+          api(`/api/query?${params}`),
           api("/api/platforms"),
           api("/api/session", {headers: adminAuthHeaders()}),
+          api("/api/views"),
         ]);
         state.stats = stats;
+        state.nextCursor = events.next_cursor; state.hasMore = events.has_more;
         renderSessionStatus(session);
-        renderStats(stats); renderSubscriptions(subscriptions); renderPlatforms(platforms.items); renderAdvancedFilters(); renderEvents(applyAdvancedEventFilters(events.items));
+        renderStats(stats); renderSubscriptions(subscriptions); renderPlatforms(platforms.items); renderAdvancedFilters(); renderViews(views); renderEvents(events.items);
+        $("previousPage").disabled = state.previousCursors.length === 0;
+        $("nextPage").disabled = !state.hasMore;
+        $("pageStatus").textContent = `第 ${state.previousCursors.length + 1} 页`;
+        $("queryStatus").textContent = `服务端匹配 · ${state.querySort === "asc" ? "升序" : "降序"} · 本页 ${events.count} 条`;
         $("liveStatus").textContent = `本地事件流 · ${formatTime(stats.latest_captured_at)}`;
       } catch (error) {
         $("liveStatus").textContent = `连接失败 · ${error.message}`;
+        $("queryStatus").textContent = error.message;
       }
     }
 
@@ -876,13 +912,14 @@ DASHBOARD_HTML = r"""<!doctype html>
         renderSessionStatus(session);
       } catch (_error) {}
     }
-    const debouncedLoad = () => { clearTimeout(debounce); debounce = setTimeout(loadAll, 260); };
+    const debouncedLoad = () => { resetPage(); clearTimeout(debounce); debounce = setTimeout(loadAll, 260); };
     document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => activateTab(tab.dataset.tabTarget)));
     $("search").addEventListener("input", () => { updateAdvancedCount(); debouncedLoad(); });
-    $("sourceFilter").addEventListener("change", () => { state.selectedKinds.clear(); state.selectedSubscriptions.clear(); loadAll(); });
-    $("timeFilter").addEventListener("change", loadAll);
-    $("fromFilter").addEventListener("change", () => { updateAdvancedCount(); loadAll(); });
-    $("toFilter").addEventListener("change", () => { updateAdvancedCount(); loadAll(); });
+    $("sourceFilter").addEventListener("change", () => { state.selectedKinds.clear(); state.selectedSubscriptions.clear(); resetPage(); loadAll(); });
+    $("timeFilter").addEventListener("change", () => { resetPage(); loadAll(); });
+    $("fromFilter").addEventListener("change", () => { updateAdvancedCount(); resetPage(); loadAll(); });
+    $("toFilter").addEventListener("change", () => { updateAdvancedCount(); resetPage(); loadAll(); });
+    $("advancedFilterJson").addEventListener("input", debouncedLoad);
     $("advancedFiltersToggle").addEventListener("click", () => {
       const panel = $("advancedFilters");
       const next = panel.hidden;
@@ -893,13 +930,35 @@ DASHBOARD_HTML = r"""<!doctype html>
       const input = event.target;
       if (!input || input.name !== "kindOption") return;
       input.checked ? state.selectedKinds.add(input.value) : state.selectedKinds.delete(input.value);
-      updateAdvancedCount(); loadAll();
+      updateAdvancedCount(); resetPage(); loadAll();
     });
     $("subscriptionCheckboxes").addEventListener("change", event => {
       const input = event.target;
       if (!input || input.name !== "subscriptionOption") return;
       input.checked ? state.selectedSubscriptions.add(input.value) : state.selectedSubscriptions.delete(input.value);
-      updateAdvancedCount(); loadAll();
+      updateAdvancedCount(); resetPage(); loadAll();
+    });
+    $("nextPage").addEventListener("click", () => { if (!state.hasMore || !state.nextCursor) return; state.previousCursors.push(state.pageCursor); state.pageCursor = state.nextCursor; loadAll(); });
+    $("previousPage").addEventListener("click", () => { if (!state.previousCursors.length) return; state.pageCursor = state.previousCursors.pop(); loadAll(); });
+    $("loadView").addEventListener("click", async () => {
+      const id = $("savedViews").value; if (!id) return;
+      try {
+        const view = await api(`/api/views/${encodeURIComponent(id)}`);
+        state.querySort = view.sort;
+        $("advancedFilterJson").value = view.filter ? JSON.stringify(view.filter, null, 2) : "";
+        $("sourceFilter").value = ""; $("timeFilter").value = ""; $("fromFilter").value = ""; $("toFilter").value = ""; $("search").value = "";
+        state.selectedKinds.clear(); state.selectedSubscriptions.clear(); resetPage(); await loadAll();
+      } catch (error) { $("queryStatus").textContent = error.message; }
+    });
+    $("saveView").addEventListener("click", async () => {
+      const name = window.prompt("视图名称"); if (!name) return;
+      try { await adminApi("/api/views", {method:"POST", body:JSON.stringify({name, filter:currentFilter(), sort:state.querySort})}); await loadAll(); }
+      catch (error) { $("queryStatus").textContent = error.message; }
+    });
+    $("deleteView").addEventListener("click", async () => {
+      const id = $("savedViews").value; if (!id) return;
+      try { await adminApi(`/api/views/${encodeURIComponent(id)}`, {method:"DELETE"}); await loadAll(); }
+      catch (error) { $("queryStatus").textContent = error.message; }
     });
     $("themeToggle").addEventListener("click", toggleTheme);
     $("refresh").addEventListener("click", loadAll);

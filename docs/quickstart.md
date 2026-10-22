@@ -1,105 +1,38 @@
 # 快速开始
 
-## 安装开发环境
+ChatEvent 负责捕获、规范化、保存和查询社区事实。Agent 的唤醒、运行、调度和任务分配由 Agent 框架决定。
+
+## 安装
+
+在源码检出目录：
 
 ```bash
-uv sync --extra serve --extra test --extra docs
-uv run chatevent --tree
-uv run chatevent --tree-brief
+python -m pip install -e '.[serve]'
+chatevent --tree
+chatevent --tree-brief
+chatevent paths --json
+chatevent serve --host 127.0.0.1 --port 8765
 ```
 
-如果只运行 API/UI，至少安装 `serve` extra：
+打开 `http://127.0.0.1:8765/`。默认数据库由 ChatEnv 管理，兼容 `$CHATARCH_HOME/chatevent/events.db` 和 `~/.chatarch/chatevent/events.db`；可用 `CHATEVENT_DB` 覆盖。默认路径存在旧库时会按既有兼容逻辑迁移，事件序号表再对旧事件做加法迁移。
+
+## 账号和凭据
+
+设置 `CHATEVENT_BOOTSTRAP_USERNAME` 与 `CHATEVENT_BOOTSTRAP_PASSWORD_FILE` 初始化管理员，在网页用账号密码登录，再生成 API token。CLI 使用 `CHATEVENT_ADMIN_TOKEN` 环境变量，或 `--username` 与 `--password-file`。配置值应由 ChatEnv profile 或服务 secret 文件提供，示例不包含实际值。未配置账号和管理员 token 时保留本地开发匿名模式；只应绑定可信本地接口。
+
+## 第一个查询
+
+先通过[注册监控](monitoring.md)连接平台，或者用已授权的规范化事件写入接口。保存订阅本身不会开始采集。查询所有已授权事件：
 
 ```bash
-uv sync --extra serve
+chatevent api query --sort desc --limit 50
+chatevent api query --source zulip --kind message.created --sort asc --limit 50
 ```
 
-## 启动 Observatory
+`next_cursor` 用于下一页和增量续读。`GET /api/events` 为旧客户端保留，但其 `next_since` 不是无损 checkpoint。Observatory 的多选与 JSON 条件组均在服务端分页前执行。[过滤与视图](filtering.md)提供 curl、Python 和保存视图示例；[接口参考](reference.md)列出入口。
 
-```bash
-uv run --extra serve chatevent serve \
-  --host 127.0.0.1 \
-  --port 8765
-```
+Voice 路径只保存元数据，不保存摘要或转写正文。
 
-打开：
+## 从旧版本升级
 
-```text
-http://127.0.0.1:8765/
-```
-
-当前服务器 demo 的实际入口：
-
-```text
-https://event.public.wzhecnu.cn/
-https://event.local.wzhecnu.cn/
-```
-
-
-## 确认默认目录
-
-默认不需要传 `--db`。ChatEvent 会通过 ChatEnv 解析 ChatArch home，并把运行态放到该 home 的 `chatevent/` 目录下：
-
-```text
-<chatarch-home>/chatevent/events.db
-# 默认通常是 ~/.chatarch/chatevent/events.db
-```
-
-用 `paths` 回读实际位置：
-
-```bash
-uv run chatevent paths --json
-```
-
-如果旧版 `~/.chatevent/events.db` 存在，且新的 ChatArch 内部数据库还不存在，第一次默认启动会复制旧库到 `~/.chatarch/chatevent/events.db`，但不会删除旧文件。
-
-## 页面刷新机制
-
-Observatory 当前是前端轮询，不是 WebSocket/SSE。
-
-- 页面加载后立即执行一次 `loadAll()`。
-- 之后每 **5 秒** 自动刷新一次。
-- 点击页面右侧事件流标题旁的 **刷新** 按钮，会立即手动刷新。
-- 搜索框输入会做约 **260ms debounce** 后刷新。
-- 来源筛选、事件类型筛选变化后会立即刷新。
-
-每次刷新会并行请求：
-
-```text
-GET /api/stats
-GET /api/subscriptions
-GET /api/events?...filters
-GET /api/platforms
-```
-
-所以“平台动作发生 → Observatory 看到”的延迟由两段组成：
-
-1. 平台把官方事件送到 ChatEvent 的时间：webhook 通常是秒级；Zulip event queue 取决于 capture pass 的轮询或运行方式；API cursor 取决于配置的增量任务频率。
-2. 前端下一次 5 秒轮询的时间；手动点刷新可立即查看。
-
-## 写入一条事件
-
-```bash
-uv run chatevent record-json event.json
-```
-
-事件最小字段：
-
-```json
-{
-  "id": "issue:owner/repo:42",
-  "source": "gitea",
-  "kind": "issue.opened",
-  "occurred_at": "2026-08-18T12:00:00Z",
-  "capture_mode": "webhook"
-}
-```
-
-## 查看平台 action 目录
-
-```bash
-uv run chatevent platforms
-uv run chatevent platforms --json
-```
-
-这些 action 也会出现在 Observatory 左侧的 **Platform actions** 区块里。
+升级前暂停采集器并对 SQLite 做一致性备份。0.3.0 加法迁移序号、视图、订阅身份和事件归属数据，不重写旧事件正文或旧去重键；旧事件的归属只在迁移时根据现有订阅快照确定，无法确认归属的事件仅管理员可读。随后将服务和所有采集进程升级到同一版本，再恢复采集；不要让旧版本写入器绕过新的权限约束。

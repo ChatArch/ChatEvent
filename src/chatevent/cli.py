@@ -163,6 +163,18 @@ def _build_tree_command() -> click.Group:
     api.add_command(
         _command("event", "GET /api/events/{dedupe_key}.", api_params([_argument("DEDUPE_KEY")]))
     )
+    api.add_command(_command("query", "GET /api/query with stable cursor paging.", api_params([
+        _option("--filter-file", metavar="FILE"), _option("--filter-json", metavar="JSON"),
+        _option("--view-id", metavar="ID"), _option("--source", metavar="SOURCE"),
+        _option("--kind", metavar="KIND"), _option("--subscription-id", metavar="ID"),
+        _option("--sort", metavar="asc|desc"), _option("--cursor", metavar="CURSOR"),
+        _option("--limit", metavar="N"),
+    ])))
+    api.add_command(_command("views", "GET /api/views.", api_params()))
+    api.add_command(_command("view", "GET /api/views/{id}.", api_params([_argument("ID")])))
+    api.add_command(_command("save-view", "POST /api/views.", api_params([_argument("FILE")])))
+    api.add_command(_command("update-view", "PUT /api/views/{id}.", api_params([_argument("ID"), _argument("FILE")])))
+    api.add_command(_command("delete-view", "DELETE /api/views/{id}.", api_params([_argument("ID")])))
     api.add_command(
         _command("record-json", "POST /api/events.", api_params([_argument("FILE")]))
     )
@@ -226,6 +238,12 @@ def _build_tree_command() -> click.Group:
             ],
         )
     )
+    capture.add_command(_command("discourse-topic-backfill", "Read a bounded current Discourse topic/posts snapshot.", [
+        _option("--db", metavar="DB"), _option("--base-url", metavar="URL"),
+        _option("--topic-id", metavar="ID"), _option("--limit", metavar="N"),
+        _option("--timeout", metavar="SECONDS"), _option("--subscription-id", metavar="ID"),
+        _option("--api-key-env", metavar="ENV"), _option("--api-username", metavar="USERNAME"),
+    ]))
     capture.add_command(
         _command(
             "watch-zulip-topic",
@@ -449,6 +467,27 @@ def build_parser() -> argparse.ArgumentParser:
     api_events.add_argument("--to", default=None, help="captured-at range end")
     api_events.add_argument("--limit", type=int, default=100)
 
+    api_query = api_subparsers.add_parser("query", parents=[api_common], help="GET /api/query")
+    api_query.add_argument("--filter-file", type=Path)
+    api_query.add_argument("--filter-json")
+    api_query.add_argument("--view-id")
+    api_query.add_argument("--source")
+    api_query.add_argument("--kind")
+    api_query.add_argument("--subscription-id")
+    api_query.add_argument("--sort", choices=("asc", "desc"))
+    api_query.add_argument("--cursor")
+    api_query.add_argument("--limit", type=int, default=100)
+    api_subparsers.add_parser("views", parents=[api_common], help="GET /api/views")
+    api_view = api_subparsers.add_parser("view", parents=[api_common], help="GET /api/views/{id}")
+    api_view.add_argument("id")
+    api_save_view = api_subparsers.add_parser("save-view", parents=[api_common], help="POST /api/views")
+    api_save_view.add_argument("file", type=Path)
+    api_update_view = api_subparsers.add_parser("update-view", parents=[api_common], help="PUT /api/views/{id}")
+    api_update_view.add_argument("id")
+    api_update_view.add_argument("file", type=Path)
+    api_delete_view = api_subparsers.add_parser("delete-view", parents=[api_common], help="DELETE /api/views/{id}")
+    api_delete_view.add_argument("id")
+
     api_event = api_subparsers.add_parser(
         "event", parents=[api_common], help="GET /api/events/{dedupe_key}"
     )
@@ -550,6 +589,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     zulip.add_argument("--timeout", type=float, default=10.0)
     zulip.add_argument("--subscription-id", default="zulip-practice")
+
+    discourse_backfill = capture_subparsers.add_parser(
+        "discourse-topic-backfill", help="read bounded current Discourse topic and posts snapshot"
+    )
+    discourse_backfill.add_argument("--db", type=Path)
+    discourse_backfill.add_argument("--base-url", required=True)
+    discourse_backfill.add_argument("--topic-id", type=int, required=True)
+    discourse_backfill.add_argument("--limit", type=int, default=50)
+    discourse_backfill.add_argument("--timeout", type=float, default=10)
+    discourse_backfill.add_argument("--subscription-id")
+    discourse_backfill.add_argument("--api-key-env", default="DISCOURSE_API_KEY")
+    discourse_backfill.add_argument("--api-username")
 
     watch_zulip_topic = capture_subparsers.add_parser(
         "watch-zulip-topic",
@@ -728,6 +779,25 @@ def _handle_api_command(args: argparse.Namespace) -> None:
                 to=args.to,
                 limit=args.limit,
             )
+        elif args.api_command == "query":
+            if args.filter_file and args.filter_json:
+                raise SystemExit("use --filter-file or --filter-json")
+            expression = json.loads(args.filter_file.read_text(encoding="utf-8")) if args.filter_file else (json.loads(args.filter_json) if args.filter_json else None)
+            result = client.query_events(
+                filter=expression, view_id=args.view_id, source=args.source,
+                kind=args.kind, subscription_id=args.subscription_id,
+                sort=args.sort, cursor=args.cursor, limit=args.limit,
+            )
+        elif args.api_command == "views":
+            result = client.list_views()
+        elif args.api_command == "view":
+            result = client.get_view(args.id)
+        elif args.api_command == "save-view":
+            result = client.save_view(json.loads(args.file.read_text(encoding="utf-8")))
+        elif args.api_command == "update-view":
+            result = client.update_view(args.id, json.loads(args.file.read_text(encoding="utf-8")))
+        elif args.api_command == "delete-view":
+            result = client.delete_view(args.id)
         elif args.api_command == "event":
             result = client.get_event(args.dedupe_key)
         elif args.api_command == "record-json":
@@ -818,7 +888,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         _print_json(
             EventWriteResult(
                 created=created,
-                dedupe_key=event.dedupe_key,
+                dedupe_key=stored.dedupe_key,
                 seen_count=stored.seen_count,
             ).model_dump(mode="json")
         )
@@ -870,6 +940,18 @@ def main(argv: Sequence[str] | None = None) -> None:
             content=args.content,
             timeout_seconds=args.timeout,
             subscription_id=args.subscription_id,
+        )
+        _print_json(summary.to_dict())
+        return
+    if args.command == "capture" and args.capture_command == "discourse-topic-backfill":
+        from .capture import capture_discourse_topic_backfill
+        from .state import default_database_path
+
+        summary = capture_discourse_topic_backfill(
+            db_path=args.db or default_database_path(), base_url=args.base_url,
+            topic_id=args.topic_id, limit=args.limit, timeout_seconds=args.timeout,
+            subscription_id=args.subscription_id, api_key_env=args.api_key_env,
+            api_username=args.api_username,
         )
         _print_json(summary.to_dict())
         return

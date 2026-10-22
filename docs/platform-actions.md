@@ -1,55 +1,28 @@
-# 平台与事件
+# 平台动作覆盖
 
-ChatEvent 当前把六个平台作为明确支持范围。`push` / `pull` 不再承担产品语义；它们只可能作为旧数据里的粗粒度捕获方式。新的事件语义由 `source + action/kind + target` 表达；target 是承载链，不只是一个标签。
+下表描述适配器和采集器实际支持的动作，均有自动化载荷与接口测试。生产接入还需要按实际凭据、权限和平台版本验证。`/api/platforms` 的 `capture_status=implemented` 表示有实现；`catalog_only` 仅表示平台概念，不能据此承诺已捕获。保存 `Subscription` 不会自动启动采集器。
 
-## 支持矩阵
-
-| 平台 | 官方能力 | 首选捕获方式 | 常见 action kinds |
+| 平台入口 | 上游事件或动作 | 规范化 kind | 覆盖边界 |
 | --- | --- | --- | --- |
-| Zulip | 官方 REST API、event queue | `event_queue`, `api_cursor` | `message.created`, `message.updated`, `reaction.added`, `reaction.removed`, `mention.created`, `topic.updated` |
-| Discourse | 官方 REST API、webhook | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
-| Gitea | 官方 REST API、repository/org webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
-| GitHub | 官方 REST/GraphQL API、webhook | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
-| Voice | ChatVoice/Speakr read-only data API | `manual_backfill`, `poll`, `api_cursor` | `talk.created`, `talk.updated` |
-| X | 公开用户页/status URL/oEmbed；后续可扩展官方 API 或浏览器 profile | `poll`, `manual_backfill` | `post.created` |
+| Zulip 官方 queue | `message` | `message.created` | 保留 bot/agent 活动；按实例+原生消息 ID 去重 |
+| Zulip queue | `update_message` | `message.edited`, `message.moved`, `message.rendered` / `message.updated` | 同一移动事件可展开多个消息；内容编辑只指对应消息 |
+| Zulip queue | `delete_message` | `message.deleted` | 单条 `message_id` 与批量 `message_ids` |
+| Zulip queue | `reaction` add/remove | `reaction.added`, `reaction.removed` | 稀疏事件的 topic scope 需要已知消息上下文 |
+| Zulip queue | `stream` create/update/delete | `stream.created/updated/deleted` | create 列表可展开 |
+| Zulip queue | `subscription` add/remove/update | `subscription.added/removed/updated` | 列表可展开；不把 peer 事件假称订阅动作 |
+| Zulip queue | `realm_user` add/update/remove | `user.added/updated/removed` | 被修改用户是 subject，不能无依据当作 actor |
+| Discourse webhook | `post_created` | `post.created` 或 `reply.created` | `post_number > 1` 为 reply；兼容旧 `normalize_discourse_post()` |
+| Discourse webhook | `post_edited`, `post_destroyed`, `post_recovered` | `post.edited/deleted/recovered` | 同一 post 的不同变更保留为不同事实 |
+| Discourse webhook | `topic_created`, `topic_edited`, `topic_revised`, `topic_destroyed`, `topic_recovered` | `topic.created/edited/revised/deleted/recovered` | 上游 wrapped `topic` 对象 |
+| Discourse webhook | `user_created`, `user_updated`, `user_approved`, `user_suspended`, `user_unsuspended`, `user_destroyed` | `user.created/updated/approved/suspended/unsuspended/deleted` | 被作用 user 是 subject；缺少显式 actor 时保持未知 |
+| Discourse webhook | category/tag/group create/update/destroy | `category.*`, `tag.*`, `group.*` | 各 3 类、共 9 个上游名字 |
+| Discourse webhook | `like_created`, `notification_created`, `group_user_added/removed` | `like.created`, `notification.created`, `group_user.added/removed` | 仅 payload 有稳定对象/成员身份时入库 |
+| Discourse topic API | 当前 topic 和当前 posts | `topic.created`, `post.created` / `reply.created` 快照 | 有界只读回填；不重建历史变更 |
 
-## 字段含义
+Zulip 注册 **7 个队列事件类型**；Discourse 显式映射 **28 个上游事件名**。计数表示实现覆盖，不是平台全部事件或生产验收结果。协议依据见 [Zulip 事件 API](https://zulip.com/api/get-events)、[队列注册](https://zulip.com/api/register-queue)、[Discourse 事件目录](https://github.com/discourse/discourse/blob/main/app/models/web_hook_event_type.rb)和[投递格式与签名](https://github.com/discourse/discourse/blob/main/app/jobs/regular/emit_web_hook_event.rb)。
 
-| 字段 | 含义 |
-| --- | --- |
-| `source` | 平台 ID，例如 `discourse`、`x`。 |
-| `target` | 兼容和展示用订阅范围，例如 `category:agent-runs`、`stream:chatevent-practice/topic:real-loop`、`repo:ChatArch/ChatEvent`。 |
-| `scope` | 结构化订阅承载目标，包含 `type`、`key`、`display`、`url`、`parent`、`metadata`，例如 repo、PR、topic。 |
-| `actions` | 结构化动作选择器，由 `event_kinds` 自动派生，可保存 `kind`、`object_type`、`verb` 和扩展 metadata。 |
-| `kind` | 平台动作，例如 `reply.created`。 |
-| `capture_mode` | 捕获机制，例如 `webhook`、`event_queue`、`api_cursor`。 |
-| `tags` / `labels` | 筛选、分组或路由提示，不定义平台动作本身。 |
+Zulip heartbeat/restart 是控制事件，不伪装成消息。未知类型计入 `unsupported`；无法验证的 topic/stream 范围计入 `scope_unknown` 并跳过。`realm_user_groups`、其他 Zulip 类型及 Discourse 插件事件不在当前适配范围，也不宣称支持 `like_removed`。队列断开期间的 edit/reaction 和未投递 webhook 没有历史补偿保证。bot 活动不在采集阶段一概丢弃；通过[过滤条件](filtering.md)控制显示，角色只能在源信息已知时使用。
 
-## Discourse 首帖与回复
+Zulip 的原生删除/移除事件是相对于当前观察账号而言，也可能表示失去可见性或频道归档，不能据此断言平台对象被永久删除。频道与订阅更新保留 `payload.property` / `payload.value`，完整来源载荷仍在 `raw_payload`。
 
-Discourse 官方 webhook 对 topic 首帖和回复都可能发送 `post_created`。ChatEvent 规范化时根据 `post.post_number` 区分：
-
-- `post_number == 1` → `post.created`
-- `post_number > 1` → `reply.created`
-
-官方 webhook 的事件名来自 `X-Discourse-Event` header；ChatEvent endpoint 会读取该 header 并写入规范化流程。
-## 动作与承载目标链
-
-同一个平台动作可能挂在不同层级上。ChatEvent 不把 target type 或 actor role 写死成枚举，而是让各平台 action catalog 给出建议 target types，并在事件记录里保存实际 target chain 和可选发起人角色。
-
-| 平台 | 订阅 scope 示例 | 事件 target chain 示例 |
-| --- | --- | --- |
-| Zulip | `stream:team/topic:release` | `zulip_stream:team → zulip_topic:team/release → message:123` |
-| Discourse | `category:agent-runs` 或 `topic:22` | `discourse_topic:22 → discourse_post:35` |
-| GitHub/Gitea | `repo:ChatArch/ChatEvent` | `repo:ChatArch/ChatEvent → pull_request:ChatArch/ChatEvent#4 → issue_comment:1234` |
-| Voice | `account:default` 或 `talk:<uuid>` | `voice_account:default → voice_talk:<uuid>` |
-
-Observatory 的 Platform actions 面板会显示 `action kind → target types`，Event Stream 点开详情会显示真实 `Action target` 和 `Target chain`。
-
-## X 公开网页动作
-
-首版 X 事件使用 `source=x`、`kind=post.created`。`capture x-user --handle <handle> --limit <N> --days <N>` 从公开用户页发现最近 status URL，并通过 oEmbed/status 网页补充内容、作者、发布时间和来源 URL；重复运行按 `x:post:<status-id>` 去重，新发帖会成为新的 Event。当前 acquisition 写入 `metadata.acquisition = "x-web-url"`，后续可并列增加 `x-api` 或 `x-browser` backend。
-
-## Voice metadata 动作
-
-Voice 事件使用 `source=voice`，通过 ChatVoice/Speakr read-only data API 捕获 talk metadata。`capture voice-backfill --all` 写入当前账号已有 talk 的 `talk.created` 事件；`capture voice-once --since <timestamp>` 根据 `updated_at` cursor 写入新增 talk 的 `talk.created` 或已存在 talk 的 `talk.updated`。payload 只保留 talk ID、标题、tags、时间、时长和摘要/转写可用性布尔值，不保存完整 summary、transcript、preview 或 token。
+原生对象 ID 是 `subject_id`；变更事件有自己的 `id`。`instance` 可区分平台实例，重复投递稳定去重，修改、删除和恢复各保留事实。源时间存在时用于 `occurred_at`，否则 `metadata.timestamp_source=capture-time` 表明使用捕获时间。

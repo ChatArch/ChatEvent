@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Multi-action community capture, structured queries, cursor paging, saved views, and event access boundaries. See [Filtering and Views](filtering.md) and [Action Coverage](platform-actions.md).
+
 ## 0.2.5
 
 - Web login now uses the shared ChatLogin core while keeping EventStore users, roles, enabled state, API tokens, and existing PBKDF2 string formats authoritative.

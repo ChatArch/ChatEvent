@@ -1,5 +1,13 @@
 # 更新日志
 
+## 0.3.0 - 2026-10-20
+
+- 新增有界结构化条件、服务端过滤、按不可变入库序号分页与 owner 视图 CRUD；保留旧读接口但不再把 `next_since` 描述为无损 checkpoint。
+- Zulip 官方队列扩展为多动作分发、批量消息变更展开和覆盖计数；Discourse webhook 按上游事件名解析多类动作并验证可配置原始体 HMAC；新增只读 topic/posts 快照回填。
+- 事件读取与写入收紧账号权限，网页与 CLI 共用查询语义。
+- 捕获目录区分已实现和仅目录动作；修复有界队列空闲轮询、失败清理、批量变更范围匹配和视图排序。
+- 固定历史事件归属，保留订阅身份绑定，按 owner 隔离存储去重；删除或复用配置不转移历史访问权。
+
 ## 0.2.5 - 2026-09-11
 
 - Web 登录接入 ChatLogin 共享核心：账号密码校验保留 EventStore 用户、角色、启用状态和既有 PBKDF2 字符串格式，密码哈希/校验委托 ChatLogin，启动迁移不会重写已有用户密码。
@@ -11,7 +19,7 @@
 
 - 新增 temporary Zulip topic watch：可用普通 `Subscription` 记录短期监听指定 stream/topic，metadata 包含 `temporary`、`assignment_id`、`interval_seconds`、`expires_at`、`hot_until`、`content_policy` 和 policy boundary。
 - 新增 `capture watch-zulip-topic` 与 `capture subscription-once`，支持为保存的 Zulip topic subscription 执行一次 bounded poll，并用 Zulip message id 推进 durable cursor。
-- Zulip normalizer 补充 sender identity 字段和 actor metadata，便于 ChatAssign 在消费端执行 Rex/demo/bot/self 过滤；ChatEvent 仍只负责平台 scope capture，不嵌入 assignment policy。
+- Zulip normalizer 补充 sender identity 字段和 actor metadata，便于消费端执行特定用户/demo/bot/self 过滤；ChatEvent 仍只负责平台 scope capture，不嵌入 assignment policy。
 - Reference/monitoring/CLI tree 文档与 focused Zulip watch、adapter、CLI 测试同步覆盖临时 watch contract。
 
 ## 0.2.3 - 2026-08-26

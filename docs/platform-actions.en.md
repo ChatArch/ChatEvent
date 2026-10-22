@@ -1,51 +1,28 @@
-# Platforms and Events
+# Platform action coverage
 
-ChatEvent currently treats six platforms as the explicit support scope. `push` / `pull` no longer carry product semantics; they may only appear as legacy coarse acquisition modes. Event meaning is expressed by `source + action/kind + target`; target is a carrier chain, not just a label.
+This table describes implemented adapter and collector behavior covered by synthetic payload and HTTP tests. Validate production integration against the actual credentials, permissions, and server version. `/api/platforms` marks implemented actions with `capture_status=implemented`; `catalog_only` entries are platform concepts, not capture promises. Saving a `Subscription` does not start a collector.
 
-## Support matrix
-
-| Platform | Official capability | Primary acquisition | Common action kinds |
+| Platform path | Upstream events | Normalized kind | Boundary |
 | --- | --- | --- | --- |
-| Zulip | Official REST API and event queue | `event_queue`, `api_cursor` | `message.created`, `message.updated`, `reaction.added`, `reaction.removed`, `mention.created`, `topic.updated` |
-| Discourse | Official REST API and webhooks | `webhook`, `api_cursor` | `topic.created`, `post.created`, `reply.created`, `post.edited`, `post.deleted`, `mention.created`, `reaction.added` |
-| Gitea | Official REST API and repository/org webhooks | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.updated`, `pull_request.merged`, `release.published` |
-| GitHub | Official REST/GraphQL API and webhooks | `webhook`, `api_cursor` | `push`, `commit.pushed`, `issue.opened`, `issue.closed`, `issue.commented`, `pull_request.opened`, `pull_request.synchronize`, `pull_request.closed`, `pull_request.merged`, `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed`, `release.published` |
-| Voice | ChatVoice/Speakr read-only data API | `manual_backfill`, `poll`, `api_cursor` | `talk.created`, `talk.updated` |
-| X | Public user pages/status URLs/oEmbed; future official API or browser profile backends can be added | `poll`, `manual_backfill` | `post.created` |
+| Zulip official queue | `message` | `message.created` | Retains bot/Agent activity; dedupes by instance and native message ID |
+| Zulip queue | `update_message` | `message.edited`, `message.moved`, `message.rendered` / `message.updated` | One move can expand across messages; content edit belongs to its message |
+| Zulip queue | `delete_message` | `message.deleted` | Single `message_id` and bulk `message_ids` |
+| Zulip queue | `reaction` add/remove | `reaction.added`, `reaction.removed` | Sparse events need known message context for topic scope |
+| Zulip queue | `stream` create/update/delete | `stream.created/updated/deleted` | Create lists can expand |
+| Zulip queue | `subscription` add/remove/update | `subscription.added/removed/updated` | Lists can expand; peer events are not relabeled as subscriptions |
+| Zulip queue | `realm_user` add/update/remove | `user.added/updated/removed` | Affected user is the subject, not assumed actor |
+| Discourse webhook | `post_created` | `post.created` or `reply.created` | `post_number > 1` is a reply; old `normalize_discourse_post()` remains |
+| Discourse webhook | `post_edited`, `post_destroyed`, `post_recovered` | `post.edited/deleted/recovered` | Distinct changes to one post remain distinct facts |
+| Discourse webhook | `topic_created`, `topic_edited`, `topic_revised`, `topic_destroyed`, `topic_recovered` | `topic.created/edited/revised/deleted/recovered` | Upstream wrapped `topic` object |
+| Discourse webhook | `user_created`, `user_updated`, `user_approved`, `user_suspended`, `user_unsuspended`, `user_destroyed` | `user.created/updated/approved/suspended/unsuspended/deleted` | Affected user is the subject; unknown actor remains unknown |
+| Discourse webhook | category/tag/group create/update/destroy | `category.*`, `tag.*`, `group.*` | Three families with three upstream names each |
+| Discourse webhook | `like_created`, `notification_created`, `group_user_added/removed` | `like.created`, `notification.created`, `group_user.added/removed` | Requires stable object/membership identity in payload |
+| Discourse topic API | Current topic and posts | `topic.created`, `post.created` / `reply.created` snapshots | Bounded read-only backfill; no historical changes reconstructed |
 
-## Field semantics
+The Zulip collector requests **7 queue event types** and the Discourse adapter maps **28 upstream event names**. These are implementation counts, not all upstream events or production acceptance. See the official [Zulip events API](https://zulip.com/api/get-events), [queue registration](https://zulip.com/api/register-queue), [Discourse event catalog](https://github.com/discourse/discourse/blob/main/app/models/web_hook_event_type.rb), and [delivery/signature implementation](https://github.com/discourse/discourse/blob/main/app/jobs/regular/emit_web_hook_event.rb).
 
-| Field | Meaning |
-| --- | --- |
-| `source` | Platform id such as `discourse`. |
-| `target` | Compatibility/display subscription scope such as `category:agent-runs`, `stream:chatevent-practice/topic:real-loop`, or `repo:ChatArch/ChatEvent`. |
-| `scope` | Structured subscription carrier target with `type`, `key`, `display`, `url`, `parent`, and `metadata`, e.g. repo, PR, or topic. |
-| `actions` | Structured action selectors derived from `event_kinds` by default; can store `kind`, `object_type`, `verb`, and metadata. |
-| `kind` | Platform action such as `reply.created`. |
-| `capture_mode` | Acquisition mechanism such as `webhook`, `event_queue`, or `api_cursor`. |
-| `tags` / `labels` | Filtering, grouping, or routing hints; they do not define the platform action. |
+Zulip heartbeat/restart are control events, not messages. Unknown types increment `unsupported`; unverifiable topic/stream scope increments `scope_unknown` and fails closed. `realm_user_groups`, other Zulip types, and Discourse plugin events are outside the current adapter; `like_removed` is not advertised. Queue outages do not preserve edit/reaction history, and snapshots do not reconstruct missed webhooks. Bot activity remains captured; use [filters](filtering.md) to control visibility. Actor roles are available only when known from source data.
 
-## Discourse first posts and replies
+Zulip deletion/removal events are observer-relative and may mean lost access or channel archival, not permanent global deletion. Channel and subscription updates preserve `payload.property` / `payload.value`; `raw_payload` retains the complete source payload.
 
-Discourse official webhooks may send `post_created` for both the first topic post and later replies. ChatEvent normalizes them with `post.post_number`:
-
-- `post_number == 1` → `post.created`
-- `post_number > 1` → `reply.created`
-
-The official webhook event name comes from the `X-Discourse-Event` header; the ChatEvent endpoint reads that header before normalization.
-## Actions and carrier target chains
-
-A platform action can attach to different hierarchy levels. ChatEvent keeps target types and actor roles open-ended: each platform action catalog declares suggested target types, and each stored event records the actual target chain plus an optional initiator role.
-
-| Platform | Subscription scope example | Event target chain example |
-| --- | --- | --- |
-| Zulip | `stream:team/topic:release` | `zulip_stream:team → zulip_topic:team/release → message:123` |
-| Discourse | `category:agent-runs` or `topic:22` | `discourse_topic:22 → discourse_post:35` |
-| GitHub/Gitea | `repo:ChatArch/ChatEvent` | `repo:ChatArch/ChatEvent → pull_request:ChatArch/ChatEvent#4 → issue_comment:1234` |
-| Voice | `account:default` or `talk:<uuid>` | `voice_account:default → voice_talk:<uuid>` |
-
-The Observatory Platform actions panel shows `action kind → target types`; opening an Event Stream detail shows the concrete `Action target` and `Target chain`.
-
-## Voice metadata actions
-
-Voice events use `source=voice` and capture talk metadata through the ChatVoice/Speakr read-only data API. `capture voice-backfill --all` writes `talk.created` for existing talks on the current account; `capture voice-once --since <timestamp>` uses the `updated_at` cursor to write `talk.created` for new talks or `talk.updated` for existing talks. Payloads keep only talk ID, title, tags, timestamps, duration, and summary/transcript availability booleans; they do not store full summary text, transcript text, preview text, or token values.
+The native object ID is `subject_id`; each change has its own event `id`. `instance` distinguishes platform instances. Repeated deliveries dedupe deterministically while edits, deletion, and restoration remain separate facts. `occurred_at` uses source time when available; otherwise `metadata.timestamp_source=capture-time` marks a capture-time fallback.
