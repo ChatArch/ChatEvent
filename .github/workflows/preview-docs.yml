@@ -10,8 +10,8 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: preview-docs-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: docs-pages
+  cancel-in-progress: false
 
 jobs:
   deploy:

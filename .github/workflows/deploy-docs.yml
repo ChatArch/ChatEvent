@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: deploy-docs
+  group: docs-pages
   cancel-in-progress: false
 
 jobs:
@@ -27,5 +27,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[docs]"
+      - name: Configure Git identity
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
       - name: Build and publish docs
-        run: mkdocs gh-deploy --force --clean --verbose
+        run: |
+          set -euo pipefail
+          mkdocs build --strict
+          published_ref=$(git ls-remote --heads origin gh-pages)
+          if [ -n "${published_ref}" ]; then
+            git fetch --no-tags origin gh-pages:refs/remotes/origin/gh-pages
+            published="${RUNNER_TEMP}/docs-published"
+            git worktree add --detach "${published}" refs/remotes/origin/gh-pages
+            if [ -d "${published}/dev" ]; then
+              test ! -e site/dev
+              cp -R "${published}/dev" site/dev
+            fi
+            if [ -f "${published}/versions.json" ]; then
+              test ! -e site/versions.json
+              cp "${published}/versions.json" site/versions.json
+            fi
+            git worktree remove "${published}"
+          fi
+          ghp-import --no-jekyll --push --force --message "Deploy docs for ${GITHUB_SHA}" site
