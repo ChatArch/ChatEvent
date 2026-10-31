@@ -21,9 +21,9 @@ This opt-in companion is separate from ChatEvent ingestion and does not change c
       "python": "/absolute/committed/venv/bin/python",
       "source": "/absolute/existing/hermes-agent",
       "home": "/absolute/existing/hermes-home",
-      "cwd": "/absolute/authorized/project",
-      "timeout_seconds": 180,
-      "max_iterations": 2
+      "cwd": "/absolute/authorized/workspace",
+      "timeout_seconds": 3600,
+      "approval_mode": "native"
     }
   }]
 }
