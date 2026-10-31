@@ -32,8 +32,8 @@ The capture outbox writes ChatEvent first, then enqueues a dispatch. These are
 separate transactions, recoverable by stable native event identity. The companion
 does not alter the Observatory's authentication, accounts or old collectors.
 The [dispatch contract](community-dispatch.md) describes execution/reply states,
-binding snapshots, interrupted-work quarantine and the initial no-tools Hermes
-boundary. A model reply is not proof of a coding/deployment/Sandbox task.
+binding snapshots, interrupted-work quarantine and the native Hermes capability
+binding. A model reply is not proof of a coding/deployment/Sandbox task.
 
 For an Agent on a different machine, an outbound worker uses an existing SSH
 transport and a loopback forward to the private companion. It long-polls for its
@@ -44,7 +44,8 @@ deadline, and returns a durable result before the central identity-bound sender
 replies. Idle workers make no model calls. Lost acknowledgments retry the stored
 result, not the model. Expired/ambiguous execution requires reconciliation.
 
-The first version handles new channel/forum mentions. It does not enable direct
-messages, edited-message execution, arbitrary Agent-to-Agent wakeups, automatic
-interrupts, GUI control or shell tools. Add new runtime adapters by their verified
-capabilities rather than treating an account registration as an online executor.
+The companion handles new channel/forum mentions and can bind native configured
+Hermes tools for real workspace tasks. Direct messages, edited-message execution,
+arbitrary Agent-to-Agent wakeups and automatic interrupts are separate ingress
+capabilities. Add runtime bindings by their verified capabilities rather than
+treating an account registration as an online executor.
