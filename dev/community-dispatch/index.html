@@ -758,10 +758,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#initial-hermes-boundary" class="md-nav__link">
+  <a href="#native-hermes-capability-binding" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Initial Hermes boundary
+        Native Hermes capability binding
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visible-task-acknowledgements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visible task acknowledgements
       
     </span>
   </a>
@@ -812,9 +823,9 @@
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">"python"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/absolute/committed/venv/bin/python"</span><span class="p">,</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">      </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/absolute/existing/hermes-agent"</span><span class="p">,</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">      </span><span class="nt">"home"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/absolute/existing/hermes-home"</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">      </span><span class="nt">"cwd"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/absolute/authorized/project"</span><span class="p">,</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">      </span><span class="nt">"timeout_seconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">180</span><span class="p">,</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">      </span><span class="nt">"max_iterations"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">      </span><span class="nt">"cwd"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/absolute/authorized/workspace"</span><span class="p">,</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">      </span><span class="nt">"timeout_seconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">3600</span><span class="p">,</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">      </span><span class="nt">"approval_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"native"</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">    </span><span class="p">}</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">  </span><span class="p">}]</span>
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="p">}</span>
@@ -836,9 +847,13 @@
 <p>Statuses: <code>succeeded</code>, <code>failed</code>, <code>waiting_for_user</code>, <code>cancelled</code>, <code>unknown</code>. A success requires nonempty output and real completion evidence. Adapter exceptions are <code>unknown</code>, not an automatic re-execution. No return value or text prefix proves success on its own.</p>
 <p><code>sender(invocation: dict, result: dict) -&gt; dict</code> must use the invocation's snapshotted <code>agent_id</code> and account binding (<code>binding.account_id</code>), reply only to the source message/conversation, and return <code>{"id":"native-reply-id","identity_id":"user:18"}</code> after platform acceptance. It must not substitute owner credentials. Failure/ambiguous network outcome leaves <code>reply_state=unknown</code>; retry requires explicit reconciliation to avoid duplicate posts. Dispatch ID is available as a reconciliation marker.</p>
 <p>One <code>run_once()</code> claims at most one invocation or one already-computed pending reply. Execution states are <code>queued/running/succeeded/failed/waiting_for_user/cancelled/unknown</code>; reply states are <code>not_ready/pending/sending/sent/unknown</code>. Database transactions claim work before side effects. A cross-process worker lock serializes workers; after owning that lock, recovery changes interrupted <code>running</code>/<code>sending</code> states to <code>unknown</code>, never replays them. Completed results and replies are durably recorded separately. No queue means no adapter/model call. Definitive failures may receive a bounded failure reply; ambiguous outcomes stay unknown without automatic retries.</p>
-<h2 id="initial-hermes-boundary">Initial Hermes boundary<a class="headerlink" href="#initial-hermes-boundary" title="Permanent link">&para;</a></h2>
-<p>The initial adapter uses the existing Hermes Python agent API with the existing model resolver, a fixed project cwd, an explicit empty toolset and a runtime assertion that no tool schemas were exposed. <code>source_sha</code> can pin the existing source revision; the adapter refuses dirty sources. It does not invoke Hermes <code>-z</code>: the installed version's oneshot implementation automatically enables YOLO and accepts hooks, and an empty CLI <code>--toolsets</code> falls back to configured defaults. It does not install, start gateway, copy credentials, enable host shell, discover MCP, or expand workspace rights. Model text processing is a real execution capability; coding/deployment with tools remains a separate, unverified capability until an existing restricted Task/Sandbox route is verified and bound explicitly.</p>
-<p>The subprocess reads a bounded, owned 0600 JSON request file under its private run directory and receives EOF on stdin. The request remains readable across a native bootstrap re-exec; consuming stdin before importing Hermes would lose the payload at that boundary. The supported <code>HERMES_DISABLE_LAZY_INSTALLS=1</code> flag prevents this companion from implicitly syncing dependencies or switching interpreters, while native <code>activate_dependencies()</code> loads the existing committed environment. It produces a bounded result file under the companion state directory, runs in its own process group with a deadline and output limits, and is normally terminated then killed only within that owned group on timeout/cancellation. Logs, requests and output files are private. Existing Hermes user configuration/model secrets remain on their original host. A failed/partial model result is never <code>succeeded</code>.</p>
+<h2 id="native-hermes-capability-binding">Native Hermes capability binding<a class="headerlink" href="#native-hermes-capability-binding" title="Permanent link">&para;</a></h2>
+<p>The adapter uses the existing Hermes interpreter, model resolver, configured CLI toolsets and MCP discovery. It loads native workspace context, SOUL identity, memory, skills and SessionDB. Work starts at the configured workspace root; tasks read AGENTS.md and projects/README.md, create the required dated project/PRD/progress records, validate their changes and commit understood edits. Native tools operate with the existing host user's permissions.</p>
+<p><code>runtime.approval_mode</code> is <code>native</code> by default. An operator may explicitly bind <code>full</code> after authorizing that agent's work: the adapter uses Hermes' auditable session-scoped full approval API and clears it in <code>finally</code>. It does not call the CLI's implicit-YOLO oneshot path or alter global approval configuration. Existing native user deny/hardline policies still apply. The adapter does not impose a two-turn or fixed output-token demonstration budget; configured native iteration limits are preserved. An optional operator lifecycle deadline can be configured independently.</p>
+<p>The private request file survives interpreter re-execution; implicit bootstrap installation is disabled. Each execution has its own process group and private diagnostics under ChatArch home. The source revision is verified, actual completion is recorded, and interrupted/ambiguous work is never automatically re-executed.</p>
+<h2 id="visible-task-acknowledgements">Visible task acknowledgements<a class="headerlink" href="#visible-task-acknowledgements" title="Permanent link">&para;</a></h2>
+<p>A durable status projection is created with each newly accepted invocation. It is delivered by a separate model-free worker: queued/received, running, succeeded, failed, unknown, waiting_for_user or cancelled. Central claim and remote claim do not prove work has started. The Hermes child writes a private marker immediately before invoking its agent turn, after native initialization; the parent sends an idempotent started callback. Outbound workers acknowledge that boundary through their authenticated started endpoint.</p>
+<p>Zulip switches only the invoked account's managed reaction on the original message. Discourse uses one own-author status post and edits it in the original topic with a separate minimally scoped status credential. A status receipt is independently read back before it is considered delivered. Ambiguous new-post creation is quarantined or recovered from its known native post ID; it is never blindly repeated. Status failures cannot block execution, change its result or cause another model turn. Received status can coalesce to a later truthful state when processing completes quickly.</p>
 
 
 
