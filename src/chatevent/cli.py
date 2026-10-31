@@ -69,6 +69,11 @@ def _build_tree_command() -> click.Group:
             [_argument("event|subscription")],
         )
     )
+    community = click.Group("community", help="Operate the opt-in community capture and dispatch companion.")
+    for name in ("serve", "status", "worker"):
+        community.add_command(_command(name, {"serve": "Run companion.", "status": "Show private state counters.", "worker": "Run an outbound agent worker."}[name],
+                                       [_option("--config", metavar="FILE", help="Private companion configuration file.")]))
+    root.add_command(community)
     root.add_command(
         _command(
             "platforms",
@@ -352,6 +357,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="SQLite path (default: $CHATARCH_HOME/chatevent/events.db or ~/.chatarch/chatevent/events.db)",
     )
+
+    community = subparsers.add_parser("community", help="opt-in community capture and dispatch")
+    community_sub = community.add_subparsers(dest="community_command", required=True)
+    for name in ("serve", "status", "worker"):
+        action = community_sub.add_parser(name)
+        action.add_argument("--config", type=Path, required=True)
 
     schema = subparsers.add_parser("schema", help="print JSON Schema contracts")
     schema.add_argument("kind", choices=("event", "subscription"))
@@ -833,6 +844,16 @@ def main(argv: Sequence[str] | None = None) -> None:
         else:
             for key, value in payload.items():
                 print(f"{key}: {value}")
+        return
+    if args.command == "community":
+        from .community_service import run, status
+        if args.community_command == "serve":
+            run(args.config)
+        elif args.community_command == "worker":
+            from .community_remote import run_worker
+            run_worker(args.config)
+        else:
+            _print_json(status(args.config))
         return
     if args.command == "serve":
         try:
