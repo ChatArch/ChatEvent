@@ -193,7 +193,7 @@ class CaptureInbox:
 
     def relay_once(self, persist: Any, enqueue: Any, registry: dict) -> bool:
         with self.connect() as c:
-            row = c.execute("SELECT event_key,event,mentions,state FROM inbox WHERE state != 'dispatched' ORDER BY created LIMIT 1").fetchone()
+            row = c.execute("SELECT event_key,event,mentions,state FROM inbox WHERE state IN ('pending','persisted') ORDER BY created LIMIT 1").fetchone()
         if not row:
             return False
         key, raw, mentions, state = row
@@ -206,6 +206,12 @@ class CaptureInbox:
             enqueue(event, json.loads(mentions), registry)
             with self.connect() as c:
                 c.execute("UPDATE inbox SET state='dispatched',error=NULL WHERE event_key=?", (key,))
+        except ValueError as exc:
+            # A deterministic invalid replay/config mismatch must not starve all
+            # later valid events. Keep it for explicit operator reconciliation.
+            with self.connect() as c:
+                c.execute("UPDATE inbox SET state='quarantined',error=? WHERE event_key=?", (type(exc).__name__, key))
+            return True
         except Exception as exc:
             with self.connect() as c:
                 c.execute("UPDATE inbox SET error=? WHERE event_key=?", (type(exc).__name__, key))

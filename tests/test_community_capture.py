@@ -69,3 +69,17 @@ def test_discourse_canonical_numeric_actor_and_category():
     assert event.kind == "reply.created"
     assert event.metadata["community_scope"] == "category:9"
     assert mentions == ["user:5"]
+
+
+def test_bad_dispatch_does_not_starve_later_valid_events(tmp_path):
+    tmp_path.chmod(0o700)
+    inbox = CaptureInbox(tmp_path / "inbox.db")
+    event, mentions = normalize_message(message(), source="zulip", instance="https://chat.example", registry=registry())
+    inbox.put(event, mentions)
+    inbox.put(event.model_copy(update={"id": "message:41", "subject_id": "message:41"}), mentions)
+    def enqueue(event, *args):
+        if event.id == "message:40":
+            raise ValueError("invalid source")
+    assert inbox.relay_once(lambda event: None, enqueue, registry())
+    assert inbox.relay_once(lambda event: None, enqueue, registry())
+    assert inbox.status() == {"inbox": {"dispatched": 1, "quarantined": 1}, "errors": 1}
