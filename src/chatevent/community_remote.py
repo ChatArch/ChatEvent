@@ -64,7 +64,14 @@ class RemoteJobs:
             with self.changed:
                 self.changed.wait(min(1, max(0, deadline - time.time())) if deadline else 1)
         with self.connect() as db:
-            db.execute("UPDATE remote_jobs SET state='unknown' WHERE id=? AND state!='completed'", (invocation["id"],))
+            # The worker can commit before the deadline while this waiter is
+            # descheduled. Reconcile under the completion transaction boundary
+            # before deciding to quarantine; never overwrite a retained late result.
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT state,result FROM remote_jobs WHERE id=?", (invocation["id"],)).fetchone()
+            if row["state"] == "completed":
+                return json.loads(row["result"])
+            db.execute("UPDATE remote_jobs SET state='unknown' WHERE id=? AND state IN ('queued','running')", (invocation["id"],))
         return {"status": "unknown", "text": "", "runtime_status": "remote_deadline", "evidence": {"executor_id": executor, "automatic_retry": False}}
 
     def claim(self, executor: str, wait_seconds: float = 35) -> dict | None:

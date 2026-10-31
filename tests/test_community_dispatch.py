@@ -16,7 +16,7 @@ from chatevent.community_hermes import HermesAdapter
 def registry():
     return {"version": 1, "human_actor_ids": {"zulip": ["user:1"], "discourse": ["user:1"]},
             "ignored_actor_ids": {"zulip": ["user:18", "user:19"], "discourse": ["user:5"]},
-            "agents": [{"agent_id": "hermes-recall", "enabled": True,
+            "agents": [{"agent_id": "agent-worker", "enabled": True,
                         "bindings": {"zulip": {"account_id": "user:18", "instance": "https://zulip.test", "allowed_stream_ids": [7]},
                                      "discourse": {"account_id": "user:5", "instance": "https://discourse.test", "allowed_category_ids": [3]}},
                         "runtime": {"kind": "fake", "cwd": "/authorized/project"}}]}

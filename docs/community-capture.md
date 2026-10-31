@@ -39,10 +39,15 @@ For an Agent on a different machine, an outbound worker uses an existing SSH
 transport and a loopback forward to the private companion. It long-polls for its
 own jobs using a dedicated credential. No inbound public worker port is needed.
 Its trusted local configuration selects the model home/interpreter; the central
-registry cannot substitute local execution paths. A job is claimed once, has a
-deadline, and returns a durable result before the central identity-bound sender
-replies. Idle workers make no model calls. Lost acknowledgments retry the stored
-result, not the model. Expired/ambiguous execution requires reconciliation.
+registry cannot substitute local execution paths. A job is claimed once. When a
+trusted operator configures `timeout_seconds`, a result accepted before that
+deadline remains usable even if the central waiter wakes later; a late result is
+retained for reconciliation, not promoted to success. Omitting the optional
+deadline permits an indefinite serial wait: a disconnected worker can hold later
+invocations until operator intervention. The identity-bound sender replies only
+after a durable result is returned. Idle workers make no model calls. Lost
+acknowledgments retry the stored result, not the model. Expired or interrupted
+central execution requires reconciliation and is never automatically replayed.
 
 The companion handles new channel/forum mentions and can bind native configured
 Hermes tools for real workspace tasks. Direct messages, edited-message execution,

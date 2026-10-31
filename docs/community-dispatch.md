@@ -7,14 +7,14 @@ This opt-in companion is separate from ChatEvent ingestion and does not change c
 ```json
 {
   "version": 1,
-  "human_actor_ids": {"zulip": ["user:1"], "discourse": ["user:1"]},
-  "ignored_actor_ids": {"zulip": ["user:18"], "discourse": ["user:5"]},
+  "human_actor_ids": {"zulip": ["user:1001"], "discourse": ["user:1001"]},
+  "ignored_actor_ids": {"zulip": ["user:2001"], "discourse": ["user:2002"]},
   "agents": [{
-    "agent_id": "hermes-recall",
+    "agent_id": "agent-worker",
     "enabled": true,
     "bindings": {
-      "zulip": {"account_id": "user:18", "instance": "https://zulip.example.org", "profile": "~/.chatarch/envs/Zulip/hermes-recall.env", "allowed_stream_ids": [12]},
-      "discourse": {"account_id": "user:5", "instance": "https://forum.example.org", "profile": "~/.chatarch/envs/Discourse/hermes-recall-community.env", "allowed_category_ids": [7]}
+      "zulip": {"account_id": "user:2001", "instance": "https://zulip.example.org", "profile": "~/.chatarch/envs/Zulip/agent-worker.env", "allowed_stream_ids": [3001]},
+      "discourse": {"account_id": "user:2002", "instance": "https://forum.example.org", "profile": "~/.chatarch/envs/Discourse/agent-worker-community.env", "allowed_category_ids": [4001]}
     },
     "runtime": {
       "kind": "hermes",
@@ -35,7 +35,7 @@ Include **all** known Agent community IDs as bindings (or in `ignored_actor_ids`
 
 ```python
 store = DispatchStore(db_path)
-receipt = store.enqueue(event, mentions=["user:18"], registry=registry)
+receipt = store.enqueue(event, mentions=["user:2001"], registry=registry)
 ```
 
 `event` is a validated ChatEvent or its dictionary. `mentions` must come from the capture layer's platform-native, authenticated mention parsing, never an LLM or a regex over arbitrary display names. Root capture preserves canonical IDs and authenticated original message fields. The dispatcher accepts new Zulip `message.created` and Discourse `post.created` / `reply.created` facts only, ignores bot/system authors and all registered Agent identities, checks human/scopes/instance, then deduplicates `(source, instance, source event id, agent_id)`. To dedupe separate collectors of the same message, it prefers the stable source `subject_id` for these create facts over queue delivery IDs.
@@ -57,7 +57,7 @@ receipt = worker.run_once()
 
 Statuses: `succeeded`, `failed`, `waiting_for_user`, `cancelled`, `unknown`. A success requires nonempty output and real completion evidence. Adapter exceptions are `unknown`, not an automatic re-execution. No return value or text prefix proves success on its own.
 
-`sender(invocation: dict, result: dict) -> dict` must use the invocation's snapshotted `agent_id` and account binding (`binding.account_id`), reply only to the source message/conversation, and return `{"id":"native-reply-id","identity_id":"user:18"}` after platform acceptance. It must not substitute owner credentials. Failure/ambiguous network outcome leaves `reply_state=unknown`; retry requires explicit reconciliation to avoid duplicate posts. Dispatch ID is available as a reconciliation marker.
+`sender(invocation: dict, result: dict) -> dict` must use the invocation's snapshotted `agent_id` and account binding (`binding.account_id`), reply only to the source message/conversation, and return `{"id":"native-reply-id","identity_id":"user:2001"}` after platform acceptance. It must not substitute owner credentials. Failure/ambiguous network outcome leaves `reply_state=unknown`; retry requires explicit reconciliation to avoid duplicate posts. Dispatch ID is available as a reconciliation marker.
 
 One `run_once()` claims at most one invocation or one already-computed pending reply. Execution states are `queued/running/succeeded/failed/waiting_for_user/cancelled/unknown`; reply states are `not_ready/pending/sending/sent/unknown`. Database transactions claim work before side effects. A cross-process worker lock serializes workers; after owning that lock, recovery changes interrupted `running`/`sending` states to `unknown`, never replays them. Completed results and replies are durably recorded separately. No queue means no adapter/model call. Definitive failures may receive a bounded failure reply; ambiguous outcomes stay unknown without automatic retries.
 

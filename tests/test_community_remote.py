@@ -38,7 +38,7 @@ def test_remote_executor_cannot_impersonate_another_agent(tmp_path):
     tmp_path.chmod(0o700)
     jobs = RemoteJobs(tmp_path / "remote.db")
     with pytest.raises(ValueError):
-        jobs.execute({"id": "one", "agent_id": "recall", "runtime": {"executor_id": "local"}})
+        jobs.execute({"id": "one", "agent_id": "peer-agent", "runtime": {"executor_id": "local"}})
 
 
 def test_claim_does_not_report_runtime_start_and_started_ack_is_idempotent(tmp_path):
@@ -63,3 +63,55 @@ def test_claim_does_not_report_runtime_start_and_started_ack_is_idempotent(tmp_p
     finally:
         thread.join(timeout=3)
     assert outputs[0]["status"] == "succeeded"
+
+
+@pytest.mark.parametrize("completion", ["on_time", "late", "absent"])
+def test_deadline_wakeup_reconciles_durable_result(tmp_path, monkeypatch, completion):
+    """A delayed controller wake must not discard an already committed result."""
+    from types import SimpleNamespace
+    from chatevent import community_remote as module
+
+    tmp_path.chmod(0o700)
+    clock = SimpleNamespace(now=1000.0)
+    monkeypatch.setattr(module, "time", SimpleNamespace(
+        time=lambda: clock.now, monotonic=time.monotonic))
+    jobs = RemoteJobs(tmp_path / "remote.db")
+    invocation = {"id": "deadline-job", "agent_id": "own-agent",
+                  "runtime": {"executor_id": "own-agent", "timeout_seconds": 5}}
+    result = {"status": "succeeded", "text": "Durably completed",
+              "runtime_status": "completed", "evidence": {"completed": True}}
+
+    class DelayedWake:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def notify_all(self):
+            pass
+
+        def wait(self, timeout):
+            claimed = jobs.claim("own-agent", 0)
+            assert claimed is not None and claimed["id"] == invocation["id"]
+            clock.now = 1004.0 if completion == "on_time" else 1006.0
+            if completion != "absent":
+                assert jobs.complete("own-agent", invocation["id"], result)
+            clock.now = 1006.0  # Controller resumes after the original deadline.
+
+    monkeypatch.setattr(jobs, "changed", DelayedWake())
+    observed = jobs.execute(invocation)
+    with jobs.connect() as db:
+        row = db.execute("SELECT state,result FROM remote_jobs WHERE id=?",
+                         (invocation["id"],)).fetchone()
+    if completion == "on_time":
+        assert row["state"] == "completed"
+        assert observed == result
+    else:
+        assert observed["status"] == "unknown"
+        assert observed["runtime_status"] == "remote_deadline"
+        assert row["state"] == ("late_result" if completion == "late" else "unknown")
+        if completion == "late":
+            assert not jobs.complete("own-agent", invocation["id"], result)
+            with pytest.raises(ValueError, match="replay conflict"):
+                jobs.complete("own-agent", invocation["id"], {**result, "text": "changed"})
