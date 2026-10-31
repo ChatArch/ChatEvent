@@ -190,7 +190,7 @@ def test_adapter_transport_is_shell_free_and_records_actual_child(tmp_path, monk
     import chatevent.community_hermes as module
 
     child = tmp_path / "fixture.py"
-    child.write_text("import sys,json\np=json.load(sys.stdin)\nassert '$(touch' in p['prompt']\njson.dump({'status':'succeeded','text':'fixture answer','runtime_status':'completed','evidence':{'fixture':True}},open(p['output'],'w'))\n")
+    child.write_text("import sys,json,os\nassert sys.argv[1:3]==['--child','--request']\nassert os.environ['HERMES_DISABLE_LAZY_INSTALLS']=='1'\nassert not sys.stdin.read()\np=json.load(open(sys.argv[3]))\nassert '$(touch' in p['prompt']\njson.dump({'status':'succeeded','text':'fixture answer','runtime_status':'completed','evidence':{'fixture':True}},open(p['output'],'w'))\n")
     monkeypatch.setattr(module, "__file__", str(child))
     source, home, cwd = [tmp_path / name for name in ("source", "home", "project")]
     for path in (source, home, cwd):
@@ -200,3 +200,45 @@ def test_adapter_transport_is_shell_free_and_records_actual_child(tmp_path, monk
     result = HermesAdapter(tmp_path / "state")(invocation)
     assert result["status"] == "succeeded" and result["evidence"]["exit_code"] == 0
     assert not (cwd / "NEVER_EXECUTE").exists()
+
+
+def test_adapter_request_survives_native_style_reexec(tmp_path, monkeypatch, event):
+    import chatevent.community_hermes as module
+
+    child = tmp_path / "reexec_fixture.py"
+    child.write_text(
+        "import json,os,sys\n"
+        "assert sys.argv[1:3]==['--child','--request']\n"
+        "p=json.load(open(sys.argv[3]))\n"
+        "if not os.environ.get('FIXTURE_REEXECED'):\n"
+        " os.environ['FIXTURE_REEXECED']='1'\n"
+        " os.execv(sys.executable,[sys.executable,'-I',__file__,*sys.argv[1:]])\n"
+        "assert p['prompt'].endswith('payload preserved across native bootstrap')\n"
+        "json.dump({'status':'succeeded','text':'preserved','runtime_status':'completed','evidence':{'reexeced':True}},open(p['output'],'w'))\n"
+    )
+    monkeypatch.setattr(module, "__file__", str(child))
+    source, home, cwd = [tmp_path / name for name in ("source", "home", "project")]
+    for path in (source, home, cwd):
+        path.mkdir()
+    event["payload"]["content"] = "payload preserved across native bootstrap"
+    invocation = {"event": event, "agent_id": "agent", "runtime": {"kind": "hermes", "python": sys.executable, "source": str(source), "home": str(home), "cwd": str(cwd), "timeout_seconds": 5}}
+    result = HermesAdapter(tmp_path / "state")(invocation)
+    assert result["status"] == "succeeded" and result["evidence"]["reexeced"]
+    request_files = list((tmp_path / "state").glob("*/request.json"))
+    assert len(request_files) == 1 and request_files[0].stat().st_mode & 0o777 == 0o600
+
+
+def test_child_request_file_refuses_public_or_symlink_payload(tmp_path):
+    from chatevent.community_hermes import _read_request
+
+    path = tmp_path / "request.json"
+    path.write_text('{"prompt":"private fixture"}')
+    path.chmod(0o644)
+    with pytest.raises(ValueError, match="private"):
+        _read_request(str(path))
+    path.chmod(0o600)
+    assert _read_request(str(path))["prompt"] == "private fixture"
+    link = tmp_path / "request-link.json"
+    link.symlink_to(path)
+    with pytest.raises(ValueError, match="private"):
+        _read_request(str(link))

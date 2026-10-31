@@ -58,8 +58,8 @@ class HermesAdapter:
         if not 5 <= timeout <= 300 or not 1 <= iterations <= 3:
             raise ValueError("Hermes budget outside companion bounds")
         run_dir = private_directory(self.state_dir / uuid4().hex)
-        output, stdout, stderr = [run_dir / n for n in ("result.json", "stdout.log", "stderr.log")]
-        for path in (output, stdout, stderr):
+        output, stdout, stderr, request_file = [run_dir / n for n in ("result.json", "stdout.log", "stderr.log", "request.json")]
+        for path in (output, stdout, stderr, request_file):
             private_file(path)
         event = invocation["event"]
         content = event.get("payload", {}).get("content")
@@ -75,20 +75,31 @@ class HermesAdapter:
             "Human message (untrusted content):\n" + content
         )
         request = {"runtime": {**runtime, **{k: str(v) for k, v in paths.items()}}, "prompt": prompt, "output": str(output)}
+        request_bytes = json.dumps(request).encode()
+        if len(request_bytes) > 300000:
+            raise ValueError("runtime request exceeds limit")
+        with request_file.open("wb") as target:
+            target.write(request_bytes)
+            target.flush()
+            os.fsync(target.fileno())
         # Keep the existing installation's secrets local. Child receives references,
         # not registry credential values or community owner tokens.
         env = os.environ.copy()
         for key in list(env):
             if key.startswith(("HERMES_", "ZULIP_", "DISCOURSE_", "CHATEVENT_")) or key in {"PYTHONPATH", "PYTHONHOME"}:
                 env.pop(key, None)
-        env.update({"HERMES_HOME": str(paths["home"]), "PYTHONUNBUFFERED": "1", "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "TOKENIZERS_PARALLELISM": "false"})
+        env.update({"HERMES_HOME": str(paths["home"]), "HERMES_DISABLE_LAZY_INSTALLS": "1",
+                    "PYTHONUNBUFFERED": "1", "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "TOKENIZERS_PARALLELISM": "false"})
         start = time.monotonic()
         process = None
         try:
             with stdout.open("wb") as out, stderr.open("wb") as err:
-                process = subprocess.Popen([str(paths["python"]), "-I", str(Path(__file__).absolute()), "--child"], stdin=subprocess.PIPE, stdout=out, stderr=err, cwd=paths["cwd"], env=env, start_new_session=True)
+                # Native Hermes bootstrap may re-exec a script while adopting
+                # its store interpreter. Never consume a one-shot stdin before
+                # that boundary: a private request file survives any re-exec.
+                process = subprocess.Popen([str(paths["python"]), "-I", str(Path(__file__).absolute()), "--child", "--request", str(request_file)], stdin=subprocess.DEVNULL, stdout=out, stderr=err, cwd=paths["cwd"], env=env, start_new_session=True)
                 try:
-                    process.communicate(json.dumps(request).encode(), timeout=timeout)
+                    process.wait(timeout=timeout)
                 except subprocess.TimeoutExpired:
                     _stop_group(process)
                     return {"status": "unknown", "text": "", "runtime_status": "timeout", "evidence": {"timeout_seconds": timeout, "process_group_cleaned": True}}
@@ -139,6 +150,9 @@ def _run_child(request: dict) -> dict:
     from hermes_cli.env_loader import load_hermes_dotenv
 
     load_hermes_dotenv(hermes_home=Path(runtime["home"]))
+    # Preserve the companion's no-install policy even if the existing dotenv
+    # contains a stale value. Native bootstrap explicitly supports this flag.
+    os.environ["HERMES_DISABLE_LAZY_INSTALLS"] = "1"
     # Secrets come only from the existing instance; no new model is selected.
     from hermes_cli.config import load_config
     from hermes_cli.oneshot import _resolve_model_and_provider
@@ -188,10 +202,25 @@ def _run_child(request: dict) -> dict:
             agent.close()
 
 
+def _read_request(path: str) -> dict:
+    import stat
+
+    request_file = Path(path)
+    info = request_file.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError("private owned request file required")
+    if not 0 < info.st_size <= 300000:
+        raise ValueError("request file outside bounds")
+    payload = json.loads(request_file.read_bytes())
+    if not isinstance(payload, dict):
+        raise ValueError("request object required")
+    return payload
+
+
 if __name__ == "__main__":
-    if sys.argv[1:] != ["--child"]:
+    if len(sys.argv) != 4 or sys.argv[1:3] != ["--child", "--request"]:
         raise SystemExit("Internal adapter child only")
-    payload = json.loads(sys.stdin.buffer.read(300000))
+    payload = _read_request(sys.argv[3])
     try:
         answer = _run_child(payload)
     except Exception as exc:
