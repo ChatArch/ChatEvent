@@ -22,8 +22,8 @@ from uuid import uuid4
 
 _ACTOR = re.compile(r"user:[0-9]+\Z")
 _KINDS = {"zulip": {"message.created"}, "discourse": {"post.created", "reply.created"}}
-_RUNTIME_FIELDS = {"kind", "python", "source", "home", "cwd", "timeout_seconds", "max_iterations", "source_sha", "executor_id"}
-_BINDING_FIELDS = {"account_id", "username", "profile", "instance", "transport_site", "allowed_stream_ids", "allowed_category_ids"}
+_RUNTIME_FIELDS = {"kind", "python", "source", "home", "cwd", "timeout_seconds", "max_iterations", "source_sha", "executor_id", "approval_mode"}
+_BINDING_FIELDS = {"account_id", "username", "profile", "status_profile", "instance", "transport_site", "allowed_stream_ids", "allowed_category_ids"}
 _RESULT_STATES = {"succeeded", "failed", "waiting_for_user", "cancelled", "unknown"}
 
 
@@ -149,6 +149,21 @@ class DispatchStore:
                 result_json TEXT, receipt_json TEXT, error_code TEXT,
                 created_at REAL NOT NULL, updated_at REAL NOT NULL,
                 UNIQUE(event_key, agent_id))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS community_status (
+                invocation_id TEXT PRIMARY KEY, stage TEXT NOT NULL, revision INTEGER NOT NULL,
+                delivered_revision INTEGER NOT NULL DEFAULT 0, delivery_state TEXT NOT NULL,
+                receipt_json TEXT, error_type TEXT, attempts INTEGER NOT NULL DEFAULT 0,
+                next_attempt REAL NOT NULL DEFAULT 0, updated_at REAL NOT NULL,
+                creation_attempted INTEGER NOT NULL DEFAULT 0)""")
+            if "creation_attempted" not in {r[1] for r in db.execute("PRAGMA table_info(community_status)")}:
+                db.execute("ALTER TABLE community_status ADD COLUMN creation_attempted INTEGER NOT NULL DEFAULT 0")
+            db.execute("""CREATE TABLE IF NOT EXISTS community_status_history (
+                invocation_id TEXT NOT NULL, revision INTEGER NOT NULL, stage TEXT NOT NULL,
+                occurred_at REAL NOT NULL, PRIMARY KEY(invocation_id,revision))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS community_status_deliveries (
+                invocation_id TEXT NOT NULL, revision INTEGER NOT NULL, stage TEXT NOT NULL,
+                delivered_at REAL NOT NULL, receipt_json TEXT NOT NULL,
+                PRIMARY KEY(invocation_id,revision))""")
 
     @contextmanager
     def connect(self):
@@ -215,6 +230,7 @@ class DispatchStore:
                 dispatch_id = uuid4().hex
                 db.execute("INSERT INTO community_invocations VALUES (?,?,?,?,?,?,?,'not_ready',NULL,NULL,NULL,?,?)",
                            (dispatch_id, key, snapshot["agent_id"], digest, encoded, _json(snapshot), "queued", now, now))
+                self._status(db, dispatch_id, "queued")
                 receipt["dispatch_ids"].append(dispatch_id)
         return receipt
 
@@ -240,8 +256,35 @@ class DispatchStore:
     def _recover_interrupted(self) -> None:
         # Call only after taking the singleton worker lock.
         with self.connect() as db:
+            interrupted = db.execute("SELECT id FROM community_invocations WHERE execution_state='running'").fetchall()
             db.execute("UPDATE community_invocations SET execution_state='unknown',error_code='worker_interrupted',updated_at=? WHERE execution_state='running'", (time.time(),))
             db.execute("UPDATE community_invocations SET reply_state='unknown',error_code='reply_interrupted',updated_at=? WHERE reply_state='sending'", (time.time(),))
+            for item in interrupted:
+                self._status(db, item["id"], "unknown")
+
+    @staticmethod
+    def _status(db, invocation_id: str, stage: str) -> bool:
+        if stage not in {"queued", "running", *_RESULT_STATES}:
+            raise ValueError("unsupported status stage")
+        old = db.execute("SELECT stage,revision FROM community_status WHERE invocation_id=?", (invocation_id,)).fetchone()
+        if old and (old["stage"] == stage or old["stage"] in _RESULT_STATES):
+            return False
+        revision = old["revision"] + 1 if old else 1
+        now = time.time()
+        if old:
+            db.execute("UPDATE community_status SET stage=?,revision=?,delivery_state='pending',error_type=NULL,attempts=0,next_attempt=0,updated_at=? WHERE invocation_id=?", (stage, revision, now, invocation_id))
+        else:
+            db.execute("INSERT INTO community_status(invocation_id,stage,revision,delivery_state,updated_at) VALUES (?,?,?,'pending',?)", (invocation_id, stage, revision, now))
+        db.execute("INSERT INTO community_status_history VALUES (?,?,?,?)", (invocation_id, revision, stage, now))
+        return True
+
+    def mark_started(self, invocation: dict) -> bool:
+        """Called only after the runtime confirms its real execution boundary."""
+        with self.connect() as db:
+            row = db.execute("SELECT execution_state FROM community_invocations WHERE id=?", (invocation["id"],)).fetchone()
+            if not row or row["execution_state"] != "running":
+                return False
+            return self._status(db, invocation["id"], "running")
 
     def _claim(self, *, reply: bool = False) -> dict | None:
         condition = "reply_state='pending'" if reply else "execution_state='queued'"
@@ -265,6 +308,7 @@ class DispatchStore:
         reply = "pending" if state in {"succeeded", "failed", "waiting_for_user", "cancelled"} else "not_ready"
         with self.connect() as db:
             db.execute("UPDATE community_invocations SET execution_state=?,reply_state=?,result_json=?,updated_at=? WHERE id=? AND execution_state='running'", (state, reply, _json(result), time.time(), dispatch_id))
+            self._status(db, dispatch_id, state)
 
     def _reply_finished(self, dispatch_id: str, receipt: dict | None, error: str | None) -> None:
         with self.connect() as db:

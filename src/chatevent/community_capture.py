@@ -391,7 +391,7 @@ class CommunityCapture:
                 self.send_json(200 if not capture.errors else 503, {"status": "ok" if not capture.errors else "degraded", "errors": capture.errors})
 
             def do_POST(self) -> None:
-                if self.path.startswith("/workers/") and self.path.endswith("/result"):
+                if self.path.startswith("/workers/") and self.path.endswith(("/result", "/started")):
                     from .community_remote import authorize_worker
                     parts = self.path.split("/")
                     if len(parts) != 4 or capture.remote_jobs is None or not authorize_worker(capture.config, parts[2], self.headers.get("Authorization", "")):
@@ -401,7 +401,10 @@ class CommunityCapture:
                         if not 0 < length <= 300000:
                             return self.send_json(413, {"error": "body_bound"})
                         payload = json.loads(self.rfile.read(length))
-                        capture.remote_jobs.complete(parts[2], payload["id"], payload["result"])
+                        if self.path.endswith("/started"):
+                            capture.remote_jobs.started(parts[2], payload["id"], payload["started_at"])
+                        else:
+                            capture.remote_jobs.complete(parts[2], payload["id"], payload["result"])
                         return self.send_json(200, {"accepted": True})
                     except (KeyError, ValueError, TypeError):
                         return self.send_json(409, {"error": "result_conflict"})
