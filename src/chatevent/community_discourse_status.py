@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import re
+import time
 
 from .community_capture import TransportError, http_json, profile_headers
 
@@ -118,6 +119,14 @@ def status_sender(invocation: dict, stage: str, previous_receipt: dict | None = 
     """
     if stage not in STAGES:
         raise ValueError("unsupported status stage")
+    deadline = time.monotonic() + 10
+
+    def request(url: str, **kwargs: object) -> dict:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TransportError("status_deadline_exceeded")
+        return http_json(url, timeout=remaining, **kwargs)
+
     binding, user_id, source_post_id, topic_id, post_number, invocation_id = _origin(invocation)
     previous_id, previous_hash = None, None
     if previous_receipt is not None:
@@ -126,7 +135,7 @@ def status_sender(invocation: dict, stage: str, previous_receipt: dict | None = 
             topic_id=topic_id, invocation_id=invocation_id)
     status_binding = {**binding, "profile": binding["status_profile"]}
     site, headers = profile_headers(status_binding, "discourse")
-    me = http_json(site + "/session/current.json", headers=headers).get("current_user", {})
+    me = request(site + "/session/current.json", headers=headers).get("current_user", {})
     if (me.get("id") != user_id or me.get("username") != binding["username"]
             or me.get("admin") is not False or me.get("moderator") is not False):
         raise ValueError("status credential identity mismatch")
@@ -141,13 +150,13 @@ def status_sender(invocation: dict, stage: str, previous_receipt: dict | None = 
     if created:
         partial = None
         try:
-            response = http_json(site + "/posts.json", fields={"topic_id": topic_id,
-                                 "reply_to_post_number": post_number, "raw": raw}, headers=headers)
+            response = request(site + "/posts.json", fields={"topic_id": topic_id,
+                               "reply_to_post_number": post_number, "raw": raw}, headers=headers)
             if response.get("user_id") != user_id or response.get("username") != binding["username"]:
                 raise TransportError("status_create_not_confirmed")
             post_id = _positive(response.get("id"))
             partial = receipt(post_id, verified=False)
-            post = http_json(site + "/posts/" + str(post_id) + ".json", headers=headers)
+            post = request(site + "/posts/" + str(post_id) + ".json", headers=headers)
             if _check_post(post, post_id=post_id, user_id=user_id, username=binding["username"],
                            topic_id=topic_id, post_number=post_number) != expected:
                 raise TransportError("status_readback_not_confirmed")
@@ -158,21 +167,21 @@ def status_sender(invocation: dict, stage: str, previous_receipt: dict | None = 
         return receipt(post_id, verified=True)
     else:
         post_id = previous_id
-        post = http_json(site + "/posts/" + str(post_id) + ".json", headers=headers)
+        post = request(site + "/posts/" + str(post_id) + ".json", headers=headers)
         actual = _check_post(post, post_id=post_id, user_id=user_id, username=binding["username"],
                              topic_id=topic_id, post_number=post_number)
         if actual != expected:
             if actual != previous_hash:
                 raise ValueError("status post changed outside receipt")
-            response = http_json(site + "/posts/" + str(post_id) + ".json", method="PUT",
-                                 body={"post": {"raw": raw, "edit_reason": "Agent status: " + stage}},
-                                 headers=headers)
+            response = request(site + "/posts/" + str(post_id) + ".json", method="PUT",
+                               body={"post": {"raw": raw, "edit_reason": "Agent status: " + stage}},
+                               headers=headers)
             if not isinstance(response.get("post"), dict) or response["post"].get("id") != post_id:
                 raise TransportError("status_update_not_confirmed")
         else:
             return {**previous_receipt, "stage": stage, "content_sha256": expected,
                     "created": False, "verified": True}
-    post = http_json(site + "/posts/" + str(post_id) + ".json", headers=headers)
+    post = request(site + "/posts/" + str(post_id) + ".json", headers=headers)
     if _check_post(post, post_id=post_id, user_id=user_id, username=binding["username"],
                    topic_id=topic_id, post_number=post_number) != expected:
         raise TransportError("status_readback_not_confirmed")

@@ -171,3 +171,32 @@ def test_invalid_stage_has_no_side_effects(monkeypatch):
     with pytest.raises(ValueError, match="unsupported status"):
         status.status_sender(invocation(), "arbitrary-text")
     assert not calls and not profiles
+
+
+def test_all_http_calls_share_one_ten_second_budget(monkeypatch):
+    clock = iter([100, 100, 102, 107, 109.5])
+    monkeypatch.setattr(status.time, "monotonic", lambda: next(clock))
+    calls, _ = mock_transport(monkeypatch, [ME, post(), {"post": post("running")}, post("running")])
+    assert status.status_sender(invocation(), "running", receipt())["verified"] is True
+    assert [kwargs["timeout"] for _, kwargs in calls] == [10, 8, 3, 0.5]
+
+
+def test_create_budget_expiry_keeps_known_id_without_another_http_call(monkeypatch):
+    clock = iter([100, 100, 103, 111])
+    monkeypatch.setattr(status.time, "monotonic", lambda: next(clock))
+    calls, _ = mock_transport(monkeypatch, [ME, post()])
+    with pytest.raises(status.StatusCreateAmbiguous) as captured:
+        status.status_sender(invocation(), "queued")
+    assert captured.value.retry_safe is False
+    assert captured.value.receipt == {**receipt(), "created": True, "verified": False}
+    assert len(calls) == 2
+    assert [kwargs["timeout"] for _, kwargs in calls] == [10, 7]
+
+
+def test_edit_budget_expiry_stops_before_put(monkeypatch):
+    clock = iter([100, 100, 105, 111])
+    monkeypatch.setattr(status.time, "monotonic", lambda: next(clock))
+    calls, _ = mock_transport(monkeypatch, [ME, post()])
+    with pytest.raises(status.TransportError, match="status_deadline_exceeded"):
+        status.status_sender(invocation(), "running", receipt())
+    assert len(calls) == 2 and not any(kwargs.get("method") == "PUT" for _, kwargs in calls)
